@@ -1,0 +1,47 @@
+# Production release acceptance
+
+Production is the delivery target. A localhost mesh validates implementation behavior; it does not qualify real devices, Tailscale routes, or installed agent harnesses. Do not tag a production release until the device checks below have evidence.
+
+## Automated evidence
+
+Local development host, 2026-11-06, Rust 1.99.1:
+
+| Check | Evidence |
+| --- | --- |
+| Formatting and warnings | `cargo fmt --check`, Clippy with `-D warnings` |
+| Durable state/config/protocol | 8 Rust integration tests: idempotency, claim contention, leases, cancellation, persistence/locking, URL/token validation, WebSocket auth/replay |
+| Real daemon mesh | 14 scenarios in `scripts/test_mesh.py`: distinct origin/worker processes, private credentials, remote-only capability, MCP handshake/submission, capacity, environment isolation, cancellation, time/output limits, restart, expiry, disconnection and daemon-crash cleanup |
+| Installation/adapters | 5 helper tests: launchd/systemd rendering, non-overwrite, fixed harness argv, fixed local model endpoint/budget (mock model response) |
+| Dependency advisories | `cargo audit`; no known vulnerabilities reported at the time of the local run |
+| Setup skill | Skill Creator validator passed; installed locally as `citta-setup` |
+| Build | Locked debug and optimized release builds passed locally; CI also builds both |
+
+GitHub CI runs these suites on macOS and Linux. Consult the latest successful run for the exact commit. Any failed or unrun platform check remains a release blocker. The model adapter test uses a mock response and does not establish real model/GPU or harness compatibility.
+
+## Physical device qualification — pending
+
+Record the exact commit and a private device inventory (OS/architecture, node ID, Tailscale HTTPS URL, service lifecycle, harness/version, installed capability and limits). Never record tokens in evidence.
+
+- [ ] Both devices run the same reviewed build and pass `check`.
+- [ ] Persistent services start and recover after login/reboot according to the intended lifecycle.
+- [ ] Tailscale HTTPS discovery works in both directions with valid certificates and intended tailnet access rules.
+- [ ] Authentication rejects a wrong token; unrelated devices have no access.
+- [ ] A targeted echo task runs on the opposite physical device in each direction; record task IDs and results.
+- [ ] An actual agent harness discovers Citta's MCP tools and delegates to a useful capability installed only on the other device.
+- [ ] An actual local model/GPU workload completes remotely if model pooling is part of the rollout; verify model-server memory and output budgets.
+- [ ] Several concurrent jobs stay within configured global and capability capacity.
+- [ ] Cancel and timeout stop the actual harness process tree; model-server or external effects are checked separately.
+- [ ] Device sleep/wake and a severed network connection produce interruption or safe resumption of queued tasks, never automatic replay of running tasks.
+- [ ] Restart/kill the origin and worker during jobs; inspect durable outcomes and remaining processes/workspaces.
+- [ ] Verify a completed command cannot leave detached or lingering compute under the intended adapter's behavior.
+- [ ] Backup/restore, retention/pruning, token rotation, and binary rollback have been exercised with test tasks.
+- [ ] A representative workload soak has no unexplained interruptions, sustained resource growth, or missing results; record duration, task count, and failure rate.
+- [ ] Operator accepts the v1 boundaries below and the tested service configuration.
+
+## V1 boundaries
+
+Single-owner trusted mesh; explicit pairing; macOS/Linux; fixed configured commands; bounded JSON/text results. No OS sandbox for arbitrary code, large artifact transfer, repository synchronization, active-session injection, recursive delegation budgets, global workflow DAG, GPU-memory enforcement, or multi-tenant authorization. The originating agent can independently submit multiple bounded tasks and combine their results. Treat outputs as untrusted data.
+
+## Release record template
+
+Record date, commit/tag, CI run URL, devices/versions, exercised capabilities, task IDs, observed outcomes, load/soak results, tested recovery procedures, accepted limitations, and unresolved blockers. Publish a version tag only after this record is complete. Do not infer production acceptance from a successful local echo.

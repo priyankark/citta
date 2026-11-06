@@ -1,0 +1,4 @@
+interface:
+  display_name: "Citta Device Setup"
+  short_description: "Pair devices for cross-device agent delegation"
+  default_prompt: "Use $citta-setup to enroll this device and verify a task runs on another paired device."

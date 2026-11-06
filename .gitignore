@@ -1,0 +1,9 @@
+/target/
+.DS_Store
+*.db
+*.db-shm
+*.db-wal
+*.token
+.env
+/local/
+__pycache__/
