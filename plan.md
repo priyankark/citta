@@ -34,7 +34,57 @@ Jobs have bounded queue lifetimes and execution durations. Queue admission is bo
 
 ## Deliberate v1 boundaries
 
-Bounded JSON and text results are supported first. Large artifact transfer, repository synchronization, automatic worktree creation, active harness-session injection, global DAG scheduling, transitive discovery, nested delegation budgets, load/energy-aware placement, per-principal authorization, and Windows support are later work. Arbitrary agent wrappers must not receive unrestricted mesh credentials or spawn unbounded child tasks. No implicit recursive delegation in v1.
+Bounded JSON and text results are supported first. Large artifact transfer, repository synchronization, automatic worktree creation, active harness-session injection, global DAG scheduling, transitive discovery, nested delegation budgets, load/energy-aware placement, and Windows support are later work. Device-owned task permissions and sandboxing are the next hardening milestone described below. Arbitrary agent wrappers must not receive unrestricted mesh credentials or spawn unbounded child tasks. No implicit recursive delegation in v1.
+
+## Device-owned permissions and unattended execution
+
+Status: design for the next implementation milestone. The current executable has fixed capabilities, environment filtering, and process lifecycle controls, but no OS sandbox or per-peer task authorization. Do not describe these planned controls as already enforced.
+
+The receiving device owns the final execution decision. A sending agent can request a capability and narrower permissions; it cannot pick its own trust level, widen a sandbox, grant approval, or activate allow-all through task input. Decide authorization independently of which sandbox backend will enforce resource access.
+
+Two separate settings:
+
+- `restricted`: only locally registered capabilities granted to the authenticated origin can run. Rules can allow unattended execution, hold for local approval, or deny. Unmatched requests are denied. Rule ordering must be deterministic, with explicit deny overriding a broad allow.
+- `allow_all`: all locally registered capabilities may run unattended for the locally selected trusted origins. This is an explicit user-selected mode, not a fallback when policy fails. Authentication, quotas, cancellation, and audit history remain enabled.
+
+Sandbox selection is independent: a named restricted profile, or explicit `none` for full host access under the worker's OS account. Thus an owner can allow every task without approval while retaining isolation, or deliberately configure `allow_all` plus `none` for their fully trusted device. The remote request cannot select either. OS privileges and harness restrictions still apply; Citta's allow-all is not an override of external controls. It does not create an arbitrary remote-command endpoint: general shell/agent execution, if desired, must itself be a locally installed capability.
+
+Task categories must correspond to enforceable capability contracts, not labels supplied by an agent. Suggested presets:
+
+| Capability preset | Unattended behavior | Files/network/credentials |
+| --- | --- | --- |
+| Local inference | Allow | JSON input/output; access only to an approved local model broker; model/token budget set locally |
+| Repository inspection | Allow | Read-only repository snapshot plus scratch space; no network or secrets |
+| Build/test | Allow | Disposable writable workspace; dependencies preloaded or fetched through an approved broker; no production credentials |
+| Patch generation | Allow | Disposable checkout; return a patch artifact; no push/merge permission |
+| Publish/deploy/account changes | Approval or deny by local policy | Separate narrowly scoped capability and credentials |
+| Trusted general agent | Owner-configured allow-all | Chosen sandbox profile, or explicit full-host execution |
+
+Test/build commands themselves execute repository code. A task named `test` must not receive a broader host grant merely because it sounds harmless. Artifact import, repository staging, and patch return need their own validation before those presets can be shipped.
+
+Rules bind to authenticated origin identity, stable capability IDs, resource IDs resolved on the worker, execution budgets, and a policy revision. Human-readable node IDs or task-supplied `kind`/`origin` fields alone are not authorization. The existing shared inbound node token grants full API access; introduce per-peer credentials/scopes and separate control-plane permissions before advertising isolation between peers. In the pull protocol, check the configured origin channel and local grants before offering a capability, then revalidate the actual task immediately before spawn.
+
+Approval holds must not consume worker slots or running leases. A durable approval binds to the immutable request digest, selected target, capability definition, policy revision, expiry, and requested resource grants. Editing any of those invalidates it. Default behavior for unattended workers is to leave a clear blocked/denied state, never wait indefinitely for hidden terminal prompts. The owner's explicitly configured allow-all choice removes Citta's approval requirement within that scope.
+
+## Sandbox backend evaluation
+
+MXC is the leading candidate: its Rust SDK exposes sandbox execution and lifecycle APIs, with Seatbelt on macOS and Bubblewrap on Linux. Evaluate a pinned stable SDK/schema rather than tracking development interfaces. References: [MXC](https://github.com/microsoft/mxc), [Rust SDK](https://github.com/microsoft/mxc/blob/main/src/mxc-sdk/README.md), [stable releases](https://github.com/microsoft/mxc/releases).
+
+Keep Citta's policy model independent of MXC behind an executor interface. Each job gets a fresh sandbox with explicit filesystem, network, UI, environment, and credential grants. Keep Citta state, tokens, host control sockets, and harness configuration outside writable mounts. Provision a scoped credential/model broker when needed instead of exposing a broad home directory. For GPU inference, prefer a bounded broker to the host model runtime; do not assume a Linux VM can use a Mac's native GPU stack.
+
+Backend support is not uniform. Seatbelt supports filesystem controls and coarse outbound/loopback controls, but not direct hostname/IP allowlists. Destination filtering requires an actually enforced broker/proxy path. Linux host namespace and networking prerequisites also need runtime checks. Reject a policy the available backend cannot enforce; never silently run it with weaker isolation. References: [Seatbelt limits](https://github.com/microsoft/mxc/blob/main/docs/backends/seatbelt/seatbelt-backend.md), [Bubblewrap requirements](https://github.com/microsoft/mxc/blob/main/docs/backends/bwrap/bubblewrap-backend.md).
+
+Integrate sandbox termination with the existing guardian, leases, output bounds, and cancellation. Validate process-tree and container cleanup; a process-group signal alone is not evidence that every sandboxed descendant stopped. Sandbox filesystem paths and launch arguments must be constructed from local definitions and validated resources without interpolating task text into a command line.
+
+Qualification must deliberately attempt forbidden file reads/writes, credential access, direct-network and proxy bypass, child-process escapes, policy self-modification, and a task's attempt to enable allow-all. Test expected allowed operations too. Missing/incompatible backends must produce explicit errors. Test the restricted and allow-all modes on each supported OS before promoting this hardening milestone.
+
+## Failure visibility and build history
+
+Preserve failures as durable records, including after a successful retry. Distinguish command/test failures, timeouts, lease loss, policy rejection, sandbox denial, resource exhaustion, and infrastructure failures. Associate each with its task/build ID, attempt, origin/worker, capability, commit/artifact identity when applicable, policy/backend revision, timestamps, bounded diagnostics, and resolution or superseding attempt. A repository build task should return structured build/test results rather than relying on an exit code alone.
+
+Expose a failure inbox through CLI/MCP and later a UI, with filters by device, capability, repository, and cause. Acknowledging a failure should not delete its evidence. Never auto-retry side-effecting tasks or weaken a sandbox to make a failure disappear. Retrying an explicitly repeatable build can be a bounded local policy; a new attempt keeps its relationship to the previous one.
+
+Track Citta's own CI separately from product task failures. Preserve run/attempt URLs and job conclusions; distinguish runner allocation failures from source failures. A new green commit does not automatically establish that an older defect was fixed. The development tracker is an on-demand snapshot, not a claim of continuous background monitoring. Scheduled or push-driven product monitoring is a separate implementation step.
 
 ## Release evidence
 

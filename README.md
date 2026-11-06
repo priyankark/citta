@@ -90,9 +90,12 @@ cargo test --locked
 cargo build --locked
 python3 scripts/test_mesh.py
 python3 scripts/test_helpers.py
+python3 scripts/test_ci_health.py
 cargo audit
 ```
 
 The mesh suite uses two real daemon processes with separate secrets, databases, and capability sets. It exercises remote-only execution, MCP submission, capacity, cancellation, timeouts, queue expiry, restart, lease loss, and hard worker death. It needs no accounts or model downloads. CI runs on macOS and Linux and retains release binaries as test artifacts; these are not automatically published releases.
 
 Read [the plan](plan.md), [protocol](docs/protocol.md), [operations](docs/operations.md), and [release acceptance](docs/acceptance.md) for exact guarantees and remaining qualification.
+
+Refresh and inspect CI history with `python3 scripts/ci_health.py`; see [build health](docs/build-health.md). Planned task permissions, MXC sandboxing, allow-all behavior, and the product failure inbox are described in [the plan](plan.md#device-owned-permissions-and-unattended-execution). These controls are not yet implemented in the daemon.
