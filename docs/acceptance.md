@@ -9,7 +9,7 @@ Local development host, 2026-11-06, Rust 1.99.1:
 | Check | Evidence |
 | --- | --- |
 | Formatting and warnings | `cargo fmt --check`, Clippy with `-D warnings` |
-| Durable state/config/protocol | 8 Rust integration tests: idempotency, claim contention, leases, cancellation, persistence/locking, URL/token validation, WebSocket auth/replay |
+| Durable state/config/protocol | 9 Rust integration tests: idempotency, claim contention, leases, cancellation, persistence/locking, URL/token validation, WebSocket auth/replay |
 | Real daemon mesh | 14 scenarios in `scripts/test_mesh.py`: distinct origin/worker processes, private credentials, remote-only capability, MCP handshake/submission, capacity, environment isolation, cancellation, time/output limits, restart, expiry, disconnection and daemon-crash cleanup |
 | Installation/adapters | 5 helper tests: launchd/systemd rendering, non-overwrite, fixed harness argv, fixed local model endpoint/budget (mock model response) |
 | Dependency advisories | `cargo audit`; no known vulnerabilities reported at the time of the local run |

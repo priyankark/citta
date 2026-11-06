@@ -34,3 +34,13 @@ fn tokens_are_private_and_initialization_never_overwrites() {
         assert!(read_token(&file).is_err());
     }
 }
+
+#[test]
+fn identifiers_cannot_name_parent_or_current_directories() {
+    for invalid in [".", "..", "../peer", "peer/name", "", "peer name"] {
+        assert!(!citta::model::valid_name(invalid));
+    }
+    for valid in ["desktop", "gpu.worker-1", "job_123"] {
+        assert!(citta::model::valid_name(valid));
+    }
+}

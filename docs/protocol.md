@@ -31,7 +31,7 @@ Submission example:
 }
 ```
 
-`target_node` is optional. Input is at most 64 KiB. Timeout is 1..86400 seconds; queue TTL is 1..604800 seconds. Names and idempotency keys are 1..96 ASCII alphanumeric characters plus `-_.`. Repeated keys with equal requests return the original task, even after terminal completion; changed requests return 409. This guarantee lasts until the task is deliberately pruned. Admission returns 429 at configured pending/history limits. HTTP bodies are limited to 4 MiB; output is separately limited to 256 KiB per stream.
+`target_node` is optional. Input is at most 64 KiB. Timeout is 1..86400 seconds; queue TTL is 1..604800 seconds. Names and idempotency keys are 1..96 ASCII alphanumeric characters plus `-_.`, excluding the reserved names `.` and `..`. Repeated keys with equal requests return the original task, even after terminal completion; changed requests return 409. This guarantee lasts until the task is deliberately pruned. Admission returns 429 at configured pending/history limits. HTTP bodies are limited to 4 MiB; output is separately limited to 256 KiB per stream.
 
 Claim body: `{"worker_node":"desktop","capability":"local-reasoning"}`. The response contains `task`, `lease_token`, and `lease_secs`. The worker node must be local or in the origin's peer list. Claims are serialized in SQLite transactions. The lease credential is random; only its digest is stored. Task inspection does not expose it. Renewal body: `{"lease_token":"..."}`. Completion body: `{"lease_token":"...","outcome":{"status":"succeeded","stdout":"...","stderr":"","exit_code":0,"error":null}}`.
 

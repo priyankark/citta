@@ -14,6 +14,8 @@ pub fn now() -> i64 {
 }
 pub fn valid_name(s: &str) -> bool {
     !s.is_empty()
+        && s != "."
+        && s != ".."
         && s.len() <= 96
         && s.bytes()
             .all(|c| c.is_ascii_alphanumeric() || b"-_.".contains(&c))
