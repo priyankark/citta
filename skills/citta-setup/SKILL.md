@@ -32,4 +32,6 @@ Next, discover and use one real capability installed only on the remote device t
 
 Reusing the same submission key is safe for a transport retry while history is retained. An interrupted task may have performed side effects: inspect before intentional resubmission with a new key. Do not change keys just to make a failed check appear successful.
 
+For resource/session discovery, agent profiles, and the human panel, read `docs/discovery.md`. Verify fresh CPU/RAM telemetry, the harness collector status, and profile kinds through `citta agents`; absent/old telemetry is unknown. Test a requested profile with `spawn-agent` and inspect the durable result. Preserve the harness sandbox/approval policy and disable recursive Citta access in spawned profiles until budgets exist. Issue a `panel` login link locally without logging or sharing it; it is short-lived and contains no mesh credential. An idle observed session is not permission to take it over.
+
 Finish with installed paths, service state, paired device IDs, tested task IDs, and specific outstanding device checks. If remote access is unavailable, state that local setup is verified and cross-device acceptance remains pending; never report enrollment complete from a localhost test.

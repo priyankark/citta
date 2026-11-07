@@ -87,3 +87,7 @@ Then install one useful capability on only one device, attach MCP on the other, 
 ## Roll back enrollment
 
 Stop the service (`launchctl bootout` or `systemctl --user disable --now citta`). Disable only Citta's Serve port using `tailscale serve --https=7332 off`; never reset all Serve configuration. Disable enrollment on both devices or remove the device from the trusted Tailscale account; remove any legacy peer entries and rotate their copied node credentials. Automatic enrollment will otherwise re-establish trust on the next handshake. Preserve the database until task/result retention is resolved. Revoke a leaked token by replacing the node token and its authorized peer copies, then restart affected daemons.
+
+## Verify resource discovery and monitoring
+
+After enrollment, run `citta --config <path> agents`. Verify fresh hardware telemetry and distinguish observed harness sessions from managed jobs. Configure only requested agent profiles, test `spawn-agent`, and inspect its durable result. Run `panel` for a local browser login link. See [discovery and monitoring](discovery.md); older devices need an upgrade before they report telemetry or support dedicated spawning.

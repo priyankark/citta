@@ -49,6 +49,23 @@ enum Commands {
     },
     /// Show automatic enrollment health, waiting devices, and paired identities.
     Enrollment,
+    /// List live agent sessions, hardware resources and spawnable profiles across devices.
+    Agents,
+    /// Issue a short-lived login link for the private local monitoring panel.
+    Panel,
+    /// Spawn a bounded agent run using a receiver-installed profile.
+    SpawnAgent {
+        #[arg(long)]
+        profile: String,
+        #[arg(long)]
+        prompt: PathBuf,
+        #[arg(long)]
+        key: String,
+        #[arg(long)]
+        target: Option<String>,
+        #[arg(long, default_value_t = 300)]
+        timeout: u64,
+    },
     /// Run the daemon and configured workers.
     Daemon,
     /// Expose Citta tools over MCP stdio to an agent harness.
@@ -180,6 +197,30 @@ async fn main() -> Result<()> {
                 Commands::Mcp => return citta::mcp::serve(client).await,
                 Commands::Discover => client.get("/v1/discover").await?,
                 Commands::Enrollment => client.get("/v1/enrollment").await?,
+                Commands::Agents => client.get("/v1/agents").await?,
+                Commands::Panel => client.post("/v1/panel/session", &json!({})).await?,
+                Commands::SpawnAgent {
+                    profile,
+                    prompt,
+                    key,
+                    target,
+                    timeout,
+                } => {
+                    let prompt = String::from_utf8(read_input(&prompt)?)?;
+                    client
+                        .post(
+                            "/v1/agents/spawn",
+                            &SpawnAgent {
+                                profile,
+                                prompt,
+                                idempotency_key: key,
+                                target_node: target,
+                                timeout_secs: timeout,
+                                queue_ttl_secs: 3600,
+                            },
+                        )
+                        .await?
+                }
                 Commands::Submit {
                     capability,
                     input,
@@ -189,6 +230,7 @@ async fn main() -> Result<()> {
                     queue_ttl,
                 } => {
                     let request = Submission {
+                        agent_only: false,
                         capability,
                         input: serde_json::from_slice(&read_input(&input)?)?,
                         idempotency_key: key,
@@ -253,6 +295,9 @@ async fn daemon(config: Config) -> Result<()> {
         token: Arc::new(token),
         peers,
         enrollment,
+        inventory: Default::default(),
+        managed_agents: Default::default(),
+        panel: Default::default(),
         activity: Arc::new(Mutex::new(BTreeMap::new())),
         shutdown: CancellationToken::new(),
     };
@@ -265,6 +310,11 @@ async fn daemon(config: Config) -> Result<()> {
             .await
     });
     let mut workers = tokio::spawn(citta::worker::run(app.clone()));
+    let inventory_task = tokio::spawn(citta::inventory::run(
+        app.config.inventory.clone(),
+        app.inventory.clone(),
+        app.shutdown.clone(),
+    ));
     let enrollment_task = app
         .enrollment
         .clone()
@@ -299,6 +349,7 @@ async fn daemon(config: Config) -> Result<()> {
         workers.await??;
     }
     maintenance.await?;
+    inventory_task.await?;
     if let Some(task) = enrollment_task {
         task.await?;
     }

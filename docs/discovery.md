@@ -1,0 +1,54 @@
+# Devices, agents, and the monitoring panel
+
+`citta --config <path> agents` and MCP `citta_agents` return the local manifest and live manifests from authenticated paired devices. `citta_discover` includes the same information. Discovery is one hop across the owner's paired mesh; no central registry is required.
+
+Each manifest includes OS/architecture, fixed capabilities, global/per-capability slots and active counts, hardware telemetry, observed harness sessions, and Citta-managed agent runs. An unreachable peer is explicitly unavailable. Older peers may omit inventory; absence means unknown, never zero agents or idle capacity.
+
+## Hardware and sessions
+
+The daemon samples CPU model, logical/physical cores, aggregate CPU usage, load averages, installed/available/used RAM, swap use, OS version, uptime, and same-user runtime process presence every five seconds. CPU usage needs two samples. Available memory is the OS/library estimate, not a reservation or `total - used`; under macOS compression pressure it can be zero despite reclaimable memory. No GPU inventory or CPU/RAM enforcement is implied.
+
+The Codex collector reads the existing same-user app-server Unix socket. It uses `thread/loaded/list` and `thread/read` with `includeTurns:false`; it never starts/resumes a thread or sends a turn. Busy/idle/blocked comes from the harness, not process CPU activity. Waiting for approval or user input is blocked. Other detected harness/model processes are listed separately with unknown session availability until an adapter exists.
+
+Only session IDs, optional names/model names, status, source, and observation times are exported. Commands, environments, previews, working paths, prompts, and transcripts are excluded. Session names themselves may be descriptive, so the inventory shares them only inside the authenticated trusted mesh. Harness collection is bounded to 128 loaded sessions and a three-second request budget; truncation and connection failure are reported. Failure clears the observed session list rather than retaining an old idle claim.
+
+```toml
+[inventory]
+enabled = true
+# Optional; otherwise use $HOME/.codex/app-server-control/app-server-control.sock.
+codex_socket = "/absolute/path/to/app-server-control.sock"
+```
+
+The installed Codex daemon publishes a symlink; both that link and its resolved socket must belong to the service user. `enabled = false` disables hardware/process/harness sampling. Citta still reports its own configured capabilities and managed executions. Configuration changes require a daemon restart. Codex protocol reference: [app-server](https://learn.chatgpt.com/docs/app-server).
+
+## Start an agent on available compute
+
+A capability with `kind = "agent"` is a spawn profile. Its fixed program/arguments, environment, slot limit, and maximum timeout belong to the receiving device. See [capability configuration](capabilities.md#agent-harness). Remote callers supply a profile, prompt, idempotency key, optional target, and time budgets; they cannot supply executable paths, argv, environment, or permission overrides.
+
+```sh
+citta --config "$HOME/.config/citta/config.toml" agents
+citta --config "$HOME/.config/citta/config.toml" spawn-agent \
+  --profile codex-readonly --prompt /absolute/path/to/prompt.txt \
+  --key review-001 --target desktop --timeout 180
+citta --config "$HOME/.config/citta/config.toml" inspect TASK_UUID
+```
+
+MCP `citta_spawn_agent` accepts `profile`, `prompt`, `idempotency_key`, optional `target_node`, `timeout_secs`, and `queue_ttl_secs`. It returns a durable task immediately. A matching worker starts a fresh bounded harness process, using the existing lease, timeout, cancellation, environment, output, and concurrency controls. Untargeted work is claimed by an available matching worker; hardware observations inform the caller but do not yet drive automatic RAM/CPU-aware placement.
+
+Spawn requires a reachable device advertising the profile. Full slots can queue the request. Reusing the same key/request returns the original task even if the worker subsequently disappears. Agent-only tasks cannot be claimed by ordinary or legacy workers with a colliding capability name. Both origin and worker need this build for dedicated agent spawning; ordinary legacy task traffic remains compatible.
+
+Managed agents appear while executing and in a bounded recent history (128 completed entries alongside active runs). This in-memory registry resets on daemon restart; durable task history remains at each origin. Process completion can precede origin acknowledgement; inspect the origin task for the authoritative result. A disconnected execution is never automatically replayed.
+
+An observed idle session is **visible, not adopted**: it retains its existing owner, context, and permissions. This version can launch new agents but cannot inject work into arbitrary existing sessions. Nested delegation, parent/child budgets, shared checkouts, and recursive cancellation are not yet implemented.
+
+## Human monitoring
+
+```sh
+citta --config "$HOME/.config/citta/config.toml" panel
+```
+
+Open the returned link on that device. The embedded panel shows device CPU/RAM, session states, spawn profiles and capacity, recent runs, failure filtering, and bounded run output. It refreshes every five seconds and marks session data unknown after twenty seconds without a fresh snapshot. It works without a frontend build service or external assets. This is a monitoring surface; mutations use the agent tools/CLI.
+
+The CLI exchanges the local admin credential for a single-use login link that expires in two minutes. The fragment is removed before login, and the browser receives an eight-hour HttpOnly, SameSite cookie; mesh credentials are never sent to JavaScript. Automatic peer credentials cannot issue panel sessions. Logout and daemon restart invalidate sessions. Keep the short-lived link private. The default address is `http://127.0.0.1:7331/`; local Host/Origin checks deliberately reject browsing through the Tailscale hostname. Each device can show its own view of the mesh locally.
+
+The panel reports missing telemetry, unreachable devices, and stale observations explicitly. It does not upgrade devices, alter enrollment, or imply that a process is available for delegation. Task failure filtering is separate from Citta's own [GitHub build history](build-health.md).

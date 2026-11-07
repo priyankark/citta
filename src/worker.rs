@@ -50,7 +50,7 @@ async fn worker_loop(
         next += 1;
         let claim = tokio::select! {
             _ = app.shutdown.cancelled() => return,
-            result = claim_from(origin, &app.config.node_id, &cap.name) => result,
+            result = claim_from(origin, &app.config.node_id, &cap.name, cap.kind == CapabilityKind::Agent) => result,
         };
         match claim {
             Ok(Some(claim)) => {
@@ -58,6 +58,7 @@ async fn worker_loop(
                 if uuid::Uuid::parse_str(&claim.task.id).is_err()
                     || claim.task.origin_node != origin.node_id
                     || claim.task.request.capability != cap.name
+                    || (claim.task.request.agent_only && cap.kind != CapabilityKind::Agent)
                     || claim.task.worker_node.as_deref() != Some(&app.config.node_id)
                     || claim.task.status != Status::Running
                     || claim.task.request.validate().is_err()
@@ -71,8 +72,24 @@ async fn worker_loop(
                     *activity.entry(cap.name.clone()).or_default() += 1;
                 }
                 tracing::info!(task=%claim.task.id, origin=%origin.node_id, capability=%cap.name, "task started");
+                if cap.kind == CapabilityKind::Agent {
+                    crate::inventory::started(
+                        &app.managed_agents,
+                        &claim.task.id,
+                        &origin.node_id,
+                        &cap.name,
+                    );
+                }
                 let outcome = execute(&app, &cap, origin, &claim).await;
-                report(origin, &claim, outcome).await;
+                if cap.kind == CapabilityKind::Agent {
+                    crate::inventory::finished(&app.managed_agents, &claim.task.id, outcome.status);
+                }
+                let committed = report(origin, &claim, outcome).await;
+                if cap.kind == CapabilityKind::Agent
+                    && let Some(status) = committed
+                {
+                    crate::inventory::finished(&app.managed_agents, &claim.task.id, status);
+                }
                 {
                     let mut activity = app.activity.lock().unwrap_or_else(|e| e.into_inner());
                     *activity.entry(cap.name.clone()).or_default() -= 1;
@@ -87,7 +104,12 @@ async fn worker_loop(
         tokio::select! { _ = app.shutdown.cancelled() => return, _ = tokio::time::sleep(Duration::from_millis(200)) => {} }
     }
 }
-async fn claim_from(origin: &Client, worker: &str, capability: &str) -> Result<Option<Claim>> {
+async fn claim_from(
+    origin: &Client,
+    worker: &str,
+    capability: &str,
+    agent_profile: bool,
+) -> Result<Option<Claim>> {
     let info: NodeInfo = origin.get("/v1/node").await?;
     if info.node_id != origin.node_id || info.protocol != 1 {
         bail!("peer identity or protocol mismatch");
@@ -96,13 +118,14 @@ async fn claim_from(origin: &Client, worker: &str, capability: &str) -> Result<O
         .post(
             "/v1/claim",
             &ClaimRequest {
+                agent_profile,
                 worker_node: worker.into(),
                 capability: capability.into(),
             },
         )
         .await
 }
-async fn report(origin: &Client, claim: &Claim, outcome: Outcome) {
+async fn report(origin: &Client, claim: &Claim, outcome: Outcome) -> Option<Status> {
     let status = outcome.status;
     let completion = Completion {
         lease_token: claim.lease_token.clone(),
@@ -113,11 +136,17 @@ async fn report(origin: &Client, claim: &Claim, outcome: Outcome) {
     for _ in 0..3 {
         if origin.post::<Task>(&path, &completion).await.is_ok() {
             tracing::info!(task=%claim.task.id, ?status, "task reported");
-            return;
+            return Some(status);
         }
         tokio::time::sleep(Duration::from_millis(200)).await;
     }
     tracing::warn!(task=%claim.task.id, "completion unacknowledged; inspect origin before resubmitting");
+    origin
+        .get::<Task>(&format!("/v1/tasks/{}", claim.task.id))
+        .await
+        .ok()
+        .filter(|task| task.status.terminal())
+        .map(|task| task.status)
 }
 async fn execute(app: &App, cap: &Capability, origin: &Client, claim: &Claim) -> Outcome {
     // Renew before starting: a delayed claim response must not start an expired task.

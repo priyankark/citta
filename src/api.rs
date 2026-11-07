@@ -32,6 +32,9 @@ pub struct App {
     pub token: Arc<String>,
     pub peers: Vec<Client>,
     pub enrollment: Option<Arc<crate::enrollment::Enrollment>>,
+    pub inventory: crate::inventory::Inventory,
+    pub managed_agents: crate::inventory::Managed,
+    pub panel: crate::panel::Sessions,
     pub activity: Activity,
     pub shutdown: CancellationToken,
 }
@@ -74,19 +77,36 @@ impl App {
                     slots: c.slots,
                     active: *active.get(&c.name).unwrap_or(&0),
                     max_timeout_secs: c.max_timeout_secs,
+                    kind: c.kind,
                 })
+                .collect(),
+            inventory: self
+                .inventory
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .clone(),
+            managed_agents: self
+                .managed_agents
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .values()
+                .cloned()
                 .collect(),
         }
     }
 }
 pub fn router(app: App) -> Router {
     let enrollment = app.enrollment.clone();
+    let panel = crate::panel::router(app.clone());
     let router = Router::new()
         .route("/healthz", get(|| async { Json(json!({"ok":true})) }))
         .route("/v1/node", get(node))
         .route("/v1/discover", get(discover))
         .route("/v1/activity", get(activity))
         .route("/v1/enrollment", get(enrollment_status))
+        .route("/v1/agents", get(discover))
+        .route("/v1/agents/spawn", post(spawn_agent))
+        .route("/v1/panel/session", post(panel_session))
         .route("/v1/tasks", post(submit).get(list))
         .route("/v1/tasks/{id}", get(inspect))
         .route("/v1/tasks/{id}/cancel", post(cancel))
@@ -97,7 +117,8 @@ pub fn router(app: App) -> Router {
         .route("/v1/events/ws", get(events_ws))
         .layer(DefaultBodyLimit::max(MAX_BODY))
         .layer(middleware::from_fn_with_state(app.clone(), authenticate))
-        .with_state(app);
+        .with_state(app)
+        .merge(panel);
     match enrollment {
         Some(enrollment) => router.merge(crate::enrollment::router(enrollment)),
         None => router,
@@ -180,6 +201,70 @@ async fn enrollment_status(State(app): State<App>) -> Json<Value> {
         app.enrollment
             .as_ref()
             .map_or_else(|| json!({"enabled":false}), |e| e.report()),
+    )
+}
+async fn panel_session(
+    State(app): State<App>,
+    identity: Option<axum::Extension<PeerIdentity>>,
+) -> Response {
+    if identity.is_some() {
+        return StatusCode::FORBIDDEN.into_response();
+    }
+    match app.panel.issue() {
+        Some(code)=>Json(json!({"url":format!("{}/#login={}",app.config.local_url(),code),"expires_in_secs":120})).into_response(),
+        None=>StatusCode::TOO_MANY_REQUESTS.into_response(),
+    }
+}
+async fn spawn_agent(
+    State(app): State<App>,
+    Json(request): Json<SpawnAgent>,
+) -> Result<Response, ApiError> {
+    let submission = request.submission();
+    if submission.validate().is_err() || request.prompt.trim().is_empty() {
+        return Ok((
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error":"invalid agent request"})),
+        )
+            .into_response());
+    }
+    let retry = submission.clone();
+    if let Some(task) = app.db(move |s| s.existing_submission(&retry)).await? {
+        return Ok((StatusCode::CREATED, Json(task)).into_response());
+    }
+    let discovery = discover(State(app.clone())).await.0;
+    let mut nodes = vec![discovery["local"].clone()];
+    if let Some(peers) = discovery["peers"].as_array() {
+        nodes.extend(
+            peers
+                .iter()
+                .filter(|p| p["reachable"] == true)
+                .map(|p| p["node"].clone()),
+        );
+    }
+    let available = nodes.iter().any(|node| {
+        request
+            .target_node
+            .as_ref()
+            .is_none_or(|id| node["node_id"].as_str() == Some(id))
+            && node["capabilities"].as_array().is_some_and(|caps| {
+                caps.iter()
+                    .any(|c| c["name"].as_str() == Some(&request.profile) && c["kind"] == "agent")
+            })
+    });
+    if !available {
+        return Ok((
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({"error":"no reachable device advertises this agent profile"})),
+        )
+            .into_response());
+    }
+    submit(State(app), Json(submission)).await
+}
+
+pub(crate) async fn overview(app: App) -> Result<Value> {
+    let (discovery, activity) = tokio::join!(discover(State(app.clone())), activity(State(app)));
+    Ok(
+        json!({"generated_at":now(),"discovery":discovery.0,"activity":activity.map_err(|e| e.0)?.0}),
     )
 }
 async fn submit(

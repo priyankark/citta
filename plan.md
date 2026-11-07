@@ -36,6 +36,10 @@ Jobs have bounded queue lifetimes and execution durations. Queue admission is bo
 
 Bounded JSON and text results are supported first. Large artifact transfer, repository synchronization, automatic worktree creation, active harness-session injection, global DAG scheduling, transitive discovery, nested delegation budgets, load/energy-aware placement, and Windows support are later work. Device-owned task permissions and sandboxing are the next hardening milestone described below. Arbitrary agent wrappers must not receive unrestricted mesh credentials or spawn unbounded child tasks. No implicit recursive delegation in v1.
 
+## Discovery and human monitoring — implemented
+
+Manifests now include sampled CPU/RAM/OS telemetry, same-user runtime processes, harness-reported Codex loaded-session states, and Citta-managed executions. Agent profiles launch fresh bounded processes through the durable task machinery. The local authenticated browser panel monitors devices, agents, capacity, and recent failures. Stale/absent telemetry is unknown. Hardware-aware placement, additional harness adapters, reuse of existing idle sessions, and remote software upgrades remain future work. See [the implemented contract](docs/discovery.md).
+
 ## Device-owned permissions and unattended execution
 
 Status: design for the next implementation milestone. The current executable has fixed capabilities, environment filtering, and process lifecycle controls, but no OS sandbox or per-peer task authorization. Do not describe these planned controls as already enforced.
@@ -82,7 +86,7 @@ Qualification must deliberately attempt forbidden file reads/writes, credential 
 
 Preserve failures as durable records, including after a successful retry. Distinguish command/test failures, timeouts, lease loss, policy rejection, sandbox denial, resource exhaustion, and infrastructure failures. Associate each with its task/build ID, attempt, origin/worker, capability, commit/artifact identity when applicable, policy/backend revision, timestamps, bounded diagnostics, and resolution or superseding attempt. A repository build task should return structured build/test results rather than relying on an exit code alone.
 
-Expose a failure inbox through CLI/MCP and later a UI, with filters by device, capability, repository, and cause. Acknowledging a failure should not delete its evidence. Never auto-retry side-effecting tasks or weaken a sandbox to make a failure disappear. Retrying an explicitly repeatable build can be a bounded local policy; a new attempt keeps its relationship to the previous one.
+The monitoring panel now filters recent failed/interrupted runs and inspects bounded output. A richer durable failure inbox remains planned: expose it through CLI/MCP and the UI, with filters by device, capability, repository, and cause. Acknowledging a failure should not delete its evidence. Never auto-retry side-effecting tasks or weaken a sandbox to make a failure disappear. Retrying an explicitly repeatable build can be a bounded local policy; a new attempt keeps its relationship to the previous one.
 
 Track Citta's own CI separately from product task failures. Preserve run/attempt URLs and job conclusions; distinguish runner allocation failures from source failures. A new green commit does not automatically establish that an older defect was fixed. The development tracker is an on-demand snapshot, not a claim of continuous background monitoring. Scheduled or push-driven product monitoring is a separate implementation step.
 

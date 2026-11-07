@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Citta — Network control</title>
+    <link rel="stylesheet" href="/panel/style.css" />
+    <script src="/panel/app.js" defer></script>
+  </head>
+  <body>
+    <aside class="sidebar">
+      <a class="brand" href="/" aria-label="Citta overview"
+        ><svg viewBox="0 0 32 32" aria-hidden="true">
+          <path d="M25 9A12 12 0 1 0 25 23M22 12a7 7 0 1 0 0 8" /></svg
+        ><span>citta<span class="brand-dot">.</span></span></a
+      >
+      <div class="rail-label">YOUR NETWORK</div>
+      <nav aria-label="Main navigation">
+        <button class="nav active" data-view="overview">
+          <span>◈</span>Overview</button
+        ><button class="nav" data-view="agents">
+          <span>◎</span>Agents<span id="nav-agent-count" class="nav-count"
+            >—</span
+          ></button
+        ><button class="nav" data-view="runs"><span>≡</span>Runs</button>
+      </nav>
+      <div class="rail-bottom">
+        <span class="status-dot"></span>
+        <div>Private mesh<small>Tailscale connected devices</small></div>
+      </div>
+    </aside>
+    <main>
+      <header>
+        <div class="breadcrumb">NETWORK <span>/</span> CONTROL</div>
+        <div class="header-right">
+          <span id="connection" class="connection">Connecting</span
+          ><button
+            id="refresh"
+            class="icon-button"
+            aria-label="Refresh network"
+          >
+            ↻</button
+          ><button id="logout" class="text-button">Sign out</button>
+        </div>
+      </header>
+      <section class="page-heading">
+        <div>
+          <div class="eyebrow">COMPUTE, TOGETHER</div>
+          <h1 id="page-title">Your agent network</h1>
+          <p id="page-subtitle">
+            A live view of the devices, agents, and work across your mesh.
+          </p>
+        </div>
+        <div class="live-label">
+          <span class="status-dot"></span>LIVE
+          <span id="last-update">Waiting for first update</span>
+        </div>
+      </section>
+      <div id="notice" class="notice" role="status" hidden></div>
+      <section id="login" class="login-card" hidden>
+        <span class="section-kicker">PRIVATE CONTROL PANEL</span>
+        <h2>Connect this browser</h2>
+        <p>
+          Open a fresh login link from Citta on this device. Your browser
+          receives a temporary monitoring session; mesh credentials stay with
+          the daemon.
+        </p>
+        <code>citta --config ~/.config/citta/config.toml panel</code>
+      </section>
+      <div id="dashboard" hidden>
+        <section
+          class="stats"
+          aria-label="Network summary"
+          id="stats"
+        ></section>
+        <section id="devices-section" class="section">
+          <div class="section-heading">
+            <div>
+              <span class="section-kicker">THE MESH</span>
+              <h2>Connected devices</h2>
+            </div>
+            <span class="muted" id="resource-coverage"></span>
+          </div>
+          <div id="devices" class="device-grid"></div>
+        </section>
+        <section id="agents-section" class="section">
+          <div class="section-heading">
+            <div>
+              <span class="section-kicker">WHO'S HERE</span>
+              <h2>Agent sessions</h2>
+            </div>
+            <div class="filters">
+              <label class="sr-only" for="agent-search">Search agents</label
+              ><input
+                id="agent-search"
+                type="search"
+                placeholder="Search agents…"
+              /><label class="sr-only" for="agent-state">Agent state</label
+              ><select id="agent-state">
+                <option value="all">All states</option>
+                <option value="busy">Busy</option>
+                <option value="idle">Idle</option>
+                <option value="blocked">Needs attention</option>
+                <option value="unknown">Unknown</option>
+              </select>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Agent</th>
+                  <th>Device</th>
+                  <th>State</th>
+                  <th>Source</th>
+                  <th>Observed</th>
+                </tr>
+              </thead>
+              <tbody id="agents"></tbody>
+            </table>
+            <div id="agents-empty" class="empty" hidden>
+              No sessions match this view.
+            </div>
+          </div>
+          <p class="table-note">
+            Idle is reported by the harness. Observed sessions keep their
+            existing owner and permissions.
+          </p>
+        </section>
+        <section id="profiles-section" class="section">
+          <div class="section-heading">
+            <div>
+              <span class="section-kicker">READY TO START</span>
+              <h2>Agent profiles</h2>
+            </div>
+            <span class="muted">Available through the agent tools</span>
+          </div>
+          <div id="profiles" class="profile-grid"></div>
+        </section>
+        <section id="runs-section" class="section">
+          <div class="section-heading">
+            <div>
+              <span class="section-kicker">WORK IN MOTION</span>
+              <h2>Recent runs</h2>
+            </div>
+            <label class="checkbox"
+              ><input id="failures-only" type="checkbox" />Failures only</label
+            >
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Run / capability</th>
+                  <th>Origin → worker</th>
+                  <th>Status</th>
+                  <th>Updated</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="runs"></tbody>
+            </table>
+            <div id="runs-empty" class="empty" hidden>
+              No runs in this view.
+            </div>
+          </div>
+        </section>
+        <details class="runtime-section">
+          <summary>
+            Detected runtime processes <span id="runtime-count"></span>
+          </summary>
+          <p class="muted">
+            Process presence does not establish agent availability. Only
+            supported harness adapters report session state.
+          </p>
+          <div id="runtimes" class="runtime-grid"></div>
+        </details>
+        <footer>
+          <span
+            >CITTA <span class="footer-dot">/</span> PRIVATE NETWORK
+            CONTROL</span
+          ><span>Monitoring only · refreshes every 5 seconds</span>
+        </footer>
+      </div>
+    </main>
+    <dialog id="run-dialog">
+      <div class="dialog-heading">
+        <h2>Run details</h2>
+        <button
+          id="close-dialog"
+          class="icon-button"
+          aria-label="Close details"
+        >
+          ×
+        </button>
+      </div>
+      <div id="run-detail"></div>
+    </dialog>
+  </body>
+</html>

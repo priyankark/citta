@@ -50,3 +50,13 @@ Single-owner trusted mesh; automatic same-owner enrollment with explicit-peer co
 ## Release record template
 
 Record date, commit/tag, CI run URL, devices/versions, exercised capabilities, task IDs, observed outcomes, load/soak results, tested recovery procedures, accepted limitations, and unresolved blockers. Publish a version tag only after this record is complete. Do not infer production acceptance from a successful local echo.
+
+## Resource discovery, spawning, and panel evidence — 2026-11-07
+
+Local checks: 25 Rust tests, 16 real-daemon mesh scenarios, five helper tests, six CI-history tests, Clippy, formatting, dependency audit, and locked release build. New cases cover authoritative harness status with no turn collection (including the real Codex socket symlink shape), agent-only claim isolation, remote spawning/idempotent retries/cancellation, panel sessions, cross-origin/Host rejection, read-only browser authority, and denial of panel-session minting to enrolled peers.
+
+On the Mac Mini, the live shared Codex registry reported nine loaded sessions, with one busy and eight idle at the observation time, plus 12 CPU cores and 32 GiB installed memory. Through MCP stdio, `citta_spawn_agent` launched `codex-readonly` task `0365bab4-15fd-4244-8a48-36175160d759`; its busy state was observed and it succeeded under Codex read-only sandboxing with approval policy `never`. This verifies an actual harness launch locally, not physical remote harness execution.
+
+Headless Chrome checks passed for desktop/mobile layout, navigation, agent search/state filtering, failure filtering, task output inspection, logout, and a malicious-label rendering fixture. Screenshots and detailed device evidence remain private in `local/`. The panel never receives mesh tokens.
+
+The Air was unreachable during this feature acceptance and has not been upgraded to this build. Its telemetry/agent state is unknown. Earlier physical echo/model and automatic-enrollment acceptance remains recorded locally; it is not evidence of this build running on both devices. Same-build two-device telemetry/spawning, sleep/wake, soak, and the broader production checklist remain outstanding.

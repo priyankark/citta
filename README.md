@@ -19,7 +19,8 @@ flowchart LR
 
 ## Included
 
-- Automatic same-owner Tailscale enrollment, live capability discovery, and visibility into recent work across peers.
+- Automatic same-owner Tailscale enrollment, hardware telemetry, live Codex session discovery, and visibility into recent work across peers.
+- Device-owned agent spawn profiles and a private browser monitoring panel with resource, agent, and failure views.
 - Per-device secrets, HTTPS for remote connections, loopback-only listeners, and private state directories.
 - SQLite WAL persistence, atomic claims, idempotent submission/completion, expiring leases, and replayable WebSocket events.
 - Global and per-capability concurrency limits, queue limits/deadlines, execution timeouts, and bounded input/output.
@@ -75,7 +76,11 @@ Add a stdio MCP server to the harness's existing configuration, using its suppor
 
 Preserve other MCP servers. Citta reads its token from the private configuration; do not put tokens in MCP arguments or chat. MCP is local stdio. HTTP/WebSocket endpoints are Citta's peer protocol, not remote MCP endpoints.
 
-Tools: `citta_discover`, `citta_activity`, `citta_submit`, `citta_inspect`, `citta_tasks`, `citta_cancel`. Submission returns immediately. `citta_inspect` and cancellation address tasks owned by the local origin. `citta_activity` also shows recent tasks owned by other devices. Reuse a submission's idempotency key on transport retries. **An interrupted task may already have produced external side effects; inspect before resubmitting.**
+Tools: `citta_agents`, `citta_spawn_agent`, `citta_discover`, `citta_activity`, `citta_submit`, `citta_inspect`, `citta_tasks`, `citta_cancel`. Submission returns immediately. `citta_inspect` and cancellation address tasks owned by the local origin. `citta_activity` also shows recent tasks owned by other devices. Reuse a submission's idempotency key on transport retries. **An interrupted task may already have produced external side effects; inspect before resubmitting.**
+
+## Agents and human monitoring
+
+Use `citta --config <path> agents` to see device CPU/RAM, harness-reported busy/idle sessions, and available agent profiles. `spawn-agent` starts a new bounded run using a profile installed on the receiving device. `panel` prints a short-lived local browser login link. See [discovery, spawning, and monitoring](docs/discovery.md) for configuration, freshness, compatibility, and exact limits.
 
 ## Agent setup skill
 

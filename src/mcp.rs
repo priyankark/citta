@@ -1,4 +1,7 @@
-use crate::{client::Client, model::Submission};
+use crate::{
+    client::Client,
+    model::{SpawnAgent, Submission},
+};
 use anyhow::Result;
 use rmcp::{
     ServerHandler, ServiceExt,
@@ -37,10 +40,25 @@ impl CittaMcp {
         Self { client }
     }
     #[tool(
-        description = "Discover this device and paired remote devices, their capabilities and capacity. Unreachable peers are reported explicitly."
+        description = "Discover paired devices, CPU/RAM capacity and utilization, live agent sessions, busy/idle/blocked states, capabilities and spawnable agent profiles. Check observation timestamps; unknown process state is not idle."
     )]
     async fn citta_discover(&self) -> CallToolResult {
         result(self.client.get("/v1/discover").await)
+    }
+    #[tool(
+        description = "List device hardware, live agent sessions and spawnable profiles across the mesh. Codex session states come from its local harness; detected processes alone have unknown availability. Observed agents are not automatically authorized to accept new work."
+    )]
+    async fn citta_agents(&self) -> CallToolResult {
+        result(self.client.get("/v1/agents").await)
+    }
+    #[tool(
+        description = "Spawn a new bounded agent run using a receiver-installed agent profile. Supply a prompt and stable idempotency key, optionally a target device. Returns a task ID; use citta_inspect for progress/output and citta_cancel to stop. Cannot choose executables, arguments, environment, or widen permissions. Does not take over existing idle sessions."
+    )]
+    async fn citta_spawn_agent(
+        &self,
+        Parameters(request): Parameters<SpawnAgent>,
+    ) -> CallToolResult {
+        result(self.client.post("/v1/agents/spawn", &request).await)
     }
     #[tool(
         description = "See recent tasks across paired devices, including which workers are executing them. Unreachable devices are explicit."

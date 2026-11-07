@@ -5,8 +5,11 @@ Task/control routes require `Authorization: Bearer <credential>`: the local/lega
 | Method/path | Behavior |
 | --- | --- |
 | GET `/healthz` | Authenticated liveness |
-| GET `/v1/node` | Protocol version, node ID, OS/arch, capabilities, configured slots and active jobs |
+| GET `/v1/node` | Protocol version, node ID, OS/arch, capabilities, configured slots, active jobs, optional hardware/session inventory and managed agents |
 | GET `/v1/discover` | Local manifest plus live manifests from paired peers; failures are explicit |
+| GET `/v1/agents` | Same live mesh manifest as discovery, including sessions/resources/profile kinds |
+| POST `/v1/agents/spawn` | Validate an advertised agent profile and enqueue a bounded prompt run |
+| POST `/v1/panel/session` | Local/legacy admin token only: issue a single-use local browser login link |
 | GET `/v1/enrollment` | Automatic enrollment freshness, pinned identity and candidate/paired states; no secrets |
 | GET `/v1/activity` | Recent task summaries from local and paired origins |
 | POST `/v1/tasks` | Validate and durably enqueue a submission; return task |
@@ -59,3 +62,11 @@ Each node persists its own copy of the reciprocal credentials in mode-0600 `data
 Restart requires a fresh local identity check before saved credentials become active. Missing/expired/changed-owner peers are removed from saved automatic enrollment. Network/status failures temporarily suspend automatic credentials without erasing saved pairings. A retained explicit `[[peers]]` entry or copied legacy node token is a separate trust grant and must be removed/rotated to revoke legacy access. Running tasks are never automatically resubmitted during reconnection or credential repair. Tailscale's own netmap propagation and availability remain part of the trust boundary.
 
 The handshake requires bidirectional HTTPS reachability and an enrollment-capable Citta daemon on both devices. It does not install software on an inaccessible device or override Tailscale ACLs. Tailscale command contracts: [status CLI](https://tailscale.com/docs/reference/tailscale-cli), [Serve](https://tailscale.com/docs/reference/tailscale-cli/serve).
+
+## Additive discovery and panel extension
+
+Capabilities advertise `kind` (`task` by default, or `agent`). `inventory` is optional for older nodes; `managed_agents` defaults to an empty list. Consumers must not infer idle capacity from an absent/stale inventory. See [discovery](discovery.md) for sampling, provenance, and data minimization.
+
+Agent spawn body: `{"profile":"codex-readonly","prompt":"Analyze this input","idempotency_key":"analysis-1","timeout_secs":180}`. Optional `target_node` pins placement; queue TTL defaults to 3600 seconds. Unknown fields are rejected. Empty prompts return 400; no reachable advertising profile returns 422. Existing equal submissions remain retrievable while peers are offline. The stored Submission adds `agent_only:true`; only a claim with `agent_profile:true` can take it. These fields default false and are omitted when false, preserving ordinary task traffic with older peers. Legacy workers cannot claim agent-only runs. Profile type is a scheduling contract within the trusted mesh, not an authorization boundary against a malicious peer.
+
+The embedded static page and `/panel/*` use a separate read-only browser session, exact local Host/Origin checks, SameSite cookies, and a restrictive CSP. Panel session creation is denied to automatic peer credentials. `/panel/task` resolves only known local/enrolled node IDs, never a caller-supplied URL. Browser cookies cannot authorize task/control API calls. See [monitoring](discovery.md#human-monitoring) for session lifetime and access.

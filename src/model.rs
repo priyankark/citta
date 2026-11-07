@@ -25,6 +25,9 @@ pub fn valid_name(s: &str) -> bool {
 #[serde(deny_unknown_fields)]
 pub struct Submission {
     pub capability: String,
+    /// Require an agent profile; ordinary capabilities cannot claim this run.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub agent_only: bool,
     pub input: Value,
     /// Reuse this key when retrying a submission; use a new key for intentional re-execution.
     pub idempotency_key: String,
@@ -34,6 +37,9 @@ pub struct Submission {
     pub timeout_secs: u64,
     #[serde(default = "default_ttl")]
     pub queue_ttl_secs: u64,
+}
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 fn default_timeout() -> u64 {
     300
@@ -115,6 +121,8 @@ impl Outcome {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ClaimRequest {
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub agent_profile: bool,
     pub worker_node: String,
     pub capability: String,
 }
@@ -149,6 +157,43 @@ pub struct CapabilityInfo {
     pub slots: usize,
     pub active: usize,
     pub max_timeout_secs: u64,
+    #[serde(default)]
+    pub kind: CapabilityKind,
+}
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CapabilityKind {
+    #[default]
+    Task,
+    Agent,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct SpawnAgent {
+    /// Name of a receiver-installed capability whose kind is agent.
+    pub profile: String,
+    pub prompt: String,
+    pub idempotency_key: String,
+    /// Optional device. Otherwise an available matching worker claims the run.
+    pub target_node: Option<String>,
+    #[serde(default = "default_timeout")]
+    pub timeout_secs: u64,
+    #[serde(default = "default_ttl")]
+    pub queue_ttl_secs: u64,
+}
+impl SpawnAgent {
+    pub fn submission(&self) -> Submission {
+        Submission {
+            agent_only: true,
+            capability: self.profile.clone(),
+            input: serde_json::json!({"prompt":self.prompt}),
+            idempotency_key: self.idempotency_key.clone(),
+            target_node: self.target_node.clone(),
+            timeout_secs: self.timeout_secs,
+            queue_ttl_secs: self.queue_ttl_secs,
+        }
+    }
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeInfo {
@@ -160,4 +205,8 @@ pub struct NodeInfo {
     pub slots: usize,
     pub active: usize,
     pub capabilities: Vec<CapabilityInfo>,
+    #[serde(default)]
+    pub inventory: Option<crate::inventory::Snapshot>,
+    #[serde(default)]
+    pub managed_agents: Vec<crate::inventory::AgentInfo>,
 }

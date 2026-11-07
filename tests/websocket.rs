@@ -34,12 +34,16 @@ async fn authenticated_events_replay_from_durable_cursor() {
             max_history: 100,
             peers: vec![],
             enrollment: None,
+            inventory: Default::default(),
             capabilities: vec![],
         }),
         store: store.clone(),
         token: Arc::new(token.clone()),
         peers: vec![],
         enrollment: None,
+        inventory: Default::default(),
+        managed_agents: Default::default(),
+        panel: Default::default(),
         activity: Arc::new(Mutex::new(BTreeMap::new())),
         shutdown: stop.clone(),
     };
@@ -53,6 +57,7 @@ async fn authenticated_events_replay_from_durable_cursor() {
     let task = store
         .submit(
             Submission {
+                agent_only: false,
                 capability: "echo".into(),
                 input: json!({}),
                 idempotency_key: "event-test".into(),

@@ -46,3 +46,9 @@ Generate a fresh cryptographically random token (at least 32 URL-safe characters
 - Task interrupted: inspect the origin's task record and external effects before creating another task. Citta will not automatically replay it.
 - Task failed: inspect bounded stderr/error; fix the wrapper, missing environment/credentials, timeout, or output limit.
 - Duplicate daemon error: find the existing service rather than deleting the lock or copying the database elsewhere.
+
+## Agent inventory build: storage upgrade
+
+The agent-spawning build upgrades SQLite `user_version` from 1 to 2 to guard the new agent-only task records. Existing tasks remain readable and are never replayed. Stop an idle daemon and take a consistent database backup alongside its config/binary before upgrading. Version-1 binaries deliberately refuse a version-2 database; do not edit the version pragma to force a downgrade. Rollback to such a binary requires its matching database/config backup and reconciliation of work accepted after that backup. Preserve newer history separately; never restore over uninspected running/interrupted work.
+
+After upgrading, verify `agents`, the inventory collector, profile kinds, and the local `panel` session. On launchd, wait until `launchctl print gui/UID/io.citta.daemon` reports the old job removed before bootstrapping its replacement; bootout can return while unloading is still in progress.

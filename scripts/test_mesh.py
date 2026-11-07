@@ -3,6 +3,7 @@
 import argparse
 import concurrent.futures
 import json
+import http.cookiejar
 import os
 from pathlib import Path
 import queue
@@ -57,7 +58,7 @@ if v.get("output"):
     print(v.get("character", "x") * v["output"])
     if v.get("both_streams"): print(v.get("character", "x") * v["output"], file=sys.stderr)
 else:
-    time.sleep(v.get("sleep", 0))
+    time.sleep(v.get("sleep", 20 if v.get("prompt") == "wait-long" else 2 if v.get("prompt") == "wait" else 0))
     print(json.dumps({"worker":os.environ["CITTA_WORKER_NODE"], "input":v,
                       "secret":os.environ.get("CITTA_TEST_SECRET"), "cwd":os.getcwd()}))
 ''')
@@ -87,6 +88,15 @@ token_file = {json.dumps(str(peer['dir'] / 'node.token'))}
                 text += f'''[[capabilities]]
 name = "compute"
 description = "Remote test worker"
+program = {json.dumps(sys.executable)}
+args = [{json.dumps(str(worker_script))}]
+slots = 1
+max_timeout_secs = 30
+'''
+                text += f'''[[capabilities]]
+name = "agent-test"
+kind = "agent"
+description = "Fixed test agent profile"
 program = {json.dumps(sys.executable)}
 args = [{json.dumps(str(worker_script))}]
 slots = 1
@@ -148,6 +158,89 @@ max_timeout_secs = 30
             result = self.api('alpha', '/v1/tasks/' + task['id'])
             return result if result['status'] not in ('queued', 'running') else None
         return wait_for(done, 25)
+
+    def test_15_agent_profiles_discovery_and_remote_spawn(self):
+        discovery = wait_for(lambda: (d if (d := self.api('alpha', '/v1/agents'))['local'].get('inventory') else None))
+        resources = discovery['local']['inventory']['resources']
+        self.assertGreater(resources['logical_cpus'], 0)
+        self.assertGreater(resources['memory_total_bytes'], 0)
+        self.assertLessEqual(resources['memory_available_bytes'], resources['memory_total_bytes'])
+        body = dict(profile='agent-test', prompt='wait', idempotency_key=str(uuid.uuid4()), target_node='beta', timeout_secs=20)
+        for changes, status in [({'profile':'compute'},422), ({'prompt':' '},400), ({'program':'/bin/sh'},422)]:
+            with self.assertRaises(urllib.error.HTTPError) as error:
+                self.api('alpha', '/v1/agents/spawn', {**body, **changes})
+            self.assertEqual(error.exception.code, status)
+        task = self.api('alpha', '/v1/agents/spawn', body)
+        repeated = self.api('alpha', '/v1/agents/spawn', body)
+        self.assertEqual(task['id'], repeated['id'])
+        self.assertTrue(task['request']['agent_only'])
+        def agent_state():
+            return next((a['state'] for a in self.api('beta', '/v1/node')['managed_agents'] if a['task_id'] == task['id']), None)
+        wait_for(lambda: agent_state() == 'busy')
+        result = self.terminal(task)
+        self.assertEqual(result['status'], 'succeeded', result)
+        self.assertEqual(json.loads(result['outcome']['stdout'])['worker'], 'beta')
+        wait_for(lambda: agent_state() == 'completed')
+        cancelled = self.api('alpha', '/v1/agents/spawn', {**body, 'prompt':'wait-long', 'idempotency_key':str(uuid.uuid4())})
+        wait_for(lambda: any(a['task_id'] == cancelled['id'] and a['state'] == 'busy' for a in self.api('beta', '/v1/node')['managed_agents']))
+        self.api('alpha', f'/v1/tasks/{cancelled["id"]}/cancel', {})
+        self.assertEqual(self.terminal(cancelled)['status'], 'cancelled')
+        wait_for(lambda: any(a['task_id'] == cancelled['id'] and a['state'] == 'cancelled' for a in self.api('beta', '/v1/node')['managed_agents']))
+        # Retrying an acknowledged submission still works while its worker is offline.
+        self.stop('beta')
+        try:
+            self.assertEqual(self.api('alpha', '/v1/agents/spawn', body)['id'], task['id'])
+        finally:
+            self.start('beta')
+
+    def test_16_panel_sessions_origin_checks_and_read_only_inspection(self):
+        base = f'http://127.0.0.1:{self.nodes["alpha"]["port"]}'
+        jar = http.cookiejar.CookieJar()
+        browser = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+        def request(path, data=None, headers=None):
+            req = urllib.request.Request(base + path, data=None if data is None else json.dumps(data).encode(), headers={'Content-Type':'application/json', **(headers or {})})
+            try:
+                return browser.open(req, timeout=15)
+            except urllib.error.HTTPError as error:
+                error.close()
+                raise
+        with request('/') as response:
+            self.assertIn("frame-ancestors 'none'", response.headers['Content-Security-Policy'])
+            self.assertEqual(response.headers['Cache-Control'], 'no-store')
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            request('/panel/overview')
+        self.assertEqual(error.exception.code, 401)
+        link = self.api('alpha', '/v1/panel/session', {})['url']
+        code = link.split('#login=')[1]
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            request('/panel/login', {'code':code}, {'Origin':'https://evil.example'})
+        self.assertEqual(error.exception.code, 403)
+        with request('/panel/login', {'code':code}, {'Origin':base}) as response:
+            cookie = response.headers['Set-Cookie']
+            self.assertIn('HttpOnly', cookie)
+            self.assertIn('SameSite=Strict', cookie)
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            request('/panel/login', {'code':code})
+        self.assertEqual(error.exception.code, 401)
+        for headers in ({'Host':'evil.example'}, {'Origin':'https://evil.example'}, {'Sec-Fetch-Site':'cross-site'}):
+            with self.assertRaises(urllib.error.HTTPError) as error:
+                request('/panel/overview', headers=headers)
+            self.assertEqual(error.exception.code, 403)
+        with request('/panel/overview') as response:
+            overview = json.load(response)
+            self.assertEqual(overview['discovery']['local']['node_id'], 'alpha')
+            self.assertNotIn(self.nodes['alpha']['token'], json.dumps(overview))
+        task = self.terminal(self.submit())
+        with request('/panel/task?node=alpha&id=' + task['id']) as response:
+            self.assertEqual(json.load(response)['status'], 'succeeded')
+        # A browser cookie cannot authorize any mesh mutation.
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            request('/v1/tasks/' + task['id'] + '/cancel', {})
+        self.assertEqual(error.exception.code, 401)
+        with request('/panel/logout', {}): pass
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            request('/panel/overview')
+        self.assertEqual(error.exception.code, 401)
 
     def test_01_discovery_and_remote_execution(self):
         found = self.api('alpha', '/v1/discover')
@@ -264,7 +357,7 @@ max_timeout_secs = 30
             self.assertIn('tools', result['capabilities'])
             send({'method':'notifications/initialized'})
             tools = call(2, 'tools/list', {})['tools']
-            self.assertEqual({t['name'] for t in tools}, {'citta_discover','citta_activity','citta_submit','citta_inspect','citta_tasks','citta_cancel'})
+            self.assertEqual({t['name'] for t in tools}, {'citta_discover','citta_agents','citta_spawn_agent','citta_activity','citta_submit','citta_inspect','citta_tasks','citta_cancel'})
             response = call(3, 'tools/call', {'name':'citta_submit','arguments':{'capability':'compute','input':{'via':'mcp'},'target_node':'beta','idempotency_key':str(uuid.uuid4())}})
             self.assertFalse(response.get('isError', False), response)
             task = json.loads(response['content'][0]['text'])

@@ -229,6 +229,9 @@ async fn verified_https_handshake_pairs_without_admin_tokens_and_survives_restar
         token: Arc::new(config::read_token(&b.config.token_file).unwrap()),
         peers: vec![],
         enrollment: Some(b.clone()),
+        inventory: Default::default(),
+        managed_agents: Default::default(),
+        panel: Default::default(),
         activity: Arc::new(Mutex::new(BTreeMap::new())),
         shutdown: CancellationToken::new(),
     };
@@ -237,6 +240,12 @@ async fn verified_https_handshake_pairs_without_admin_tokens_and_survives_restar
     let server = tokio::spawn(async move { axum::serve(tcp, api::router(app)).await.unwrap() });
     let client = Client::new(&format!("http://{addr}"), a_out, "alpha".into()).unwrap();
     let _: Value = client.get("/v1/node").await.unwrap();
+    assert!(
+        client
+            .post::<Value>("/v1/panel/session", &json!({}))
+            .await
+            .is_err()
+    );
     assert!(
         client
             .post::<Value>(

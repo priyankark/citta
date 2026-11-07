@@ -28,6 +28,8 @@ pub struct Config {
     pub capabilities: Vec<Capability>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub enrollment: Option<crate::enrollment::Settings>,
+    #[serde(default)]
+    pub inventory: crate::inventory::Settings,
 }
 fn lease_default() -> u64 {
     30
@@ -50,6 +52,8 @@ pub struct Peer {
 pub struct Capability {
     pub name: String,
     pub description: String,
+    #[serde(default)]
+    pub kind: crate::model::CapabilityKind,
     pub program: PathBuf,
     #[serde(default)]
     pub args: Vec<String>,
@@ -68,6 +72,12 @@ impl Config {
     pub fn validate(&self) -> Result<()> {
         if let Some(settings) = &self.enrollment {
             settings.validate()?;
+        }
+        if let Some(path) = &self.inventory.codex_socket {
+            ensure!(
+                path.is_absolute(),
+                "Codex inventory socket must be absolute"
+            );
         }
         ensure!(valid_name(&self.node_id), "invalid node_id");
         ensure!(
@@ -228,10 +238,12 @@ pub fn init(dir: &Path, node_id: String, port: u16) -> Result<PathBuf> {
         max_history: 10000,
         peers: vec![],
         enrollment: None,
+        inventory: Default::default(),
         capabilities: vec![Capability {
             name: "echo".into(),
             description: "Return the supplied JSON; use to validate cross-device connectivity."
                 .into(),
+            kind: crate::model::CapabilityKind::Task,
             program: std::env::current_exe()?,
             args: vec!["builtin".into(), "echo".into()],
             slots: 2,

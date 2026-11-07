@@ -60,7 +60,10 @@ impl Client {
             .http
             .request(method, format!("{}{path}", self.url))
             .bearer_auth(self.token.as_str());
-        if path == "/v1/discover" || path == "/v1/activity" {
+        if matches!(
+            path,
+            "/v1/discover" | "/v1/activity" | "/v1/agents" | "/v1/agents/spawn"
+        ) {
             req = req.timeout(Duration::from_secs(40));
         }
         if let Some(body) = body {

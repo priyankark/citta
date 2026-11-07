@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 fn request(key: &str) -> Submission {
     Submission {
+        agent_only: false,
         capability: "test".into(),
         input: json!({"n":1}),
         idempotency_key: key.into(),
@@ -14,6 +15,7 @@ fn request(key: &str) -> Submission {
 }
 fn claim() -> ClaimRequest {
     ClaimRequest {
+        agent_profile: false,
         worker_node: "worker".into(),
         capability: "test".into(),
     }
@@ -48,6 +50,7 @@ fn one_claim_under_contention_and_target_matching() {
         store
             .claim(
                 ClaimRequest {
+                    agent_profile: false,
                     worker_node: "wrong".into(),
                     capability: "test".into()
                 },
@@ -155,4 +158,53 @@ fn restart_preserves_state_events_and_exclusive_ownership() {
     let new = store.submit(request("new"), 201).unwrap();
     assert_ne!(new.id, task.id);
     assert!(store.events(0).unwrap()[0].sequence > 2);
+}
+
+#[test]
+fn agent_runs_cannot_be_claimed_by_ordinary_or_legacy_workers() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = Store::open(dir.path(), "origin", 10, 100, 100).unwrap();
+    let mut agent = request("agent");
+    agent.agent_only = true;
+    let agent = store.submit(agent, 100).unwrap();
+    let ordinary = store.submit(request("ordinary"), 100).unwrap();
+    assert_eq!(
+        store.claim(claim(), 101).unwrap().unwrap().task.id,
+        ordinary.id
+    );
+    assert!(store.claim(claim(), 101).unwrap().is_none());
+    let mut agent_claim = claim();
+    agent_claim.agent_profile = true;
+    assert_eq!(
+        store.claim(agent_claim, 101).unwrap().unwrap().task.id,
+        agent.id
+    );
+    assert!(
+        !serde_json::to_string(&claim())
+            .unwrap()
+            .contains("agent_profile")
+    );
+}
+
+#[test]
+fn legacy_tasks_migrate_and_newer_storage_fails_closed() {
+    let dir = tempfile::tempdir().unwrap();
+    let task_id = {
+        let store = Store::open(dir.path(), "origin", 10, 100, 100).unwrap();
+        store.submit(request("legacy"), 100).unwrap().id
+    };
+    let db = rusqlite::Connection::open(dir.path().join("citta.db")).unwrap();
+    db.execute_batch("PRAGMA user_version=1").unwrap();
+    {
+        let store = Store::open(dir.path(), "origin", 10, 100, 100).unwrap();
+        assert!(!store.get(&task_id).unwrap().request.agent_only);
+        assert_eq!(store.claim(claim(), 101).unwrap().unwrap().task.id, task_id);
+    }
+    assert_eq!(
+        db.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
+            .unwrap(),
+        2
+    );
+    db.execute_batch("PRAGMA user_version=3").unwrap();
+    assert!(Store::open(dir.path(), "origin", 10, 100, 100).is_err());
 }
