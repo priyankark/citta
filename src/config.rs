@@ -50,6 +50,11 @@ pub struct Peer {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Capability {
+    /// Operator-declared runtime metadata; absent means unspecified.
+    #[serde(default)]
+    pub harness: Option<String>,
+    #[serde(default)]
+    pub model: Option<String>,
     pub name: String,
     pub description: String,
     #[serde(default)]
@@ -121,6 +126,16 @@ impl Config {
         }
         names.clear();
         for cap in &self.capabilities {
+            ensure!(
+                cap.harness.as_ref().is_none_or(|v| valid_name(v)),
+                "invalid harness identifier"
+            );
+            ensure!(
+                cap.model.as_ref().is_none_or(|v| !v.trim().is_empty()
+                    && v.len() <= 256
+                    && !v.chars().any(char::is_control)),
+                "invalid model metadata"
+            );
             ensure!(
                 valid_name(&cap.name) && names.insert(&cap.name),
                 "duplicate or invalid capability"
@@ -240,6 +255,8 @@ pub fn init(dir: &Path, node_id: String, port: u16) -> Result<PathBuf> {
         enrollment: None,
         inventory: Default::default(),
         capabilities: vec![Capability {
+            harness: Some("builtin".into()),
+            model: None,
             name: "echo".into(),
             description: "Return the supplied JSON; use to validate cross-device connectivity."
                 .into(),

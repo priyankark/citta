@@ -2,7 +2,7 @@
 
 `citta --config <path> agents` and MCP `citta_agents` return the local manifest and live manifests from authenticated paired devices. `citta_discover` includes the same information. Discovery is one hop across the owner's paired mesh; no central registry is required.
 
-Each manifest includes OS/architecture, fixed capabilities, global/per-capability slots and active counts, hardware telemetry, observed harness sessions, and Citta-managed agent runs. An unreachable peer is explicitly unavailable. Older peers may omit inventory; absence means unknown, never zero agents or idle capacity.
+Each manifest includes OS/architecture, fixed capabilities with separate declared harness/model fields, global/per-capability slots and active counts, hardware telemetry, observed harness sessions, and Citta-managed agent runs. An unreachable peer is explicitly unavailable. Older peers may omit inventory; absence means unknown, never zero agents or idle capacity.
 
 ## Hardware and sessions
 
@@ -37,7 +37,7 @@ MCP `citta_spawn_agent` accepts `profile`, `prompt`, `idempotency_key`, optional
 
 Spawn requires a reachable device advertising the profile. Full slots can queue the request. Reusing the same key/request returns the original task even if the worker subsequently disappears. Agent-only tasks cannot be claimed by ordinary or legacy workers with a colliding capability name. Both origin and worker need this build for dedicated agent spawning; ordinary legacy task traffic remains compatible.
 
-Managed agents appear while executing and in a bounded recent history (128 completed entries alongside active runs). This in-memory registry resets on daemon restart; durable task history remains at each origin. Process completion can precede origin acknowledgement; inspect the origin task for the authoritative result. A disconnected execution is never automatically replayed.
+Managed agents carry their selected profile’s harness/model metadata and appear while executing and in a bounded recent history (128 completed entries alongside active runs). This in-memory registry resets on daemon restart; durable task history remains at each origin. Process completion can precede origin acknowledgement; inspect the origin task for the authoritative result. A disconnected execution is never automatically replayed.
 
 An observed idle session is **visible, not adopted**: it retains its existing owner, context, and permissions. This version can launch new agents but cannot inject work into arbitrary existing sessions. Nested delegation, parent/child budgets, shared checkouts, and recursive cancellation are not yet implemented.
 
@@ -47,8 +47,8 @@ An observed idle session is **visible, not adopted**: it retains its existing ow
 citta --config "$HOME/.config/citta/config.toml" panel
 ```
 
-Open the returned link on that device. The embedded panel shows device CPU/RAM, session states, spawn profiles and capacity, recent runs, failure filtering, and bounded run output. It refreshes every five seconds and marks session data unknown after twenty seconds without a fresh snapshot. It works without a frontend build service or external assets. This is a monitoring surface; mutations use the agent tools/CLI.
+Open the returned link on that device. The embedded panel shows device CPU/RAM, session states, spawn profiles and capacity, recent runs, failure filtering, and bounded run output. It refreshes every five seconds and marks session data unknown after twenty seconds without a fresh snapshot. It works without a frontend build service or external assets. The Permissions view also edits the selected device’s execution policy; see [device permissions](permissions.md).
 
-The CLI exchanges the local admin credential for a single-use login link that expires in two minutes. The fragment is removed before login, and the browser receives an eight-hour HttpOnly, SameSite cookie; mesh credentials are never sent to JavaScript. Automatic peer credentials cannot issue panel sessions. Logout and daemon restart invalidate sessions. Keep the short-lived link private. The default address is `http://127.0.0.1:7331/`; local Host/Origin checks deliberately reject browsing through the Tailscale hostname. Each device can show its own view of the mesh locally.
+The CLI exchanges a separate local management credential for a single-use login link that expires in two minutes. The fragment is removed before login, and the browser receives an eight-hour HttpOnly, SameSite cookie; mesh credentials are never sent to JavaScript. Automatic peer credentials cannot issue panel sessions. Logout and daemon restart invalidate sessions. Keep the short-lived link private. The default address is `http://127.0.0.1:7331/`. Use `panel --network` for a login link on the verified private Tailscale HTTPS origin, accessible from another device. Each updated device’s panel can manage any automatically paired, updated device.
 
 The panel reports missing telemetry, unreachable devices, and stale observations explicitly. It does not upgrade devices, alter enrollment, or imply that a process is available for delegation. Task failure filtering is separate from Citta's own [GitHub build history](build-health.md).

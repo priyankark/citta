@@ -95,8 +95,21 @@ max_timeout_secs = 30
 '''
                 text += f'''[[capabilities]]
 name = "agent-test"
+harness = "fixture-harness"
+model = "fixture-model"
 kind = "agent"
 description = "Fixed test agent profile"
+program = {json.dumps(sys.executable)}
+args = [{json.dumps(str(worker_script))}]
+slots = 1
+max_timeout_secs = 30
+'''
+                text += f'''[[capabilities]]
+name = "alternate-agent"
+kind = "agent"
+harness = "alternate-harness"
+model = "alternate-model"
+description = "Different harness using the same neutral execution contract"
 program = {json.dumps(sys.executable)}
 args = [{json.dumps(str(worker_script))}]
 slots = 1
@@ -210,7 +223,7 @@ max_timeout_secs = 30
         with self.assertRaises(urllib.error.HTTPError) as error:
             request('/panel/overview')
         self.assertEqual(error.exception.code, 401)
-        link = self.api('alpha', '/v1/panel/session', {})['url']
+        link = self.api('alpha', '/v1/panel/session', {}, token=(self.nodes['alpha']['dir'] / 'data/control.token').read_text())['url']
         code = link.split('#login=')[1]
         with self.assertRaises(urllib.error.HTTPError) as error:
             request('/panel/login', {'code':code}, {'Origin':'https://evil.example'})
@@ -237,10 +250,86 @@ max_timeout_secs = 30
         with self.assertRaises(urllib.error.HTTPError) as error:
             request('/v1/tasks/' + task['id'] + '/cancel', {})
         self.assertEqual(error.exception.code, 401)
+        with request('/panel/permissions?node=alpha') as response:
+            policy_view=json.load(response)
+        edit={'node':'alpha','expected_revision':policy_view['snapshot']['revision'],'policy':{**policy_view['snapshot']['policy'],'mode':'allow_all'}}
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            request('/panel/permissions',edit)
+        self.assertEqual(error.exception.code,403)
+        with request('/panel/permissions',edit,{'X-Citta-Panel':'1','Origin':base}) as response:
+            saved=json.load(response)
+            self.assertEqual(saved['policy']['mode'],'allow_all')
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            request('/panel/permissions',edit,{'X-Citta-Panel':'1','Origin':base})
+        self.assertEqual(error.exception.code,409)
+        with request('/panel/permissions', {**edit,'expected_revision':saved['revision'],'policy':policy_view['snapshot']['policy']}, {'X-Citta-Panel':'1','Origin':base}):pass
         with request('/panel/logout', {}): pass
         with self.assertRaises(urllib.error.HTTPError) as error:
             request('/panel/overview')
         self.assertEqual(error.exception.code, 401)
+
+    def control(self, node, body=None):
+        token=(self.nodes[node]['dir'] / 'data/control.token').read_text()
+        return self.api(node, '/v1/control/permissions', body, token=token)
+
+    def test_17_permissions_enforce_scope_revocation_conflicts_and_restart(self):
+        initial=self.control('beta')['snapshot']
+        def change(policy, revision=None):
+            current=self.control('beta')['snapshot']
+            return self.control('beta', {'expected_revision':current['revision'] if revision is None else revision,'policy':policy})
+        for path in ['/v1/control/permissions', '/v1/panel/session']:
+            with self.assertRaises(urllib.error.HTTPError) as error:
+                self.api('beta',path,{} if path.endswith('session') else None)
+            self.assertEqual(error.exception.code,401)
+        control_token=(self.nodes['beta']['dir'] / 'data/control.token').read_text()
+        with self.assertRaises(urllib.error.HTTPError) as error:
+            self.api('beta','/v1/node',token=control_token)
+        self.assertEqual(error.exception.code,401)
+        try:
+            policy={**initial['policy'],'mode':'restricted','allowed_capabilities':[]}
+            state=change(policy)
+            with self.assertRaises(urllib.error.HTTPError) as error:
+                change(initial['policy'],revision=initial['revision'])
+            self.assertEqual(error.exception.code,409)
+            # A disabled capability cannot claim work; a short queue TTL gives a durable outcome.
+            task=self.submit(queue_ttl_secs=1)
+            self.assertEqual(self.terminal(task)['status'],'interrupted')
+            self.assertIsNone(self.api('alpha','/v1/tasks/'+task['id'])['worker_node'])
+            change({**policy,'mode':'allow_all','allowed_origins':['local:beta']})
+            task=self.submit(queue_ttl_secs=1)
+            self.assertEqual(self.terminal(task)['status'],'interrupted')
+            change({**policy,'mode':'allow_all','allowed_origins':['peer:alpha']})
+            self.assertEqual(self.terminal(self.submit())['status'],'succeeded')
+            task=self.submit({'sleep':20})
+            wait_for(lambda:self.api('alpha','/v1/tasks/'+task['id'])['status']=='running')
+            paused=change({**policy,'mode':'paused'})
+            # Even a rapid re-enable cannot resurrect a run whose grant was revoked.
+            change({**initial['policy'],'mode':'allow_all'})
+            result=self.terminal(task)
+            self.assertEqual(result['status'],'interrupted',result)
+            self.assertIn('permissions',result['outcome']['error'])
+            self.stop('beta');self.start('beta')
+            current=self.control('beta')
+            self.assertEqual(current['snapshot']['policy']['mode'],'allow_all')
+            self.assertGreater(current['snapshot']['revision'],paused['revision'])
+            self.assertTrue(any(row['policy']['mode']=='paused' for row in current['history']))
+        finally:
+            change(initial['policy'])
+
+    def test_18_harness_and_model_metadata_follow_the_selected_profile(self):
+        d=self.api('alpha','/v1/agents')
+        node=next(p['node'] for p in d['peers'] if p['node_id']=='beta')
+        profiles={c['name']:c for c in node['capabilities']}
+        self.assertEqual(profiles['agent-test']['harness'],'fixture-harness')
+        self.assertEqual(profiles['alternate-agent']['model'],'alternate-model')
+        task=self.api('alpha','/v1/agents/spawn',{'profile':'alternate-agent','prompt':'wait','idempotency_key':str(uuid.uuid4()),'target_node':'beta','timeout_secs':20})
+        def observed():
+            return next((a for a in self.api('beta','/v1/node')['managed_agents'] if a['task_id']==task['id']),None)
+        agent=wait_for(observed)
+        self.assertEqual(agent['harness'],'alternate-harness')
+        self.assertEqual(agent['model'],'alternate-model')
+        self.assertEqual(agent['profile'],'alternate-agent')
+        self.assertEqual(self.terminal(task)['status'],'succeeded')
 
     def test_01_discovery_and_remote_execution(self):
         found = self.api('alpha', '/v1/discover')

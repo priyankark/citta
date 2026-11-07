@@ -223,9 +223,13 @@ async fn verified_https_handshake_pairs_without_admin_tokens_and_survives_restar
     assert!(!report.contains(&a_in));
     assert!(!report.contains(&a_out));
     // Real API authentication accepts only the peer's identity for claims.
+    let store = Arc::new(Store::open(&b.config.data_dir, "beta", 30, 1000, 10000).unwrap());
     let app = App {
+        permissions: crate::permissions::Permissions::open(&b.config, store.clone()).unwrap(),
+        control_token: Arc::new("e".repeat(64)),
+        control_enrollment: None,
         config: b.config.clone(),
-        store: Arc::new(Store::open(&b.config.data_dir, "beta", 30, 1000, 10000).unwrap()),
+        store,
         token: Arc::new(config::read_token(&b.config.token_file).unwrap()),
         peers: vec![],
         enrollment: Some(b.clone()),
@@ -445,4 +449,193 @@ async fn duplicate_node_ids_cannot_replace_another_device() {
             .is_err()
     );
     assert_eq!(inner.records.len(), 1);
+}
+
+#[tokio::test]
+async fn owner_panel_controls_remote_device_over_separate_automatic_tls_channel() {
+    let ad = tempfile::tempdir().unwrap();
+    let bd = tempfile::tempdir().unwrap();
+    let a = setup(ad.path(), "alpha");
+    let b = setup(bd.path(), "beta");
+    let ac = Enrollment::open_control(a.config.clone()).unwrap().unwrap();
+    let bc = Enrollment::open_control(b.config.clone()).unwrap().unwrap();
+    let al = listener().await;
+    let bl = listener().await;
+    let ar = remote("alpha", al.tcp.local_addr().unwrap().port());
+    let br = remote("beta", bl.tcp.local_addr().unwrap().port());
+    for e in [&a, &ac] {
+        trust(e, br.clone());
+    }
+    for e in [&b, &bc] {
+        trust(e, ar.clone());
+    }
+    a.inner.lock().unwrap().public_url = Some(ar.url.clone());
+    let make_app = |e: &Arc<Enrollment>, control: &Arc<Enrollment>| {
+        let store =
+            Arc::new(Store::open(&e.config.data_dir, &e.config.node_id, 10, 100, 100).unwrap());
+        App {
+            permissions: crate::permissions::Permissions::open(&e.config, store.clone()).unwrap(),
+            control_token: Arc::new(crate::permissions::control_token(&e.config).unwrap()),
+            control_enrollment: Some(control.clone()),
+            config: e.config.clone(),
+            store,
+            token: Arc::new(config::read_token(&e.config.token_file).unwrap()),
+            peers: vec![],
+            enrollment: Some(e.clone()),
+            inventory: Default::default(),
+            managed_agents: Default::default(),
+            panel: Default::default(),
+            activity: Default::default(),
+            shutdown: CancellationToken::new(),
+        }
+    };
+    let aa = make_app(&a, &ac);
+    let ba = make_app(&b, &bc);
+    let aserver = tokio::spawn({
+        let router = api::router(aa.clone());
+        async move { axum::serve(al, router).await.unwrap() }
+    });
+    let bserver = tokio::spawn({
+        let router = api::router(ba.clone());
+        async move { axum::serve(bl, router).await.unwrap() }
+    });
+    a.pair(br.clone()).await.unwrap();
+    ac.pair(br.clone()).await.unwrap();
+    let task_client = a.clients().pop().unwrap();
+    let control_client = ac.clients().pop().unwrap();
+    assert!(
+        task_client
+            .get::<Value>("/v1/control/permissions")
+            .await
+            .is_err()
+    );
+    assert!(control_client.get::<Value>("/v1/node").await.is_err());
+    assert!(
+        control_client
+            .post::<Value>("/v1/panel/session", &json!({}))
+            .await
+            .is_err()
+    );
+    let mut owner = Client::new(&ar.url, aa.control_token.to_string(), "alpha".into()).unwrap();
+    owner.test_endpoint(CA, ar.address).unwrap();
+    let link: Value = owner.post("/v1/panel/session", &json!({})).await.unwrap();
+    assert!(link["network_url"].as_str().unwrap().starts_with(&ar.url));
+    let code = link["url"]
+        .as_str()
+        .unwrap()
+        .split("#login=")
+        .nth(1)
+        .unwrap();
+    let web = reqwest::Client::builder()
+        .no_proxy()
+        .tls_certs_only([reqwest::Certificate::from_der(CA).unwrap()])
+        .resolve(
+            "alpha.tail-test.ts.net",
+            SocketAddr::new(
+                ar.address,
+                reqwest::Url::parse(&ar.url).unwrap().port().unwrap(),
+            ),
+        )
+        .build()
+        .unwrap();
+    let login = web
+        .post(format!("{}/panel/login", ar.url))
+        .header("origin", &ar.url)
+        .json(&json!({"code":code}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(login.status(), StatusCode::OK);
+    let cookie = login
+        .headers()
+        .get("set-cookie")
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_string();
+    assert!(cookie.contains("Secure"));
+    let cookie = cookie.split(';').next().unwrap();
+    let view: Value = web
+        .get(format!("{}/panel/permissions?node=beta", ar.url))
+        .header("cookie", cookie)
+        .send()
+        .await
+        .unwrap()
+        .json()
+        .await
+        .unwrap();
+    assert_eq!(view["node_id"], "beta");
+    let revision = view["snapshot"]["revision"].as_i64().unwrap();
+    let edit = json!({"node":"beta","expected_revision":revision,"policy":{"mode":"paused","allowed_capabilities":[],"allowed_origins":null}});
+    let write = || {
+        web.post(format!("{}/panel/permissions", ar.url))
+            .header("cookie", cookie)
+            .header("origin", &ar.url)
+            .header("x-citta-panel", "1")
+            .json(&edit)
+    };
+    assert_eq!(write().send().await.unwrap().status(), StatusCode::OK);
+    assert_eq!(
+        ba.permissions.snapshot().policy.mode,
+        crate::permissions::Mode::Paused
+    );
+    assert_eq!(ba.permissions.snapshot().actor, "tailscale:alpha");
+    assert_eq!(aa.permissions.snapshot().revision, 1);
+    assert_eq!(write().send().await.unwrap().status(), StatusCode::CONFLICT);
+    // A task-channel nonce cannot authenticate a management callback.
+    let nonce = pending(&a, br.clone());
+    assert!(
+        confirm(
+            State(ac.clone()),
+            HeaderMap::new(),
+            Json(Confirm {
+                device_id: "beta".into(),
+                challenge: nonce,
+                node_id: "beta".into(),
+                token: secret()
+            })
+        )
+        .await
+        .is_err()
+    );
+    let restored = Enrollment::open_control(a.config.clone()).unwrap().unwrap();
+    let incoming = ac.inner.lock().unwrap().records["beta"].inbound.clone();
+    assert!(restored.authenticate(&incoming).is_none());
+    trust(&restored, br.clone());
+    assert_eq!(restored.authenticate(&incoming), Some("beta".into()));
+    // A peer cannot disguise a task posted into the receiver's own queue as local work.
+    let scoped = crate::permissions::Update {
+        expected_revision: ba.permissions.snapshot().revision,
+        policy: crate::permissions::Policy {
+            mode: crate::permissions::Mode::AllowAll,
+            allowed_capabilities: vec![],
+            allowed_origins: Some(vec!["local:beta".into()]),
+        },
+    };
+    let _: crate::permissions::Snapshot = control_client
+        .post("/v1/control/permissions", &scoped)
+        .await
+        .unwrap();
+    let submission = json!({"capability":"echo","input":{},"idempotency_key":"peer-requester","target_node":"beta"});
+    let task: crate::model::Task = task_client.post("/v1/tasks", &submission).await.unwrap();
+    assert_eq!(task.requester.as_deref(), Some("tailscale:alpha"));
+    assert!(!ba.execution_allowed(&Client::local(&ba.config).unwrap(), &task, "echo"));
+    let mut forged = submission;
+    forged["requester"] = json!("local:beta");
+    assert!(
+        task_client
+            .post::<Value>("/v1/tasks", &forged)
+            .await
+            .is_err()
+    );
+    // Revoking current trust removes control authority without restarting services.
+    bc.inner.lock().unwrap().refreshed = None;
+    assert!(
+        control_client
+            .get::<Value>("/v1/control/permissions")
+            .await
+            .is_err()
+    );
+    aserver.abort();
+    bserver.abort();
 }

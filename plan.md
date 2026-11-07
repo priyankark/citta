@@ -34,7 +34,7 @@ Jobs have bounded queue lifetimes and execution durations. Queue admission is bo
 
 ## Deliberate v1 boundaries
 
-Bounded JSON and text results are supported first. Large artifact transfer, repository synchronization, automatic worktree creation, active harness-session injection, global DAG scheduling, transitive discovery, nested delegation budgets, load/energy-aware placement, and Windows support are later work. Device-owned task permissions and sandboxing are the next hardening milestone described below. Arbitrary agent wrappers must not receive unrestricted mesh credentials or spawn unbounded child tasks. No implicit recursive delegation in v1.
+Bounded JSON and text results are supported first. Large artifact transfer, repository synchronization, automatic worktree creation, active harness-session injection, global DAG scheduling, transitive discovery, nested delegation budgets, load/energy-aware placement, and Windows support are later work. Basic device-owned permissions are implemented; OS sandboxing and richer approval rules remain the hardening work described below. Arbitrary agent wrappers must not receive unrestricted mesh credentials or spawn unbounded child tasks. No implicit recursive delegation in v1.
 
 ## Discovery and human monitoring — implemented
 
@@ -42,7 +42,7 @@ Manifests now include sampled CPU/RAM/OS telemetry, same-user runtime processes,
 
 ## Device-owned permissions and unattended execution
 
-Status: design for the next implementation milestone. The current executable has fixed capabilities, environment filtering, and process lifecycle controls, but no OS sandbox or per-peer task authorization. Do not describe these planned controls as already enforced.
+Status: basic enforcement is implemented: Restricted capability allowlists, Allow all, Pause, stable origin allowlists, live revocation, revision conflicts, durable audit history, and a cross-device owner panel with separate automatic management credentials. See [the implemented contract](docs/permissions.md). OS sandbox integration, approval holds, per-capability origin matrices, resource-specific grants, and the richer policy design below remain future work.
 
 The receiving device owns the final execution decision. A sending agent can request a capability and narrower permissions; it cannot pick its own trust level, widen a sandbox, grant approval, or activate allow-all through task input. Decide authorization independently of which sandbox backend will enforce resource access.
 
@@ -66,7 +66,7 @@ Task categories must correspond to enforceable capability contracts, not labels 
 
 Test/build commands themselves execute repository code. A task named `test` must not receive a broader host grant merely because it sounds harmless. Artifact import, repository staging, and patch return need their own validation before those presets can be shipped.
 
-Rules bind to authenticated origin identity, stable capability IDs, resource IDs resolved on the worker, execution budgets, and a policy revision. Human-readable node IDs or task-supplied `kind`/`origin` fields alone are not authorization. Automatic enrollment now issues identity-bound per-peer credentials, while the local/legacy node token still grants full API access. Introduce capability scopes and separate control-plane permissions before advertising isolation between peers. In the pull protocol, check the configured origin channel and local grants before offering a capability, then revalidate the actual task immediately before spawn.
+Rules bind to authenticated origin identity, stable capability IDs, resource IDs resolved on the worker, execution budgets, and a policy revision. Human-readable node IDs or task-supplied `kind`/`origin` fields alone are not authorization. Automatic enrollment now issues identity-bound per-peer credentials, while the local/legacy node token grants task API access. Introduce capability scopes and separate control-plane permissions before advertising isolation between peers. In the pull protocol, check the configured origin channel and local grants before offering a capability, then revalidate the actual task immediately before spawn.
 
 Approval holds must not consume worker slots or running leases. A durable approval binds to the immutable request digest, selected target, capability definition, policy revision, expiry, and requested resource grants. Editing any of those invalidates it. Default behavior for unattended workers is to leave a clear blocked/denied state, never wait indefinitely for hidden terminal prompts. The owner's explicitly configured allow-all choice removes Citta's approval requirement within that scope.
 

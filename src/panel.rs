@@ -1,4 +1,4 @@
-//! Read-only local browser monitoring surface. Browser sessions never contain mesh tokens.
+//! Local owner control panel. Browser sessions never contain mesh tokens.
 use crate::{
     api::{self, App},
     model::now,
@@ -82,14 +82,33 @@ impl Sessions {
     }
 }
 fn local_request(app: &App, headers: &HeaderMap) -> bool {
-    headers.get(header::HOST).and_then(|s| s.to_str().ok())
-        == Some(app.config.listen.to_string().as_str())
-        && headers
-            .get(header::ORIGIN)
-            .is_none_or(|v| v.to_str().ok() == Some(app.config.local_url().as_str()))
+    let host = headers.get(header::HOST).and_then(|v| v.to_str().ok());
+    let local = app.config.local_url();
+    let network = app.enrollment.as_ref().and_then(|e| e.public_url());
+    let network_host = network
+        .as_deref()
+        .and_then(|url| url.strip_prefix("https://"));
+    let known_host = host == Some(app.config.listen.to_string().as_str())
+        || (host.is_some() && host == network_host);
+    known_host
+        && headers.get(header::ORIGIN).is_none_or(|v| {
+            v.to_str()
+                .is_ok_and(|origin| origin == local || network.as_deref() == Some(origin))
+        })
         && headers
             .get("sec-fetch-site")
             .is_none_or(|v| matches!(v.to_str(), Ok("same-origin" | "none")))
+}
+fn secure_cookie(headers: &HeaderMap) -> &'static str {
+    if headers
+        .get(header::ORIGIN)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|v| v.starts_with("https://"))
+    {
+        "; Secure"
+    } else {
+        ""
+    }
 }
 fn secured(response: impl IntoResponse) -> Response {
     let mut response = response.into_response();
@@ -109,7 +128,11 @@ pub fn router(app: App) -> Router {
         .route("/panel/overview", get(overview))
         .route("/panel/task", get(task))
         .route("/panel/logout", post(logout))
-        .layer(DefaultBodyLimit::max(1024))
+        .route(
+            "/panel/permissions",
+            get(permissions).post(save_permissions),
+        )
+        .layer(DefaultBodyLimit::max(32 * 1024))
         .with_state(app)
 }
 async fn index() -> Response {
@@ -145,9 +168,12 @@ async fn login(State(app): State<App>, headers: HeaderMap, Json(request): Json<L
     let mut response = secured(Json(json!({"ok":true})));
     response.headers_mut().insert(
         header::SET_COOKIE,
-        format!("citta_panel={session}; HttpOnly; SameSite=Strict; Path=/panel; Max-Age=28800")
-            .parse()
-            .unwrap(),
+        format!(
+            "citta_panel={session}; HttpOnly; SameSite=Strict; Path=/panel; Max-Age=28800{}",
+            secure_cookie(&headers)
+        )
+        .parse()
+        .unwrap(),
     );
     response
 }
@@ -205,6 +231,118 @@ async fn task(
         Err(_) => secured(StatusCode::BAD_GATEWAY),
     }
 }
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DeviceQuery {
+    node: String,
+}
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PermissionEdit {
+    node: String,
+    expected_revision: i64,
+    policy: crate::permissions::Policy,
+}
+fn proxy_error(error: anyhow::Error) -> Response {
+    let status = error
+        .downcast_ref::<crate::client::RemoteStatus>()
+        .and_then(|s| StatusCode::from_u16(s.0).ok())
+        .unwrap_or(StatusCode::BAD_GATEWAY);
+    let message = match status {
+        StatusCode::CONFLICT => "Permissions changed elsewhere. Reload before saving.",
+        StatusCode::NOT_FOUND => "Upgrade this device to configure permissions.",
+        _ => {
+            "Device management is unavailable. Your changes were not confirmed; reload before retrying."
+        }
+    };
+    secured((status, Json(json!({"error":message}))))
+}
+async fn permissions(
+    State(app): State<App>,
+    headers: HeaderMap,
+    Query(query): Query<DeviceQuery>,
+) -> Response {
+    if !local_request(&app, &headers) {
+        return secured(StatusCode::FORBIDDEN);
+    }
+    if !app.panel.authenticated(&headers) {
+        return secured(StatusCode::UNAUTHORIZED);
+    }
+    if query.node == app.config.node_id {
+        return match crate::control::view(&app).await {
+            Ok(v) => secured(Json(v)),
+            Err(e) => proxy_error(e),
+        };
+    }
+    let Some(client) = app.control_client(&query.node) else {
+        return secured((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(
+                json!({"error":"This device has not established a management connection. Both devices need the permissions-enabled build."}),
+            ),
+        ));
+    };
+    match client
+        .get::<serde_json::Value>("/v1/control/permissions")
+        .await
+    {
+        Ok(v) if v["node_id"].as_str() == Some(&query.node) => secured(Json(v)),
+        Ok(_) => secured(StatusCode::BAD_GATEWAY),
+        Err(e) => proxy_error(e),
+    }
+}
+async fn save_permissions(
+    State(app): State<App>,
+    headers: HeaderMap,
+    Json(edit): Json<PermissionEdit>,
+) -> Response {
+    if !local_request(&app, &headers)
+        || headers.get("x-citta-panel").and_then(|v| v.to_str().ok()) != Some("1")
+    {
+        return secured(StatusCode::FORBIDDEN);
+    }
+    if !app.panel.authenticated(&headers) {
+        return secured(StatusCode::UNAUTHORIZED);
+    }
+    let request = crate::permissions::Update {
+        expected_revision: edit.expected_revision,
+        policy: edit.policy,
+    };
+    if request.policy.validate().is_err() {
+        return secured(StatusCode::BAD_REQUEST);
+    }
+    if edit.node == app.config.node_id {
+        return match crate::control::apply(&app, request, format!("local:{}", app.config.node_id))
+            .await
+        {
+            Ok(v) => secured(Json(v)),
+            Err((status, message)) => secured((status, Json(json!({"error":message})))),
+        };
+    }
+    let Some(client) = app.control_client(&edit.node) else {
+        return secured((
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({"error":"Device management is unavailable. No changes were sent."})),
+        ));
+    };
+    // Authenticate the destination identity before any write; only registered peer URLs are used.
+    match client
+        .get::<serde_json::Value>("/v1/control/permissions")
+        .await
+    {
+        Ok(v) if v["node_id"].as_str() == Some(&edit.node) => {}
+        Ok(_) => return secured(StatusCode::BAD_GATEWAY),
+        Err(e) => return proxy_error(e),
+    }
+    match client
+        .post::<crate::permissions::Snapshot>("/v1/control/permissions", &request)
+        .await
+    {
+        Ok(v) => secured(Json(v)),
+        Err(e) => proxy_error(e),
+    }
+}
 async fn logout(State(app): State<App>, headers: HeaderMap) -> Response {
     if !local_request(&app, &headers) {
         return secured(StatusCode::FORBIDDEN);
@@ -225,9 +363,12 @@ async fn logout(State(app): State<App>, headers: HeaderMap) -> Response {
     let mut response = secured(Json(json!({"ok":true})));
     response.headers_mut().insert(
         header::SET_COOKIE,
-        "citta_panel=; HttpOnly; SameSite=Strict; Path=/panel; Max-Age=0"
-            .parse()
-            .unwrap(),
+        format!(
+            "citta_panel=; HttpOnly; SameSite=Strict; Path=/panel; Max-Age=0{}",
+            secure_cookie(&headers)
+        )
+        .parse()
+        .unwrap(),
     );
     response
 }

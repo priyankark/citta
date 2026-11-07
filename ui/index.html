@@ -22,7 +22,10 @@
           <span>◎</span>Agents<span id="nav-agent-count" class="nav-count"
             >—</span
           ></button
-        ><button class="nav" data-view="runs"><span>≡</span>Runs</button>
+        ><button class="nav" data-view="runs"><span>≡</span>Runs</button
+        ><button class="nav" data-view="permissions">
+          <span>◇</span>Permissions
+        </button>
       </nav>
       <div class="rail-bottom">
         <span class="status-dot"></span>
@@ -62,8 +65,8 @@
         <h2>Connect this browser</h2>
         <p>
           Open a fresh login link from Citta on this device. Your browser
-          receives a temporary monitoring session; mesh credentials stay with
-          the daemon.
+          receives a temporary owner session; mesh credentials stay with the
+          daemon.
         </p>
         <code>citta --config ~/.config/citta/config.toml panel</code>
       </section>
@@ -73,6 +76,117 @@
           aria-label="Network summary"
           id="stats"
         ></section>
+        <section id="permissions-section" class="section" hidden>
+          <div class="section-heading">
+            <div>
+              <span class="section-kicker">DEVICE PERMISSIONS</span>
+              <h2>Choose where work can run</h2>
+            </div>
+            <label class="device-picker"
+              >Device
+              <select
+                id="permission-device"
+                aria-label="Device to configure"
+              ></select
+            ></label>
+          </div>
+          <p class="permission-intro">
+            Manage any paired device from this panel. Settings are stored and
+            enforced on the selected device.
+          </p>
+          <div
+            id="permission-message"
+            class="notice"
+            role="status"
+            hidden
+          ></div>
+          <div id="permission-editor" hidden>
+            <div class="permission-heading">
+              <h3 id="permission-title"></h3>
+              <span id="permission-revision" class="muted"></span>
+            </div>
+            <form id="permission-form">
+              <fieldset class="permission-modes">
+                <legend>Execution mode</legend>
+                <label class="mode-option"
+                  ><input
+                    type="radio"
+                    name="permission-mode"
+                    value="restricted"
+                  /><span
+                    ><strong>Restricted</strong
+                    ><small
+                      >Only selected capabilities may run unattended.</small
+                    ></span
+                  ></label
+                >
+                <label class="mode-option"
+                  ><input
+                    type="radio"
+                    name="permission-mode"
+                    value="allow_all"
+                  /><span
+                    ><strong>Allow all</strong
+                    ><small
+                      >All installed capabilities, including ones added later,
+                      may run unattended.</small
+                    ></span
+                  ></label
+                >
+                <label class="mode-option"
+                  ><input
+                    type="radio"
+                    name="permission-mode"
+                    value="paused"
+                  /><span
+                    ><strong>Pause execution</strong
+                    ><small
+                      >Stop active Citta jobs and accept no new
+                      executions.</small
+                    ></span
+                  ></label
+                >
+              </fieldset>
+              <fieldset id="permission-capabilities">
+                <legend>Allowed capabilities</legend>
+                <div id="permission-cap-list" class="permission-list"></div>
+              </fieldset>
+              <fieldset>
+                <legend>Devices allowed to send work</legend>
+                <label class="checkbox"
+                  ><input type="checkbox" id="permission-all-origins" />All
+                  trusted devices, including devices paired later</label
+                >
+                <div id="permission-origin-list" class="permission-list"></div>
+              </fieldset>
+              <p class="permission-note">
+                Applies to Citta jobs. Allow-all keeps the configured sandbox,
+                timeouts, and capacity limits. Revoking access stops affected
+                active jobs; interrupted jobs are never automatically replayed.
+              </p>
+              <div class="permission-actions">
+                <button
+                  id="permission-save"
+                  type="submit"
+                  class="primary-button"
+                  disabled
+                >
+                  Save permissions</button
+                ><button
+                  id="permission-reload"
+                  type="button"
+                  class="secondary-button"
+                >
+                  Reload saved settings</button
+                ><span id="permission-dirty" class="muted"></span>
+              </div>
+            </form>
+            <details class="permission-history">
+              <summary>Permission change history</summary>
+              <div id="permission-history"></div>
+            </details>
+          </div>
+        </section>
         <section id="devices-section" class="section">
           <div class="section-heading">
             <div>
@@ -179,7 +293,7 @@
           <span
             >CITTA <span class="footer-dot">/</span> PRIVATE NETWORK
             CONTROL</span
-          ><span>Monitoring only · refreshes every 5 seconds</span>
+          ><span>Owner control · refreshes every 5 seconds</span>
         </footer>
       </div>
     </main>

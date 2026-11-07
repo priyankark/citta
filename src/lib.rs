@@ -8,3 +8,7 @@ pub mod model;
 pub mod panel;
 pub mod store;
 pub mod worker;
+
+pub mod permissions;
+
+pub mod control;

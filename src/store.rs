@@ -66,7 +66,7 @@ impl Store {
             "PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;",
         )?;
         let version: i64 = db.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-        ensure!(version <= 2, "database is newer than this binary");
+        ensure!(version <= 3, "database is newer than this binary");
         db.execute_batch(
             "BEGIN IMMEDIATE;
             CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -81,7 +81,9 @@ impl Store {
                 sequence INTEGER PRIMARY KEY AUTOINCREMENT,
                 task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
                 status TEXT NOT NULL, at INTEGER NOT NULL);
-            PRAGMA user_version=2; COMMIT;",
+            CREATE TABLE IF NOT EXISTS device_permissions(id INTEGER PRIMARY KEY CHECK(id=1),revision INTEGER NOT NULL,payload TEXT NOT NULL);
+            CREATE TABLE IF NOT EXISTS permission_events(revision INTEGER PRIMARY KEY,payload TEXT NOT NULL);
+            PRAGMA user_version=3; COMMIT;",
         )?;
         db.execute(
             "INSERT OR IGNORE INTO meta(key,value) VALUES('node',?1)",
@@ -109,30 +111,114 @@ impl Store {
         tx.commit()?;
         Ok(result)
     }
+    pub fn initialize_permissions(
+        &self,
+        policy: crate::permissions::Policy,
+    ) -> Result<crate::permissions::Snapshot> {
+        self.transaction(|tx| {
+            let existing: Option<String> = tx
+                .query_row(
+                    "SELECT payload FROM device_permissions WHERE id=1",
+                    [],
+                    |r| r.get(0),
+                )
+                .optional()?;
+            if let Some(value) = existing {
+                return Ok(serde_json::from_str(&value)?);
+            }
+            let initialized: bool = tx.query_row(
+                "SELECT EXISTS(SELECT 1 FROM meta WHERE key='permissions_initialized')",
+                [],
+                |r| r.get(0),
+            )?;
+            ensure!(
+                !initialized,
+                "saved device permissions are missing; refusing to reset grants"
+            );
+            let state = crate::permissions::Snapshot {
+                revision: 1,
+                policy,
+                updated_at: now(),
+                actor: "migration".into(),
+            };
+            let payload = serde_json::to_string(&state)?;
+            tx.execute("INSERT INTO device_permissions VALUES(1,1,?1)", [&payload])?;
+            tx.execute("INSERT INTO permission_events VALUES(1,?1)", [&payload])?;
+            tx.execute(
+                "INSERT INTO meta(key,value) VALUES('permissions_initialized','true')",
+                [],
+            )?;
+            Ok(state)
+        })
+    }
+    pub fn save_permissions(
+        &self,
+        state: &crate::permissions::Snapshot,
+        expected: i64,
+    ) -> Result<()> {
+        self.transaction(|tx| {
+            let payload = serde_json::to_string(state)?;
+            let count = tx.execute(
+                "UPDATE device_permissions SET revision=?1,payload=?2 WHERE id=1 AND revision=?3",
+                params![state.revision, payload, expected],
+            )?;
+            if count != 1 {
+                bail!(Rejection::Conflict);
+            }
+            tx.execute(
+                "INSERT INTO permission_events VALUES(?1,?2)",
+                params![state.revision, payload],
+            )?;
+            Ok(())
+        })
+    }
+    pub fn permission_history(&self) -> Result<Vec<crate::permissions::Snapshot>> {
+        self.transaction(|tx| {
+            let mut query = tx
+                .prepare("SELECT payload FROM permission_events ORDER BY revision DESC LIMIT 20")?;
+            let rows = query.query_map([], |r| r.get::<_, String>(0))?;
+            rows.map(|r| Ok(serde_json::from_str(&r?)?)).collect()
+        })
+    }
     pub fn submit(&self, request: Submission, at: i64) -> Result<Task> {
+        self.submit_as(request, at, None)
+    }
+    pub fn submit_as(
+        &self,
+        request: Submission,
+        at: i64,
+        requester: Option<String>,
+    ) -> Result<Task> {
         request.validate()?;
         self.transaction(|tx| {
             if let Some(task) = find(tx, "SELECT payload FROM tasks WHERE request_key=?1", &request.idempotency_key)? {
-                if task.request != request { bail!(Rejection::Conflict); }
+                if task.request != request || (task.requester.is_some() && task.requester != requester) { bail!(Rejection::Conflict); }
                 return Ok(task);
             }
             let pending: i64 = tx.query_row("SELECT COUNT(*) FROM tasks WHERE status IN ('queued','running')", [], |r| r.get(0))?;
             let total: i64 = tx.query_row("SELECT COUNT(*) FROM tasks", [], |r| r.get(0))?;
             if pending >= self.max_pending as i64 || total >= self.max_history as i64 { bail!(Rejection::Capacity); }
-            let task = Task { id: uuid::Uuid::new_v4().to_string(), origin_node: self.node.clone(), request, status: Status::Queued, worker_node: None, created_at: at, updated_at: at, started_at: None, lease_expires_at: None, outcome: None };
+            let task = Task { requester, id: uuid::Uuid::new_v4().to_string(), origin_node: self.node.clone(), request, status: Status::Queued, worker_node: None, created_at: at, updated_at: at, started_at: None, lease_expires_at: None, outcome: None };
             tx.execute("INSERT INTO tasks(id,request_key,status,capability,target,created_at,updated_at,deadline,payload) VALUES(?1,?2,'queued',?3,?4,?5,?5,?6,?7)", params![task.id, task.request.idempotency_key, task.request.capability, task.request.target_node, at, at + task.request.queue_ttl_secs as i64, serde_json::to_string(&task)?])?;
             event(tx, &task)?;
             Ok(task)
         })
     }
-    pub fn existing_submission(&self, request: &Submission) -> Result<Option<Task>> {
+    pub fn existing_submission(
+        &self,
+        request: &Submission,
+        requester: Option<&String>,
+    ) -> Result<Option<Task>> {
         self.transaction(|tx| {
             let task = find(
                 tx,
                 "SELECT payload FROM tasks WHERE request_key=?1",
                 &request.idempotency_key,
             )?;
-            if task.as_ref().is_some_and(|task| task.request != *request) {
+            if task.as_ref().is_some_and(|task| {
+                task.request != *request
+                    || (task.requester.is_some() && task.requester.as_ref() != requester)
+            }) {
                 bail!(Rejection::Conflict);
             }
             Ok(task)

@@ -203,8 +203,49 @@ fn legacy_tasks_migrate_and_newer_storage_fails_closed() {
     assert_eq!(
         db.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
             .unwrap(),
-        2
+        3
     );
-    db.execute_batch("PRAGMA user_version=3").unwrap();
+    db.execute_batch("PRAGMA user_version=4").unwrap();
     assert!(Store::open(dir.path(), "origin", 10, 100, 100).is_err());
+}
+
+#[test]
+fn permission_updates_persist_with_audit_and_conflicts_do_not_overwrite() {
+    use citta::permissions::{Mode, Policy, Snapshot};
+    let dir = tempfile::tempdir().unwrap();
+    let original = Policy {
+        mode: Mode::Restricted,
+        allowed_capabilities: vec!["echo".into()],
+        allowed_origins: None,
+    };
+    {
+        let store = Store::open(dir.path(), "origin", 10, 100, 100).unwrap();
+        let state = store.initialize_permissions(original.clone()).unwrap();
+        let next = Snapshot {
+            revision: 2,
+            policy: Policy {
+                mode: Mode::AllowAll,
+                ..original.clone()
+            },
+            updated_at: 100,
+            actor: "tailscale:owner-device".into(),
+        };
+        store.save_permissions(&next, state.revision).unwrap();
+        assert!(store.save_permissions(&next, state.revision).is_err());
+        assert_eq!(store.permission_history().unwrap().len(), 2);
+    }
+    let store = Store::open(dir.path(), "origin", 10, 100, 100).unwrap();
+    let state = store.initialize_permissions(original).unwrap();
+    assert_eq!(state.revision, 2);
+    assert_eq!(state.policy.mode, Mode::AllowAll);
+    assert_eq!(
+        store.permission_history().unwrap()[0].actor,
+        "tailscale:owner-device"
+    );
+    let db = rusqlite::Connection::open(dir.path().join("citta.db")).unwrap();
+    db.execute("DELETE FROM device_permissions", []).unwrap();
+    assert!(
+        store.initialize_permissions(state.policy).is_err(),
+        "missing saved policy must not reset grants"
+    );
 }

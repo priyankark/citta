@@ -20,12 +20,13 @@ flowchart LR
 ## Included
 
 - Automatic same-owner Tailscale enrollment, hardware telemetry, live Codex session discovery, and visibility into recent work across peers.
-- Device-owned agent spawn profiles and a private browser monitoring panel with resource, agent, and failure views.
+- Device-owned agent spawn profiles and a private browser panel with resource, agent, failure, and device permission views.
+- Restricted, allow-all, and paused execution modes; allowed-origin controls; automatic owner management pairing; durable policy audit history.
 - Per-device secrets, HTTPS for remote connections, loopback-only listeners, and private state directories.
 - SQLite WAL persistence, atomic claims, idempotent submission/completion, expiring leases, and replayable WebSocket events.
 - Global and per-capability concurrency limits, queue limits/deadlines, execution timeouts, and bounded input/output.
 - Private work directories, explicit environment allowlists, process-group cancellation, and a guardian that stops jobs when their daemon dies.
-- Harness-neutral MCP tools using the official Rust MCP SDK; CLI and HTTP APIs.
+- Harness-neutral execution and MCP tools using the official Rust MCP SDK; explicit harness/model capability metadata, CLI and HTTP APIs.
 - An agent setup skill, macOS/Linux service generator, and model/harness adapter examples.
 
 ## Build and run
@@ -103,4 +104,4 @@ The mesh suite uses two real daemon processes with separate secrets, databases, 
 
 Read [the plan](plan.md), [protocol](docs/protocol.md), [operations](docs/operations.md), and [release acceptance](docs/acceptance.md) for exact guarantees and remaining qualification.
 
-Refresh and inspect CI history with `python3 scripts/ci_health.py`; see [build health](docs/build-health.md). Planned task permissions, MXC sandboxing, allow-all behavior, and the product failure inbox are described in [the plan](plan.md#device-owned-permissions-and-unattended-execution). These controls are not yet implemented in the daemon.
+Refresh and inspect CI history with `python3 scripts/ci_health.py`; see [build health](docs/build-health.md). Device permissions and allow-all are available in [the control panel](docs/permissions.md). Planned MXC sandboxing, approval holds, and the richer product failure inbox are described in [the plan](plan.md#device-owned-permissions-and-unattended-execution). Those additional hardening controls are not yet implemented.

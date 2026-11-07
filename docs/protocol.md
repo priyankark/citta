@@ -1,6 +1,6 @@
 # Peer protocol v1
 
-Task/control routes require `Authorization: Bearer <credential>`: the local/legacy node token or an active automatic peer credential. The two enrollment handshake routes below use a separate challenge protocol. Requests with an `Origin` header are rejected. Local and explicit-peer tokens are loaded once on startup; automatic peer credentials refresh in the running daemon. Remote traffic must arrive through HTTPS (normally Tailscale Serve); the daemon only binds numeric loopback. Clients refuse redirects and do not use ambient HTTP proxies.
+Task routes require `Authorization: Bearer <credential>`: the local/legacy node token or an active automatic peer credential. The two enrollment handshake routes below use a separate challenge protocol. Requests with an `Origin` header are rejected. Local and explicit-peer tokens are loaded once on startup; automatic peer credentials refresh in the running daemon. Remote traffic must arrive through HTTPS (normally Tailscale Serve); the daemon only binds numeric loopback. Clients refuse redirects and do not use ambient HTTP proxies.
 
 | Method/path | Behavior |
 | --- | --- |
@@ -9,7 +9,8 @@ Task/control routes require `Authorization: Bearer <credential>`: the local/lega
 | GET `/v1/discover` | Local manifest plus live manifests from paired peers; failures are explicit |
 | GET `/v1/agents` | Same live mesh manifest as discovery, including sessions/resources/profile kinds |
 | POST `/v1/agents/spawn` | Validate an advertised agent profile and enqueue a bounded prompt run |
-| POST `/v1/panel/session` | Local/legacy admin token only: issue a single-use local browser login link |
+| POST `/v1/panel/session` | Separate local management token only: issue single-use local/private HTTPS browser login links |
+| GET/POST `/v1/control/permissions` | Separate owner management credentials: read policy/history or atomically update using expected revision |
 | GET `/v1/enrollment` | Automatic enrollment freshness, pinned identity and candidate/paired states; no secrets |
 | GET `/v1/activity` | Recent task summaries from local and paired origins |
 | POST `/v1/tasks` | Validate and durably enqueue a submission; return task |
@@ -45,7 +46,7 @@ Citta does not provide exactly-once external effects. If a result cannot be comm
 
 Events contain `sequence`, `task_id`, `status`, and `at` (Unix seconds). Events are transactionally committed with state transitions. Renewal does not emit an event. Consumers persist their last sequence and reconnect using `after`; pruned task events are no longer replayable. Events describe lifecycle state, not live stdout. Treat remote outputs as data, not instructions.
 
-The trust model is one owner's paired devices. A node token gives full node access and is not tied to a peer identity. Node-ID matching catches configuration mistakes, not a malicious authorized peer. Multi-tenant authorization, credential scopes, and compromised-peer resistance require a future protocol version.
+The trust model is one owner's paired devices. A node task token gives task API access and is not tied to a peer identity. Node-ID matching catches configuration mistakes, not a malicious authorized peer. Multi-tenant authorization, credential scopes, and compromised-peer resistance require a future protocol version.
 
 ## Automatic enrollment
 
@@ -65,8 +66,16 @@ The handshake requires bidirectional HTTPS reachability and an enrollment-capabl
 
 ## Additive discovery and panel extension
 
-Capabilities advertise `kind` (`task` by default, or `agent`). `inventory` is optional for older nodes; `managed_agents` defaults to an empty list. Consumers must not infer idle capacity from an absent/stale inventory. See [discovery](discovery.md) for sampling, provenance, and data minimization.
+Capabilities advertise `kind` (`task` by default, or `agent`) and optional declared `harness` / `model` strings. Missing metadata means unspecified. Managed agent records carry the selected profile’s metadata; observed Codex sessions use the harness registry’s model field. `inventory` is optional for older nodes; `managed_agents` defaults to an empty list. Consumers must not infer idle capacity from an absent/stale inventory. See [discovery](discovery.md) for sampling, provenance, and data minimization.
 
 Agent spawn body: `{"profile":"codex-readonly","prompt":"Analyze this input","idempotency_key":"analysis-1","timeout_secs":180}`. Optional `target_node` pins placement; queue TTL defaults to 3600 seconds. Unknown fields are rejected. Empty prompts return 400; no reachable advertising profile returns 422. Existing equal submissions remain retrievable while peers are offline. The stored Submission adds `agent_only:true`; only a claim with `agent_profile:true` can take it. These fields default false and are omitted when false, preserving ordinary task traffic with older peers. Legacy workers cannot claim agent-only runs. Profile type is a scheduling contract within the trusted mesh, not an authorization boundary against a malicious peer.
 
-The embedded static page and `/panel/*` use a separate read-only browser session, exact local Host/Origin checks, SameSite cookies, and a restrictive CSP. Panel session creation is denied to automatic peer credentials. `/panel/task` resolves only known local/enrolled node IDs, never a caller-supplied URL. Browser cookies cannot authorize task/control API calls. See [monitoring](discovery.md#human-monitoring) for session lifetime and access.
+The embedded static page and `/panel/*` use a separate owner browser session, verified local/private HTTPS Host/Origin checks, SameSite cookies, and a restrictive CSP. Panel session creation is denied to automatic peer credentials. `/panel/task` resolves only known local/enrolled node IDs, never a caller-supplied URL. Browser cookies cannot authorize task/control API calls. See [monitoring](discovery.md#human-monitoring) for session lifetime and access.
+
+## Owner management and execution permissions
+
+The management API accepts `data/control.token` locally or a current management peer credential. It rejects node/task peer credentials. POST `/v1/control/permissions` takes `{"expected_revision":1,"policy":{"mode":"restricted","allowed_capabilities":["echo"],"allowed_origins":null}}`. Modes are `restricted`, `allow_all`, and `paused`. A null origin list means all trusted devices; an empty list allows none. Named origins are `local:<node>`, `peer:<node>` for explicit legacy peers, or `tailscale:<stable-device-id>`. Unknown fields and invalid names are rejected. A stale revision returns 409. The target persists the policy plus audit event before acknowledging success.
+
+Management enrollment mirrors the verified task handshake at `/v1/control/enroll/start` and `/v1/control/enroll/confirm`, with independent state and credentials. A task-channel challenge cannot authenticate a management callback. A management peer cannot mint a browser session on another device. Both credential channels require fresh same-owner identity.
+
+Node manifests expose the current permission revision/policy as discovery metadata. Task `requester` is assigned by the server from authentication, never accepted from a submitted payload. It prevents remote submission into a local queue from inheriting local-device work permissions. Older tasks without requester attribution remain compatible; an explicitly scoped local policy does not treat them as attributed local work. See [permissions](permissions.md) for queue, revocation, trust, and browser behavior.

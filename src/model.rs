@@ -87,6 +87,8 @@ impl Status {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Task {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requester: Option<String>,
     pub id: String,
     pub origin_node: String,
     pub request: Submission,
@@ -152,6 +154,11 @@ pub struct Event {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CapabilityInfo {
+    /// Operator-declared runtime metadata; absent means unspecified.
+    #[serde(default)]
+    pub harness: Option<String>,
+    #[serde(default)]
+    pub model: Option<String>,
     pub name: String,
     pub description: String,
     pub slots: usize,
@@ -197,6 +204,8 @@ impl SpawnAgent {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeInfo {
+    #[serde(default)]
+    pub permissions: Option<crate::permissions::Snapshot>,
     pub protocol: u32,
     pub node_id: String,
     pub version: String,

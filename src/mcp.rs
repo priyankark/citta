@@ -40,13 +40,13 @@ impl CittaMcp {
         Self { client }
     }
     #[tool(
-        description = "Discover paired devices, CPU/RAM capacity and utilization, live agent sessions, busy/idle/blocked states, capabilities and spawnable agent profiles. Check observation timestamps; unknown process state is not idle."
+        description = "Discover paired devices, CPU/RAM capacity and utilization, live agent sessions, busy/idle/blocked states, capabilities with declared harness/model metadata, and spawnable agent profiles. Check observation timestamps; unknown process state is not idle."
     )]
     async fn citta_discover(&self) -> CallToolResult {
         result(self.client.get("/v1/discover").await)
     }
     #[tool(
-        description = "List device hardware, live agent sessions and spawnable profiles across the mesh. Codex session states come from its local harness; detected processes alone have unknown availability. Observed agents are not automatically authorized to accept new work."
+        description = "List device hardware, live agent sessions and spawnable profiles with declared harness/model metadata across the mesh. Codex session states come from its local harness; detected processes alone have unknown availability. Observed agents are not automatically authorized to accept new work."
     )]
     async fn citta_agents(&self) -> CallToolResult {
         result(self.client.get("/v1/agents").await)

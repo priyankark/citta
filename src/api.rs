@@ -35,6 +35,9 @@ pub struct App {
     pub inventory: crate::inventory::Inventory,
     pub managed_agents: crate::inventory::Managed,
     pub panel: crate::panel::Sessions,
+    pub control_token: Arc<String>,
+    pub control_enrollment: Option<Arc<crate::enrollment::Enrollment>>,
+    pub permissions: Arc<crate::permissions::Permissions>,
     pub activity: Activity,
     pub shutdown: CancellationToken,
 }
@@ -50,6 +53,46 @@ impl App {
         }
         peers
     }
+    pub fn origin_identity(&self, node: &str) -> Option<String> {
+        if node == self.config.node_id {
+            return Some(format!("local:{node}"));
+        }
+        self.enrollment
+            .as_ref()
+            .and_then(|e| e.principal(node))
+            .or_else(|| {
+                self.config
+                    .peers
+                    .iter()
+                    .any(|p| p.node_id == node)
+                    .then(|| format!("peer:{node}"))
+            })
+    }
+    pub fn control_client(&self, node: &str) -> Option<Client> {
+        if node == self.config.node_id {
+            return Client::control_local(&self.config).ok();
+        }
+        self.control_enrollment
+            .as_ref()?
+            .clients()
+            .into_iter()
+            .find(|c| c.node_id == node)
+    }
+    pub fn execution_identity(&self, origin: &Client, task: &Task) -> Option<String> {
+        if origin.node_id == self.config.node_id {
+            Some(
+                task.requester
+                    .clone()
+                    .unwrap_or_else(|| "legacy:unknown".into()),
+            )
+        } else {
+            self.origin_identity(&origin.node_id)
+        }
+    }
+    pub fn execution_allowed(&self, origin: &Client, task: &Task, capability: &str) -> bool {
+        self.execution_identity(origin, task)
+            .is_some_and(|id| self.permissions.allows(&id, capability))
+    }
     pub async fn db<T: Send + 'static>(
         &self,
         f: impl FnOnce(&Store) -> Result<T> + Send + 'static,
@@ -60,6 +103,7 @@ impl App {
     pub fn node_info(&self) -> NodeInfo {
         let active = self.activity.lock().unwrap_or_else(|e| e.into_inner());
         NodeInfo {
+            permissions: Some(self.permissions.snapshot()),
             protocol: 1,
             node_id: self.config.node_id.clone(),
             version: env!("CARGO_PKG_VERSION").into(),
@@ -72,6 +116,8 @@ impl App {
                 .capabilities
                 .iter()
                 .map(|c| CapabilityInfo {
+                    harness: c.harness.clone(),
+                    model: c.model.clone(),
                     name: c.name.clone(),
                     description: c.description.clone(),
                     slots: c.slots,
@@ -98,6 +144,8 @@ impl App {
 pub fn router(app: App) -> Router {
     let enrollment = app.enrollment.clone();
     let panel = crate::panel::router(app.clone());
+    let control = crate::control::router(app.clone());
+    let control_enrollment = app.control_enrollment.clone();
     let router = Router::new()
         .route("/healthz", get(|| async { Json(json!({"ok":true})) }))
         .route("/v1/node", get(node))
@@ -106,7 +154,6 @@ pub fn router(app: App) -> Router {
         .route("/v1/enrollment", get(enrollment_status))
         .route("/v1/agents", get(discover))
         .route("/v1/agents/spawn", post(spawn_agent))
-        .route("/v1/panel/session", post(panel_session))
         .route("/v1/tasks", post(submit).get(list))
         .route("/v1/tasks/{id}", get(inspect))
         .route("/v1/tasks/{id}/cancel", post(cancel))
@@ -118,14 +165,19 @@ pub fn router(app: App) -> Router {
         .layer(DefaultBodyLimit::max(MAX_BODY))
         .layer(middleware::from_fn_with_state(app.clone(), authenticate))
         .with_state(app)
-        .merge(panel);
+        .merge(panel)
+        .merge(control);
+    let router = match control_enrollment {
+        Some(e) => router.merge(crate::enrollment::router(e)),
+        None => router,
+    };
     match enrollment {
         Some(enrollment) => router.merge(crate::enrollment::router(enrollment)),
         None => router,
     }
 }
 #[derive(Clone)]
-struct PeerIdentity(String);
+pub(crate) struct PeerIdentity(pub(crate) String);
 async fn authenticate(
     State(app): State<App>,
     mut request: axum::extract::Request,
@@ -203,20 +255,9 @@ async fn enrollment_status(State(app): State<App>) -> Json<Value> {
             .map_or_else(|| json!({"enabled":false}), |e| e.report()),
     )
 }
-async fn panel_session(
-    State(app): State<App>,
-    identity: Option<axum::Extension<PeerIdentity>>,
-) -> Response {
-    if identity.is_some() {
-        return StatusCode::FORBIDDEN.into_response();
-    }
-    match app.panel.issue() {
-        Some(code)=>Json(json!({"url":format!("{}/#login={}",app.config.local_url(),code),"expires_in_secs":120})).into_response(),
-        None=>StatusCode::TOO_MANY_REQUESTS.into_response(),
-    }
-}
 async fn spawn_agent(
     State(app): State<App>,
+    identity: Option<axum::Extension<PeerIdentity>>,
     Json(request): Json<SpawnAgent>,
 ) -> Result<Response, ApiError> {
     let submission = request.submission();
@@ -227,8 +268,15 @@ async fn spawn_agent(
         )
             .into_response());
     }
+    let requester = identity
+        .as_ref()
+        .and_then(|i| app.origin_identity(&i.0.0))
+        .unwrap_or_else(|| format!("local:{}", app.config.node_id));
     let retry = submission.clone();
-    if let Some(task) = app.db(move |s| s.existing_submission(&retry)).await? {
+    if let Some(task) = app
+        .db(move |s| s.existing_submission(&retry, Some(&requester)))
+        .await?
+    {
         return Ok((StatusCode::CREATED, Json(task)).into_response());
     }
     let discovery = discover(State(app.clone())).await.0;
@@ -258,7 +306,7 @@ async fn spawn_agent(
         )
             .into_response());
     }
-    submit(State(app), Json(submission)).await
+    submit(State(app), identity, Json(submission)).await
 }
 
 pub(crate) async fn overview(app: App) -> Result<Value> {
@@ -269,6 +317,7 @@ pub(crate) async fn overview(app: App) -> Result<Value> {
 }
 async fn submit(
     State(app): State<App>,
+    identity: Option<axum::Extension<PeerIdentity>>,
     Json(request): Json<Submission>,
 ) -> Result<Response, ApiError> {
     if let Err(e) = request.validate() {
@@ -278,7 +327,15 @@ async fn submit(
         )
             .into_response());
     }
-    let task = app.db(move |s| s.submit(request, now())).await?;
+    let requester = match identity {
+        Some(identity) => app
+            .origin_identity(&identity.0.0)
+            .ok_or_else(|| ApiError(anyhow::anyhow!("origin no longer trusted")))?,
+        None => format!("local:{}", app.config.node_id),
+    };
+    let task = app
+        .db(move |s| s.submit_as(request, now(), Some(requester)))
+        .await?;
     Ok((StatusCode::CREATED, Json(task)).into_response())
 }
 #[derive(Deserialize)]

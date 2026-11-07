@@ -15,6 +15,8 @@ The effective timeout is the smaller of the submitted timeout and `max_timeout_s
 ```toml
 [[capabilities]]
 name = "local-reasoning"
+harness = "ollama"
+model = "YOUR_INSTALLED_MODEL"
 description = 'Generate with the desktop local model. Input: {"prompt":"text"}. Returns JSON response and evaluation count.'
 program = "/absolute/path/to/python3"
 args = ["/absolute/path/to/citta/examples/ollama_worker.py"]
@@ -27,6 +29,19 @@ CITTA_OLLAMA_MAX_TOKENS = "1024"
 
 Discover from another device, then submit `{"prompt":"Summarize these observations: ..."}` to `local-reasoning`. The model name, endpoint, and maximum prediction count are operator-controlled. API contract: [Ollama generation reference](https://github.com/ollama/ollama/blob/main/docs/api.md).
 
+## Harness and model discovery
+
+Capabilities may declare `harness` and `model`. Both fields appear separately in HTTP/MCP discovery, the device capability list, agent-profile cards, and Citta-managed run metadata. Omitted fields remain null / not specified. These are operator-declared execution metadata, not an automatic claim that a runtime is installed or a model was observed. Pin the corresponding model in the wrapper/harness configuration when declaring it; update the metadata when changing that configuration.
+
+Citta's execution contract is harness-neutral: fixed local executable/argv, JSON stdin, bounded output, and lifecycle controls. A wrapper can adapt Codex, Claude Code, another noninteractive CLI, or a local inference runtime. A harness that needs a different prompt interface needs an adapter. Citta does not install other harnesses, reuse their interactive sessions, or infer idle state from their process names. Live external-session inventory currently has a Codex adapter; any Citta-launched profile has managed busy/terminal tracking independently of its harness.
+
+```toml
+harness = "your-harness"
+model = "your-fixed-model"
+```
+
+These fields belong inside the capability table. Model identifiers may contain provider prefixes, slashes, or colons. Task submission cannot override either field or the configured runtime.
+
 ## Agent harness
 
 `examples/prompt_worker.py` adapts a **noninteractive harness accepting its prompt on stdin**. It expects the same `{"prompt":"..."}` task input. Set `CITTA_AGENT_PROGRAM` to the harness's absolute executable and `CITTA_AGENT_ARGS` to an operator-chosen JSON argument array. Add only the environment variables needed for its established credentials and sandbox configuration.
@@ -36,6 +51,8 @@ Declare a spawnable harness with `kind = "agent"` (omitting it keeps the ordinar
 ```toml
 [[capabilities]]
 name = "codex-readonly"
+harness = "codex"
+# Add model only when pinned to the same identifier in the harness arguments.
 kind = "agent"
 description = "Read-only analysis with a fresh Codex agent; fixed device permissions."
 program = "/absolute/path/to/python3"

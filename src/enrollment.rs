@@ -242,11 +242,13 @@ struct Inner {
     clients: BTreeMap<String, (String, String, Client)>,
     pending: BTreeMap<String, Pending>,
     last_callback: BTreeMap<String, Instant>,
+    public_url: Option<String>,
     refreshed: Option<Instant>,
     checked_at: Option<i64>,
     error: Option<&'static str>,
 }
 pub struct Enrollment {
+    control: bool,
     settings: Settings,
     config: Arc<Config>,
     path: PathBuf,
@@ -281,10 +283,20 @@ fn active(inner: &Inner) -> impl Iterator<Item = (&String, &Record)> {
 }
 impl Enrollment {
     pub fn open(config: Arc<Config>) -> Result<Option<Arc<Self>>> {
+        Self::open_channel(config, false)
+    }
+    pub fn open_control(config: Arc<Config>) -> Result<Option<Arc<Self>>> {
+        Self::open_channel(config, true)
+    }
+    fn open_channel(config: Arc<Config>, control: bool) -> Result<Option<Arc<Self>>> {
         let Some(settings) = config.enrollment.clone() else {
             return Ok(None);
         };
-        let path = config.data_dir.join("enrollment.json");
+        let path = config.data_dir.join(if control {
+            "control-enrollment.json"
+        } else {
+            "enrollment.json"
+        });
         let records = if path.exists() {
             let metadata = std::fs::symlink_metadata(&path)?;
             use std::os::unix::fs::PermissionsExt;
@@ -323,6 +335,7 @@ impl Enrollment {
             .map(|(id, r)| (id.clone(), r.inbound.clone()))
             .collect();
         Ok(Some(Arc::new(Self {
+            control,
             settings,
             config,
             path,
@@ -333,6 +346,7 @@ impl Enrollment {
                 candidates: BTreeMap::new(),
                 pending: BTreeMap::new(),
                 last_callback: BTreeMap::new(),
+                public_url: None,
                 refreshed: None,
                 checked_at: None,
                 error: Some("waiting_for_tailscale"),
@@ -359,6 +373,16 @@ impl Enrollment {
             } else if let Ok(client) =
                 Client::new(&record.url, record.outbound.clone(), record.node_id)
             {
+                #[cfg(test)]
+                let client = {
+                    let mut client = client;
+                    if let Some(candidate) = inner.candidates.get(&id)
+                        && let Some(ca) = &candidate.test_ca
+                    {
+                        client.test_endpoint(ca, candidate.address).unwrap();
+                    }
+                    client
+                };
                 inner
                     .clients
                     .insert(id, (record.url, record.outbound, client.clone()));
@@ -366,6 +390,20 @@ impl Enrollment {
             }
         }
         result
+    }
+    pub fn public_url(&self) -> Option<String> {
+        let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        if fresh(&inner) {
+            inner.public_url.clone()
+        } else {
+            None
+        }
+    }
+    pub fn principal(&self, node: &str) -> Option<String> {
+        let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        active(&inner)
+            .find(|(_, r)| r.node_id == node)
+            .map(|(id, _)| format!("tailscale:{id}"))
     }
     pub fn authenticate(&self, token: &str) -> Option<String> {
         let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
@@ -461,13 +499,17 @@ impl Enrollment {
         inner.issued.entry(id.into()).or_insert_with(secret).clone()
     }
     async fn refresh(&self) -> Result<()> {
-        let result = status(&self.settings.tailscale_bin)
-            .await
-            .and_then(|s| candidates(&s, &self.settings));
+        let result = status(&self.settings.tailscale_bin).await.and_then(|s| {
+            Ok((
+                candidates(&s, &self.settings)?,
+                candidate(&s.this, &s.current_tailnet.suffix, &self.settings)?.url,
+            ))
+        });
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         inner.checked_at = Some(now());
         match result {
-            Ok(candidates) => {
+            Ok((candidates, public_url)) => {
+                inner.public_url = Some(public_url);
                 // Removal invalidates persisted automatic credentials, including after restart.
                 let kept: BTreeMap<_, _> = inner
                     .records
@@ -519,7 +561,11 @@ impl Enrollment {
         }
         let result: Result<Value> = exchange(
             &remote,
-            "/v1/enroll/start",
+            if self.control {
+                "/v1/control/enroll/start"
+            } else {
+                "/v1/enroll/start"
+            },
             &Start {
                 device_id: self.settings.device_id.clone(),
                 challenge,
@@ -631,8 +677,22 @@ async fn exchange<T: DeserializeOwned>(
 }
 pub fn router(enrollment: Arc<Enrollment>) -> Router {
     Router::new()
-        .route("/v1/enroll/start", post(start))
-        .route("/v1/enroll/confirm", post(confirm))
+        .route(
+            if enrollment.control {
+                "/v1/control/enroll/start"
+            } else {
+                "/v1/enroll/start"
+            },
+            post(start),
+        )
+        .route(
+            if enrollment.control {
+                "/v1/control/enroll/confirm"
+            } else {
+                "/v1/enroll/confirm"
+            },
+            post(confirm),
+        )
         .layer(DefaultBodyLimit::max(MAX_PAIR_BODY))
         .with_state(enrollment)
 }
@@ -671,7 +731,11 @@ async fn start(
     };
     let response: Confirmed = exchange(
         &remote,
-        "/v1/enroll/confirm",
+        if enrollment.control {
+            "/v1/control/enroll/confirm"
+        } else {
+            "/v1/enroll/confirm"
+        },
         &Confirm {
             device_id: enrollment.settings.device_id.clone(),
             challenge: request.challenge,

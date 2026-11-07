@@ -52,7 +52,11 @@ enum Commands {
     /// List live agent sessions, hardware resources and spawnable profiles across devices.
     Agents,
     /// Issue a short-lived login link for the private local monitoring panel.
-    Panel,
+    Panel {
+        /// Return a private Tailscale HTTPS link usable from another device.
+        #[arg(long)]
+        network: bool,
+    },
     /// Spawn a bounded agent run using a receiver-installed profile.
     SpawnAgent {
         #[arg(long)]
@@ -198,7 +202,18 @@ async fn main() -> Result<()> {
                 Commands::Discover => client.get("/v1/discover").await?,
                 Commands::Enrollment => client.get("/v1/enrollment").await?,
                 Commands::Agents => client.get("/v1/agents").await?,
-                Commands::Panel => client.post("/v1/panel/session", &json!({})).await?,
+                Commands::Panel { network } => {
+                    let mut value: Value = Client::control_local(&config)?
+                        .post("/v1/panel/session", &json!({}))
+                        .await?;
+                    if network {
+                        value["url"] = value["network_url"]
+                            .as_str()
+                            .context("private network address unavailable; check enrollment")?
+                            .into();
+                    }
+                    value
+                }
                 Commands::SpawnAgent {
                     profile,
                     prompt,
@@ -289,9 +304,16 @@ async fn daemon(config: Config) -> Result<()> {
         .context("bind daemon")?;
     let config = Arc::new(config);
     let enrollment = citta::enrollment::Enrollment::open(config.clone())?;
+    let control_enrollment = citta::enrollment::Enrollment::open_control(config.clone())?;
+    let store = Arc::new(store);
+    let permissions = citta::permissions::Permissions::open(&config, store.clone())?;
+    let control_token = Arc::new(citta::permissions::control_token(&config)?);
     let app = App {
+        control_enrollment,
+        permissions,
+        control_token,
         config,
-        store: Arc::new(store),
+        store,
         token: Arc::new(token),
         peers,
         enrollment,
@@ -317,6 +339,10 @@ async fn daemon(config: Config) -> Result<()> {
     ));
     let enrollment_task = app
         .enrollment
+        .clone()
+        .map(|e| tokio::spawn(e.run(app.shutdown.clone())));
+    let control_task = app
+        .control_enrollment
         .clone()
         .map(|e| tokio::spawn(e.run(app.shutdown.clone())));
     let maintenance_app = app.clone();
@@ -351,6 +377,9 @@ async fn daemon(config: Config) -> Result<()> {
     maintenance.await?;
     inventory_task.await?;
     if let Some(task) = enrollment_task {
+        task.await?;
+    }
+    if let Some(task) = control_task {
         task.await?;
     }
     server_stop.cancel();

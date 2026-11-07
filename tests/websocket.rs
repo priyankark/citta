@@ -22,21 +22,25 @@ async fn authenticated_events_replay_from_durable_cursor() {
     let address = listener.local_addr().unwrap();
     let token = "a".repeat(64);
     let stop = CancellationToken::new();
+    let config = Arc::new(Config {
+        node_id: "test".into(),
+        listen: address,
+        data_dir: dir.path().into(),
+        token_file: dir.path().join("token"),
+        slots: 1,
+        lease_secs: 6,
+        max_pending: 100,
+        max_history: 100,
+        peers: vec![],
+        enrollment: None,
+        inventory: Default::default(),
+        capabilities: vec![],
+    });
     let app = App {
-        config: Arc::new(Config {
-            node_id: "test".into(),
-            listen: address,
-            data_dir: dir.path().into(),
-            token_file: dir.path().join("token"),
-            slots: 1,
-            lease_secs: 6,
-            max_pending: 100,
-            max_history: 100,
-            peers: vec![],
-            enrollment: None,
-            inventory: Default::default(),
-            capabilities: vec![],
-        }),
+        permissions: citta::permissions::Permissions::open(&config, store.clone()).unwrap(),
+        control_token: Arc::new("b".repeat(64)),
+        control_enrollment: None,
+        config,
         store: store.clone(),
         token: Arc::new(token.clone()),
         peers: vec![],

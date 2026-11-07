@@ -30,10 +30,32 @@ impl Client {
             node_id,
         })
     }
+    #[cfg(test)]
+    pub(crate) fn test_endpoint(&mut self, ca: &[u8], address: std::net::IpAddr) -> Result<()> {
+        let url = reqwest::Url::parse(&self.url)?;
+        self.http = reqwest::Client::builder()
+            .no_proxy()
+            .redirect(reqwest::redirect::Policy::none())
+            .timeout(Duration::from_secs(4))
+            .tls_certs_only([reqwest::Certificate::from_der(ca)?])
+            .resolve(
+                url.host_str().unwrap(),
+                std::net::SocketAddr::new(address, url.port_or_known_default().unwrap()),
+            )
+            .build()?;
+        Ok(())
+    }
     pub fn local(config: &Config) -> Result<Self> {
         Self::new(
             &config.local_url(),
             read_token(&config.token_file)?,
+            config.node_id.clone(),
+        )
+    }
+    pub fn control_local(config: &Config) -> Result<Self> {
+        Self::new(
+            &config.local_url(),
+            read_token(&config.data_dir.join("control.token"))?,
             config.node_id.clone(),
         )
     }
@@ -81,11 +103,18 @@ impl Client {
             );
             bytes.extend_from_slice(&chunk);
         }
-        ensure!(
-            status.is_success(),
-            "peer returned HTTP {}",
-            status.as_u16()
-        );
+        if !status.is_success() {
+            return Err(RemoteStatus(status.as_u16()).into());
+        }
         serde_json::from_slice(&bytes).context("invalid peer response")
     }
 }
+
+#[derive(Debug)]
+pub struct RemoteStatus(pub u16);
+impl std::fmt::Display for RemoteStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "peer returned HTTP {}", self.0)
+    }
+}
+impl std::error::Error for RemoteStatus {}

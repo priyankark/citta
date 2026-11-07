@@ -92,14 +92,21 @@ pub struct Snapshot {
 pub type Inventory = Arc<Mutex<Option<Snapshot>>>;
 pub type Managed = Arc<Mutex<BTreeMap<String, AgentInfo>>>;
 
-pub fn started(registry: &Managed, id: &str, origin: &str, profile: &str) {
+pub fn started(
+    registry: &Managed,
+    id: &str,
+    origin: &str,
+    profile: &str,
+    harness: Option<&str>,
+    model: Option<&str>,
+) {
     let mut agents = registry.lock().unwrap_or_else(|e| e.into_inner());
     agents.insert(
         id.into(),
         AgentInfo {
             id: id.into(),
-            harness: profile.into(),
-            model: None,
+            harness: harness.unwrap_or("unknown").into(),
+            model: model.map(str::to_owned),
             label: profile.into(),
             state: AgentState::Busy,
             source: "citta_worker".into(),
@@ -454,9 +461,21 @@ mod tests {
         let managed = Managed::default();
         for i in 0..200 {
             let id = i.to_string();
-            started(&managed, &id, "origin", "codex");
+            started(
+                &managed,
+                &id,
+                "origin",
+                "codex",
+                Some("fixture-harness"),
+                Some("fixture-model"),
+            );
         }
         assert_eq!(managed.lock().unwrap().len(), 200);
+        assert_eq!(managed.lock().unwrap()["0"].harness, "fixture-harness");
+        assert_eq!(
+            managed.lock().unwrap()["0"].model.as_deref(),
+            Some("fixture-model")
+        );
         for i in 0..200 {
             finished(&managed, &i.to_string(), Status::Succeeded);
         }

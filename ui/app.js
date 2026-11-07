@@ -172,9 +172,36 @@ function renderDevices(list) {
         h(
           "div",
           "cap-tags",
-          (n.capabilities || []).map((c) => h("span", "tag", c.name)),
+          (n.capabilities || []).map((c) =>
+            h(
+              "div",
+              "capability-meta",
+              h("strong", null, c.name),
+              h(
+                "span",
+                null,
+                `Harness: ${c.harness || "not specified"} · Model: ${c.model || "not specified"}`,
+              ),
+            ),
+          ),
         ),
       );
+      const manage = h(
+        "button",
+        "text-button",
+        n.permissions
+          ? `Permissions · ${n.permissions.policy.mode.replaceAll("_", " ")} ↗`
+          : "Configure permissions ↗",
+      );
+      manage.disabled = !n.reachable;
+      manage.addEventListener("click", () => {
+        state.view = "permissions";
+        permission.node = n.node_id;
+        $("permission-device").value = n.node_id;
+        applyView();
+        loadPermissions();
+      });
+      card.append(h("div", "device-permissions", manage));
       return card;
     }),
   );
@@ -215,7 +242,12 @@ function renderAgents() {
           "td",
           null,
           h("div", "row-title", a.label),
-          h("div", "row-sub", a.model || a.harness, ` · ${a.id.slice(0, 19)}`),
+          h(
+            "div",
+            "row-sub",
+            `${a.harness} · ${a.model || "model not specified"}`,
+            ` · ${a.id.slice(0, 19)}`,
+          ),
         ),
         h("td", null, a.node_id),
         h(
@@ -239,7 +271,7 @@ function renderProfiles(list) {
     .flatMap((n) =>
       (n.capabilities || [])
         .filter((c) => c.kind === "agent")
-        .map((c) => ({ ...c, node: n.node_id })),
+        .map((c) => ({ ...c, node: n.node_id, policy: n.permissions?.policy })),
     );
   replace(
     "profiles",
@@ -250,11 +282,22 @@ function renderProfiles(list) {
             "profile",
             h("div", "profile-name", p.name),
             h("div", "row-sub", p.node),
+            h(
+              "div",
+              "profile-runtime",
+              `Harness: ${p.harness || "not specified"} · Model: ${p.model || "not specified"}`,
+            ),
             h("p", "profile-description", p.description),
             h(
               "div",
               "profile-limits",
-              `${Math.max(0, p.slots - p.active)} / ${p.slots} slots free · ${p.max_timeout_secs}s max`,
+              p.policy &&
+                (p.policy.mode === "paused" ||
+                  (p.policy.mode === "restricted" &&
+                    !p.policy.allowed_capabilities.includes(p.name)) ||
+                  p.policy.allowed_origins?.length === 0)
+                ? "Blocked by device permissions"
+                : `${Math.max(0, p.slots - p.active)} / ${p.slots} slots free · ${p.max_timeout_secs}s max`,
             ),
           ),
         )
@@ -406,27 +449,35 @@ function render() {
       ),
     ),
   );
+  renderPermissionDevices();
   applyView();
 }
 function applyView() {
   const v = state.view;
+  $("permissions-section").hidden = v !== "permissions";
+  $("stats").hidden = v === "permissions";
+  document.querySelector(".runtime-section").hidden = v === "permissions";
   for (const name of ["devices", "agents", "profiles", "runs"])
     $(`${name}-section`).hidden =
       v !== "overview" &&
       !(v === "agents" && ["agents", "profiles"].includes(name)) &&
       !(v === "runs" && name === "runs");
   $("page-title").textContent =
-    v === "agents"
-      ? "Agents across your mesh"
-      : v === "runs"
-        ? "Work across your network"
-        : "Your agent network";
+    v === "permissions"
+      ? "Permissions across your devices"
+      : v === "agents"
+        ? "Agents across your mesh"
+        : v === "runs"
+          ? "Work across your network"
+          : "Your agent network";
   $("page-subtitle").textContent =
-    v === "agents"
-      ? "See who is working, who is idle, and which profiles can start new agents."
-      : v === "runs"
-        ? "Follow execution, inspect results, and keep failed runs visible."
-        : "A live view of the devices, agents, and work across your mesh.";
+    v === "permissions"
+      ? "Choose what each device may execute, and which devices may send it work."
+      : v === "agents"
+        ? "See who is working, who is idle, and which profiles can start new agents."
+        : v === "runs"
+          ? "Follow execution, inspect results, and keep failed runs visible."
+          : "A live view of the devices, agents, and work across your mesh.";
   document.querySelectorAll(".nav").forEach((b) => {
     b.classList.toggle("active", b.dataset.view === v);
     b.setAttribute("aria-current", b.dataset.view === v ? "page" : "false");
@@ -499,6 +550,8 @@ document.querySelectorAll(".nav").forEach((button) =>
   button.addEventListener("click", () => {
     state.view = button.dataset.view;
     applyView();
+    if (state.view === "permissions" && !permission.view && !permission.loading)
+      loadPermissions();
   }),
 );
 $("logout").addEventListener("click", async () => {
@@ -506,5 +559,231 @@ $("logout").addEventListener("click", async () => {
   state.data = null;
   state.lastGood = 0;
   await refresh();
+});
+const permission = {
+  node: null,
+  view: null,
+  loading: false,
+  saving: false,
+  dirty: false,
+  sequence: 0,
+};
+function permissionMessage(message) {
+  $("permission-message").textContent = message;
+  $("permission-message").hidden = !message;
+}
+function renderPermissionDevices() {
+  const select = $("permission-device");
+  const list = nodes();
+  const signature = JSON.stringify(list.map((n) => [n.node_id, n.reachable]));
+  if (select.dataset.signature === signature) return;
+  select.dataset.signature = signature;
+  if (!permission.node) permission.node = state.data?.discovery.local.node_id;
+  const options = list.map((n) => {
+    const option = h(
+      "option",
+      null,
+      n.node_id + (n.reachable ? "" : " · unavailable"),
+    );
+    option.value = n.node_id;
+    return option;
+  });
+  if (permission.node && !list.some((n) => n.node_id === permission.node)) {
+    const o = h("option", null, permission.node + " · unavailable");
+    o.value = permission.node;
+    options.push(o);
+  }
+  select.replaceChildren(...options);
+  select.value = permission.node || "";
+}
+function editPermissions() {
+  permission.dirty = true;
+  $("permission-save").disabled = permission.saving;
+  $("permission-dirty").textContent = "Unsaved changes";
+  updatePermissionControls();
+}
+function updatePermissionControls() {
+  const mode = document.querySelector(
+    'input[name="permission-mode"]:checked',
+  )?.value;
+  $("permission-capabilities").disabled = mode !== "restricted";
+  for (const input of document.querySelectorAll(
+    "#permission-origin-list input",
+  ))
+    input.disabled = $("permission-all-origins").checked;
+}
+function permissionCheck(value, label, detail, checked) {
+  const input = h("input");
+  input.type = "checkbox";
+  input.value = value;
+  input.checked = checked;
+  input.addEventListener("change", editPermissions);
+  return h(
+    "label",
+    "permission-check",
+    input,
+    h("span", null, h("strong", null, label), h("small", null, detail)),
+  );
+}
+function renderPermissionEditor(view) {
+  const { snapshot } = view,
+    policy = snapshot.policy;
+  permission.view = view;
+  permission.dirty = false;
+  $("permission-title").textContent = view.node_id;
+  $("permission-revision").textContent =
+    `Revision ${snapshot.revision} · ${ago(snapshot.updated_at)}`;
+  for (const radio of document.querySelectorAll(
+    'input[name="permission-mode"]',
+  ))
+    radio.checked = radio.value === policy.mode;
+  const caps = [...view.capabilities];
+  for (const name of policy.allowed_capabilities)
+    if (!caps.some((c) => c.name === name))
+      caps.push({ name, description: "Currently not installed" });
+  replace(
+    "permission-cap-list",
+    caps.length
+      ? caps.map((c) =>
+          permissionCheck(
+            c.name,
+            c.name,
+            c.description,
+            policy.allowed_capabilities.includes(c.name),
+          ),
+        )
+      : [h("p", "muted", "No capabilities are installed on this device.")],
+  );
+  $("permission-all-origins").checked = policy.allowed_origins === null;
+  const origins = [...view.origins];
+  for (const id of policy.allowed_origins || [])
+    if (!origins.some((o) => o.id === id))
+      origins.push({ id, node_id: "Unavailable device", local: false });
+  replace(
+    "permission-origin-list",
+    origins.map((o) =>
+      permissionCheck(
+        o.id,
+        o.node_id + (o.local ? " · this device" : ""),
+        o.id,
+        policy.allowed_origins === null ||
+          policy.allowed_origins.includes(o.id),
+      ),
+    ),
+  );
+  replace(
+    "permission-history",
+    view.history.map((entry) =>
+      h(
+        "div",
+        "permission-event",
+        h(
+          "strong",
+          null,
+          `Revision ${entry.revision} · ${entry.policy.mode.replaceAll("_", " ")}`,
+        ),
+        h("span", "muted", `${entry.actor} · ${ago(entry.updated_at)}`),
+      ),
+    ),
+  );
+  $("permission-editor").hidden = false;
+  $("permission-save").disabled = true;
+  $("permission-dirty").textContent = "Saved on device";
+  updatePermissionControls();
+}
+async function loadPermissions() {
+  if (!permission.node || permission.saving) return;
+  const sequence = ++permission.sequence;
+  permission.loading = true;
+  permission.view = null;
+  $("permission-editor").hidden = true;
+  permissionMessage("Loading device permissions…");
+  try {
+    const response = await fetch(
+      `/panel/permissions?node=${encodeURIComponent(permission.node)}`,
+      { cache: "no-store" },
+    );
+    const value = await response.json().catch(() => ({}));
+    if (!response.ok)
+      throw Error(
+        value.error || `Device permissions unavailable (${response.status})`,
+      );
+    if (sequence !== permission.sequence) return;
+    renderPermissionEditor(value);
+    permissionMessage("");
+  } catch (e) {
+    if (sequence === permission.sequence) permissionMessage(e.message);
+  } finally {
+    if (sequence === permission.sequence) permission.loading = false;
+  }
+}
+$("permission-device").addEventListener("change", () => {
+  permission.node = $("permission-device").value;
+  permission.dirty = false;
+  loadPermissions();
+});
+for (const radio of document.querySelectorAll('input[name="permission-mode"]'))
+  radio.addEventListener("change", editPermissions);
+$("permission-all-origins").addEventListener("change", editPermissions);
+$("permission-reload").addEventListener("click", loadPermissions);
+$("permission-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!permission.view || permission.saving || !permission.dirty) return;
+  permission.saving = true;
+  $("permission-save").disabled = true;
+  $("permission-device").disabled = true;
+  $("permission-reload").disabled = true;
+  const policy = {
+    mode: document.querySelector('input[name="permission-mode"]:checked').value,
+    allowed_capabilities: [
+      ...document.querySelectorAll("#permission-cap-list input:checked"),
+    ].map((i) => i.value),
+    allowed_origins: $("permission-all-origins").checked
+      ? null
+      : [
+          ...document.querySelectorAll("#permission-origin-list input:checked"),
+        ].map((i) => i.value),
+  };
+  const node = permission.node;
+  for (const input of document.querySelectorAll("#permission-form input"))
+    input.disabled = true;
+  permissionMessage(`Saving permissions on ${node}…`);
+  try {
+    const response = await fetch("/panel/permissions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Citta-Panel": "1" },
+      body: JSON.stringify({
+        node,
+        expected_revision: permission.view.snapshot.revision,
+        policy,
+      }),
+    });
+    const value = await response.json().catch(() => ({}));
+    if (!response.ok)
+      throw Error(
+        value.error ||
+          `Save failed (${response.status}). Reload before retrying.`,
+      );
+    permission.view.snapshot = value;
+    permission.view.history = [value, ...permission.view.history].slice(0, 20);
+    renderPermissionEditor(permission.view);
+    permissionMessage(
+      `Permissions saved on ${node}. Revision ${value.revision}.`,
+    );
+    await refresh();
+  } catch (e) {
+    permissionMessage(e.message);
+    $("permission-dirty").textContent =
+      "Not confirmed · reload saved settings before retrying";
+    $("permission-save").disabled = true;
+    permission.dirty = false;
+  } finally {
+    permission.saving = false;
+    $("permission-device").disabled = false;
+    $("permission-reload").disabled = false;
+    for (const input of document.querySelectorAll("#permission-form input"))
+      input.disabled = false;
+    updatePermissionControls();
+  }
 });
 start();

@@ -44,3 +44,18 @@ fn identifiers_cannot_name_parent_or_current_directories() {
         assert!(citta::model::valid_name(valid));
     }
 }
+
+#[test]
+fn capability_runtime_metadata_is_optional_and_validated() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = citta::config::init(dir.path(), "metadata".into(), 7331).unwrap();
+    let mut config = citta::config::Config::load(&path).unwrap();
+    config.capabilities[0].harness = Some("custom-harness".into());
+    config.capabilities[0].model = Some("provider/model:variant".into());
+    config.validate().unwrap();
+    config.capabilities[0].model = Some("model\nspoof".into());
+    assert!(config.validate().is_err());
+    config.capabilities[0].model = None;
+    config.capabilities[0].harness = None;
+    config.validate().unwrap();
+}

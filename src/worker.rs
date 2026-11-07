@@ -48,6 +48,19 @@ async fn worker_loop(
         origins.extend(app.peer_clients());
         let origin = &origins[next % origins.len()];
         next += 1;
+        if !(if origin.node_id == app.config.node_id {
+            app.permissions
+                .snapshot()
+                .policy
+                .allows_capability(&cap.name)
+        } else {
+            app.origin_identity(&origin.node_id)
+                .is_some_and(|id| app.permissions.allows(&id, &cap.name))
+        }) {
+            drop(permit);
+            tokio::select! {_=app.shutdown.cancelled()=>return,_=tokio::time::sleep(Duration::from_millis(200))=>{}}
+            continue;
+        }
         let claim = tokio::select! {
             _ = app.shutdown.cancelled() => return,
             result = claim_from(origin, &app.config.node_id, &cap.name, cap.kind == CapabilityKind::Agent) => result,
@@ -78,9 +91,15 @@ async fn worker_loop(
                         &claim.task.id,
                         &origin.node_id,
                         &cap.name,
+                        cap.harness.as_deref(),
+                        cap.model.as_deref(),
                     );
                 }
-                let outcome = execute(&app, &cap, origin, &claim).await;
+                let outcome = if app.execution_allowed(origin, &claim.task, &cap.name) {
+                    execute(&app, &cap, origin, &claim).await
+                } else {
+                    Outcome::error(Status::Failed, "device permissions deny this execution")
+                };
                 if cap.kind == CapabilityKind::Agent {
                     crate::inventory::finished(&app.managed_agents, &claim.task.id, outcome.status);
                 }
@@ -223,7 +242,16 @@ async fn run_command(
         .kill_on_drop(false);
     #[cfg(unix)]
     command.process_group(0);
-    let mut child = match command.spawn() {
+    if !app.execution_allowed(origin, &claim.task, &cap.name) {
+        return Outcome::error(Status::Failed, "device permissions deny this execution");
+    }
+    let identity = app
+        .execution_identity(origin, &claim.task)
+        .unwrap_or_default();
+    let (mut child, authorization) = match app
+        .permissions
+        .launch(&identity, &cap.name, || command.spawn().map_err(Into::into))
+    {
         Ok(child) => child,
         Err(e) => return Outcome::error(Status::Failed, format!("spawn failed: {e}")),
     };
@@ -270,10 +298,12 @@ async fn run_command(
         loop {
             tokio::select! {
                 biased;
+                _ = authorization.revoked() => break Outcome::error(Status::Interrupted,"device permissions revoked during execution"),
                 _ = app.shutdown.cancelled() => break Outcome::error(Status::Interrupted, "worker daemon is shutting down"),
                 _ = &mut deadline => break Outcome::error(Status::Failed, "execution timeout exceeded"),
                 result = &mut execution => break result.unwrap_or_else(|e| Outcome::error(Status::Failed, e.to_string())),
                 _ = heartbeat.tick() => {
+                    if !app.execution_allowed(origin,&claim.task,&cap.name) {break Outcome::error(Status::Interrupted,"device permissions or origin trust revoked");}
                     // Fail closed on renewal loss. Don't keep executing through a partition.
                     let renewed = tokio::select! {
                         _ = app.shutdown.cancelled() => false,
