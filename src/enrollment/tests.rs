@@ -381,7 +381,11 @@ async fn netmap_removal_revokes_credentials_durably_and_cli_failure_fails_closed
     let dir = tempfile::tempdir().unwrap();
     let original = setup(dir.path(), "alpha");
     let bin = dir.path().join("tailscale-fixture");
-    std::fs::write(&bin, "#!/bin/sh\nexec /bin/cat \"$0.json\"\n").unwrap();
+    std::fs::write(
+        &bin,
+        "#!/bin/sh\n[ \"$TAILSCALE_BE_CLI\" = 1 ] || exit 23\nexec /bin/cat \"$0.json\"\n",
+    )
+    .unwrap();
     std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o700)).unwrap();
     let status_path = dir.path().join("tailscale-fixture.json");
     let mut data = json!({"BackendState":"Running","Self":{"ID":"alpha","UserID":7,"DNSName":"alpha.tail-test.ts.net","TailscaleIPs":["100.64.0.1"]},"CurrentTailnet":{"StableID":"tail-test","MagicDNSSuffix":"tail-test.ts.net"},"Peer":{"b":{"ID":"beta","UserID":7,"DNSName":"beta.tail-test.ts.net","TailscaleIPs":["100.64.0.2"],"Online":true}}});

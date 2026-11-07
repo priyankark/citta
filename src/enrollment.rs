@@ -181,6 +181,8 @@ async fn tailscale(bin: &Path, args: &[&str]) -> Result<Vec<u8>> {
     use std::process::Stdio;
     let mut child = Command::new(bin)
         .args(args)
+        // The macOS app executable otherwise launches its GUI when launchd has no TERM.
+        .env("TAILSCALE_BE_CLI", "1")
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::null())

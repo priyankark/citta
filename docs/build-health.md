@@ -26,3 +26,7 @@ A successful later attempt of the same run is linked as recovery. A different gr
 The full attempt history is preserved in the local snapshot and GitHub. A pending/rerunning check is not counted as a passing release gate.
 
 Product task failure tracking is a separate milestone in [the plan](../plan.md#failure-visibility-and-build-history): policy denials, sandbox errors, command failures, timeouts, and interrupted tasks should have a durable CLI/MCP failure inbox. Existing task history already retains terminal outcomes; the richer inbox is planned, not implemented.
+
+## Device integration incidents
+
+- 2026-11-07, automatic enrollment build `308c92a`: the macOS launchd check failed closed because the bundled Tailscale executable selected GUI mode without a terminal environment. The follow-up fix sets `TAILSCALE_BE_CLI=1` only for Tailscale subprocesses and adds a regression fixture that requires it. This is a runtime integration defect, not a CI runner failure. The original observation remains in the private device acceptance record. See [Tailscale CLI guidance](https://tailscale.com/docs/reference/tailscale-cli).
