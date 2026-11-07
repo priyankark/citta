@@ -10,9 +10,7 @@ use tokio::{
 
 pub async fn run(app: App) -> Result<()> {
     let global = Arc::new(Semaphore::new(app.config.slots));
-    let mut origins = vec![Client::local(&app.config)?];
-    origins.extend(app.peers.clone());
-    let origins = Arc::new(origins);
+    let local = Client::local(&app.config)?;
     let mut workers = JoinSet::new();
     for capability in &app.config.capabilities {
         for slot in 0..capability.slots {
@@ -20,7 +18,7 @@ pub async fn run(app: App) -> Result<()> {
                 app.clone(),
                 capability.clone(),
                 global.clone(),
-                origins.clone(),
+                local.clone(),
                 slot,
             ));
         }
@@ -38,7 +36,7 @@ async fn worker_loop(
     app: App,
     cap: Capability,
     global: Arc<Semaphore>,
-    origins: Arc<Vec<Client>>,
+    local: Client,
     mut next: usize,
 ) {
     loop {
@@ -46,6 +44,8 @@ async fn worker_loop(
             _ = app.shutdown.cancelled() => return,
             permit = global.clone().acquire_owned() => match permit { Ok(p) => p, Err(_) => return },
         };
+        let mut origins = vec![local.clone()];
+        origins.extend(app.peer_clients());
         let origin = &origins[next % origins.len()];
         next += 1;
         let claim = tokio::select! {

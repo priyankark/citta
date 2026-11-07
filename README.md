@@ -19,7 +19,7 @@ flowchart LR
 
 ## Included
 
-- Explicit device pairing, live capability discovery, and visibility into recent work across peers.
+- Automatic same-owner Tailscale enrollment, live capability discovery, and visibility into recent work across peers.
 - Per-device secrets, HTTPS for remote connections, loopback-only listeners, and private state directories.
 - SQLite WAL persistence, atomic claims, idempotent submission/completion, expiring leases, and replayable WebSocket events.
 - Global and per-capability concurrency limits, queue limits/deadlines, execution timeouts, and bounded input/output.
@@ -54,7 +54,7 @@ citta --config "$HOME/.config/citta/config.toml" inspect TASK_UUID
 
 ## Connect actual devices
 
-Follow [device setup](docs/setup.md). Both devices need Citta, Tailscale connectivity, and reciprocal pairing. Only configured peers can claim work. A peer URL is an HTTPS origin such as `https://desktop.example.ts.net:7332`; Citta verifies the configured node ID when contacting it. HTTP numeric loopback URLs are accepted for local integration testing.
+Follow [device setup](docs/setup.md). The setup agent enables `citta enroll` on each installed device; daemons then discover and pair automatically using the existing Tailscale account. No human pairing steps or token copying. Peers become available to workers without restarting. Existing explicit peers remain supported for staged upgrades. Remote traffic uses verified HTTPS; only numeric loopback HTTP is allowed in local tests.
 
 No task input contains shell commands or remote executable paths. A capability maps a name to a locally configured program and fixed argument vector. JSON input arrives on stdin, and UTF-8 stdout/stderr become the result. See [capability adapters](docs/capabilities.md).
 

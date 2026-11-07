@@ -33,11 +33,13 @@ async fn authenticated_events_replay_from_durable_cursor() {
             max_pending: 100,
             max_history: 100,
             peers: vec![],
+            enrollment: None,
             capabilities: vec![],
         }),
         store: store.clone(),
         token: Arc::new(token.clone()),
         peers: vec![],
+        enrollment: None,
         activity: Arc::new(Mutex::new(BTreeMap::new())),
         shutdown: stop.clone(),
     };

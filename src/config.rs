@@ -26,6 +26,8 @@ pub struct Config {
     pub peers: Vec<Peer>,
     #[serde(default)]
     pub capabilities: Vec<Capability>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enrollment: Option<crate::enrollment::Settings>,
 }
 fn lease_default() -> u64 {
     30
@@ -64,6 +66,9 @@ impl Config {
         Ok(config)
     }
     pub fn validate(&self) -> Result<()> {
+        if let Some(settings) = &self.enrollment {
+            settings.validate()?;
+        }
         ensure!(valid_name(&self.node_id), "invalid node_id");
         ensure!(
             self.listen.ip().is_loopback() && self.listen.port() != 0,
@@ -222,6 +227,7 @@ pub fn init(dir: &Path, node_id: String, port: u16) -> Result<PathBuf> {
         max_pending: 1000,
         max_history: 10000,
         peers: vec![],
+        enrollment: None,
         capabilities: vec![Capability {
             name: "echo".into(),
             description: "Return the supplied JSON; use to validate cross-device connectivity."

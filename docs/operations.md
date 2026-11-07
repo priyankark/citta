@@ -28,6 +28,12 @@ For a consistent backup, stop the daemon and copy the entire data directory, con
 
 Use the same reviewed commit on all participating devices. Stop new submissions, allow active tasks to finish or cancel them deliberately, stop the service, back up state, replace the binary, run `check`, and restart. Confirm discovery and a targeted remote task. The initial schema is version 1; newer schema versions are rejected rather than opened unsafely. Roll back the binary with its compatible backup if a future migration is irreversible. Keep prior binaries until the device acceptance checks pass.
 
+## Automatic enrollment
+
+Use `citta enrollment` to inspect freshness and pairing states. A stale identity check suspends automatic credentials; a successful check restores eligible devices without restarting. Removal from the pinned owner's netmap invalidates and removes automatic credentials. Re-enrollment is automatic if the device returns. To opt a device out, disable its enrollment configuration and restart it; remove the device from Tailscale when access must be revoked network-wide. Preserve `data/enrollment.json` in private backups, and never copy a device's whole identity to a second device.
+
+Automatic peers and existing explicit peers can coexist during an upgrade. Explicit peer entries and shared node tokens retain their old trust semantics; automatic revocation does not revoke those independent grants. After successful automatic pairing, remove legacy entries on both ends and rotate any shared node tokens. Do not remove old grants before the replacement path is verified.
+
 ## Credential rotation
 
 Generate a fresh cryptographically random token (at least 32 URL-safe characters), atomically replace the protected node token, distribute it only to authorized peers, and restart those daemons and MCP subprocesses. Rotation is not hot-reloaded; coordinate it as maintenance. Tokens grant full node access. Removing a peer entry stops its claims but is not sufficient to revoke a copied node token; rotate the node token to revoke access.

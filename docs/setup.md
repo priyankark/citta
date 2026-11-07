@@ -12,33 +12,35 @@ citta --config "$HOME/.config/citta/config.toml" check
 
 If a config already exists, inspect it and preserve its identity, secret, peers, and capabilities. Never run `init` to repair an existing installation. Stop/restart the daemon to apply changes; hot reload is not implemented.
 
-## Tailscale transport
+## Automatic enrollment — default setup
 
-Citta does not provision Tailscale accounts or change tailnet policy. Inspect existing `tailscale status` and `tailscale serve status` first. Obtain the CLI path if a macOS app installation does not put it on PATH. On a connected device, expose Citta's loopback port through a dedicated, unused Serve HTTPS port:
+Once Citta and Tailscale are installed and Tailscale is signed in, the setup agent enables enrollment once on each device:
 
 ```sh
-tailscale serve --bg --https=7332 http://127.0.0.1:7331
-tailscale serve status
+citta --config "$HOME/.config/citta/config.toml" enroll \
+  --tailscale-bin /absolute/path/to/tailscale
 ```
 
-Use the exact HTTPS URL reported by Serve, including its port. Keep other Serve routes intact. Enabling HTTPS may require the account owner's tailnet setting change. Never enable Funnel. Limit access to participating devices/users with the tailnet's grants or ACLs. Tailscale Serve supplies HTTPS within the tailnet; Citta additionally requires its bearer secret. [Tailscale Serve reference](https://tailscale.com/docs/reference/tailscale-cli/serve).
+On macOS the executable may be `/Applications/Tailscale.app/Contents/MacOS/Tailscale`. This command pins the current Tailscale account, tailnet and device identity, reuses a matching private Serve HTTPS route or adds one on unused port 7332, and preserves peers/capabilities. It refuses a conflicting route or public Funnel on that port. Use the same `--https-port` on participating devices. Start or restart the existing daemon after enabling it.
 
-## Reciprocal pairing
+The daemon discovers same-owner, untagged devices from local `tailscale status --json`, performs reciprocal HTTPS challenge handshakes, stores private per-peer credentials, and updates workers without restarts. No pairing codes, token transfers, Taildrop bundles, human confirmation, or relayed agent instructions are part of pairing. Devices must already run an enrollment-capable build; this is not a remote software installer. Tailscale sign-in and tailnet access policy remain external prerequisites.
 
-Each node has its own `node.token`. Transfer a copy to the authorized peer through an existing authenticated channel such as SSH/SCP. Place it in the peer's private Citta directory with mode 0600. Do not print tokens, paste them into chat, commit them, or put them in process arguments. A token grants full access to its node within this trusted mesh.
+Inspect progress through the agent tools (`citta_discover`) or CLI:
 
-On **laptop**, add a desktop peer:
-
-```toml
-[[peers]]
-node_id = "desktop"
-url = "https://desktop.YOUR-TAILNET.ts.net:7332"
-token_file = "/absolute/private/citta/desktop.token"
+```sh
+citta --config "$HOME/.config/citta/config.toml" enrollment
+citta --config "$HOME/.config/citta/config.toml" discover
 ```
 
-On **desktop**, add the reciprocal laptop entry using the laptop's HTTPS URL and token file. The worker's origin must list that worker as a peer before it can claim work. Configuration permits at most 64 direct peers; no automatic transitive discovery or tailnet scanning occurs.
+A waiting peer may be offline, running an older build, missing enrollment configuration, blocked by tailnet policy, or using a different HTTPS port. Fix it through the available device agent/management channel. Do not fall back to asking the user to copy credentials. No remote execution channel is implicitly added by enrollment.
 
-Run `check` on both nodes and restart each daemon. Run `discover` on both. Both peer entries must be reachable, and the reported node IDs must match configuration. If a peer fails, check service status, Serve URL, TLS, tailnet access policy, token file, and reciprocal IDs. Do not disable TLS verification or bind Citta publicly to work around connectivity.
+Trust is limited to the pinned owner and tailnet. Other users' devices, tagged devices and expired identities are excluded. Stale/unavailable Tailscale identity disables automatic credentials until a fresh check succeeds. Automatic enrollment grants trusted-mesh API access and execution of locally installed capabilities; it does not add capabilities, enable a shell, change task/harness approvals, or implement OS sandboxing. See [the protocol](protocol.md#automatic-enrollment) for the trust boundary.
+
+## Explicit peers — compatibility mode
+
+Existing `[[peers]]` entries still work. Their tokens remain explicit trust grants independent of automatic enrollment and are not revoked by netmap removal. Keep existing entries during a staged upgrade; migrate them only after both devices successfully enroll. Do not exchange new manual tokens during ordinary device setup.
+
+A legacy peer has a stable `node_id`, HTTPS origin `url`, and private absolute `token_file`. Its copied node token grants full node access. Revoke a legacy token by rotating the owning node's token and removing obsolete copies; removing an entry alone does not revoke a copied token.
 
 ## Install a persistent service
 
@@ -84,4 +86,4 @@ Then install one useful capability on only one device, attach MCP on the other, 
 
 ## Roll back enrollment
 
-Stop the service (`launchctl bootout` or `systemctl --user disable --now citta`). Disable only Citta's Serve port using `tailscale serve --https=7332 off`; never reset all Serve configuration. Remove reciprocal peer entries and their copied credentials. Preserve the database until task/result retention is resolved. Revoke a leaked token by replacing the node token and its authorized peer copies, then restart affected daemons.
+Stop the service (`launchctl bootout` or `systemctl --user disable --now citta`). Disable only Citta's Serve port using `tailscale serve --https=7332 off`; never reset all Serve configuration. Disable enrollment on both devices or remove the device from the trusted Tailscale account; remove any legacy peer entries and rotate their copied node credentials. Automatic enrollment will otherwise re-establish trust on the next handshake. Preserve the database until task/result retention is resolved. Revoke a leaked token by replacing the node token and its authorized peer copies, then restart affected daemons.

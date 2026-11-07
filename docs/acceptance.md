@@ -18,12 +18,17 @@ Local development host, 2026-11-06, Rust 1.99.1:
 
 GitHub CI runs these suites on macOS and Linux. Consult the latest successful run for the exact commit. Any failed or unrun platform check remains a release blocker. The model adapter test uses a mock response and does not establish real model/GPU or harness compatibility.
 
+## Automatic enrollment evidence
+
+Enrollment tests exercise a real TLS callback handshake between independent node identities, private state restoration, wrong-owner/tag/expiry exclusion, netmap removal, stale identity failure, forged/replayed/expired challenges, browser-origin rejection, duplicate node names, invalid certificate/hostname rejection, redirect refusal, and preservation of existing Serve routes. TLS fixtures are test-only and are never added to device trust stores. Existing mesh tests cover task execution and MCP. These local tests do not establish physical two-device automatic enrollment.
+
 ## Physical device qualification — pending
 
 Record the exact commit and a private device inventory (OS/architecture, node ID, Tailscale HTTPS URL, service lifecycle, harness/version, installed capability and limits). Never record tokens in evidence.
 
 - [ ] Both devices run the same reviewed build and pass `check`.
 - [ ] Persistent services start and recover after login/reboot according to the intended lifecycle.
+- [ ] Both new-build daemons automatically enroll without manual token exchange, remain paired across restart, and reject devices outside the pinned owner.
 - [ ] Tailscale HTTPS discovery works in both directions with valid certificates and intended tailnet access rules.
 - [ ] Authentication rejects a wrong token; unrelated devices have no access.
 - [ ] A targeted echo task runs on the opposite physical device in each direction; record task IDs and results.
@@ -40,7 +45,7 @@ Record the exact commit and a private device inventory (OS/architecture, node ID
 
 ## V1 boundaries
 
-Single-owner trusted mesh; explicit pairing; macOS/Linux; fixed configured commands; bounded JSON/text results. No OS sandbox for arbitrary code, large artifact transfer, repository synchronization, active-session injection, recursive delegation budgets, global workflow DAG, GPU-memory enforcement, or multi-tenant authorization. The originating agent can independently submit multiple bounded tasks and combine their results. Treat outputs as untrusted data.
+Single-owner trusted mesh; automatic same-owner enrollment with explicit-peer compatibility; macOS/Linux; fixed configured commands; bounded JSON/text results. No OS sandbox for arbitrary code, large artifact transfer, repository synchronization, active-session injection, recursive delegation budgets, global workflow DAG, GPU-memory enforcement, or multi-tenant authorization. The originating agent can independently submit multiple bounded tasks and combine their results. Treat outputs as untrusted data.
 
 ## Release record template
 

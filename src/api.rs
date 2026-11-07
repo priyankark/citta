@@ -31,10 +31,22 @@ pub struct App {
     pub store: Arc<Store>,
     pub token: Arc<String>,
     pub peers: Vec<Client>,
+    pub enrollment: Option<Arc<crate::enrollment::Enrollment>>,
     pub activity: Activity,
     pub shutdown: CancellationToken,
 }
 impl App {
+    pub fn peer_clients(&self) -> Vec<Client> {
+        let mut peers = self.peers.clone();
+        if let Some(enrollment) = &self.enrollment {
+            for client in enrollment.clients() {
+                // An automatically refreshed credential takes precedence for the same identity.
+                peers.retain(|p| p.node_id != client.node_id);
+                peers.push(client);
+            }
+        }
+        peers
+    }
     pub async fn db<T: Send + 'static>(
         &self,
         f: impl FnOnce(&Store) -> Result<T> + Send + 'static,
@@ -68,11 +80,13 @@ impl App {
     }
 }
 pub fn router(app: App) -> Router {
-    Router::new()
+    let enrollment = app.enrollment.clone();
+    let router = Router::new()
         .route("/healthz", get(|| async { Json(json!({"ok":true})) }))
         .route("/v1/node", get(node))
         .route("/v1/discover", get(discover))
         .route("/v1/activity", get(activity))
+        .route("/v1/enrollment", get(enrollment_status))
         .route("/v1/tasks", post(submit).get(list))
         .route("/v1/tasks/{id}", get(inspect))
         .route("/v1/tasks/{id}/cancel", post(cancel))
@@ -83,11 +97,17 @@ pub fn router(app: App) -> Router {
         .route("/v1/events/ws", get(events_ws))
         .layer(DefaultBodyLimit::max(MAX_BODY))
         .layer(middleware::from_fn_with_state(app.clone(), authenticate))
-        .with_state(app)
+        .with_state(app);
+    match enrollment {
+        Some(enrollment) => router.merge(crate::enrollment::router(enrollment)),
+        None => router,
+    }
 }
+#[derive(Clone)]
+struct PeerIdentity(String);
 async fn authenticate(
     State(app): State<App>,
-    request: axum::extract::Request,
+    mut request: axum::extract::Request,
     next: Next,
 ) -> Response {
     // No browser use: reject Origin even with a valid token, preventing cross-origin WS use.
@@ -101,7 +121,16 @@ async fn authenticate(
         .and_then(|v| v.strip_prefix("Bearer "))
         .unwrap_or("");
     if !bool::from(supplied.as_bytes().ct_eq(app.token.as_bytes())) {
-        return StatusCode::UNAUTHORIZED.into_response();
+        match app
+            .enrollment
+            .as_ref()
+            .and_then(|e| e.authenticate(supplied))
+        {
+            Some(node_id) => {
+                request.extensions_mut().insert(PeerIdentity(node_id));
+            }
+            None => return StatusCode::UNAUTHORIZED.into_response(),
+        }
     }
     next.run(request).await
 }
@@ -135,14 +164,23 @@ async fn node(State(app): State<App>) -> Json<NodeInfo> {
     Json(app.node_info())
 }
 async fn discover(State(app): State<App>) -> Json<Value> {
-    let peers: Vec<Value> = stream::iter(app.peers.clone()).map(|peer| async move {
+    let peers: Vec<Value> = stream::iter(app.peer_clients()).map(|peer| async move {
         match peer.get::<NodeInfo>("/v1/node").await {
             Ok(node) if node.node_id == peer.node_id && node.protocol == 1 => json!({"node_id":peer.node_id,"reachable":true,"node":node}),
             Ok(_) => json!({"node_id":peer.node_id,"reachable":false,"error":"node identity or protocol mismatch"}),
             Err(_) => json!({"node_id":peer.node_id,"reachable":false,"error":"peer unreachable or authentication failed"}),
         }
     }).buffer_unordered(8).collect().await;
-    Json(json!({"local":app.node_info(),"peers":peers}))
+    Json(
+        json!({"local":app.node_info(),"peers":peers,"enrollment":app.enrollment.as_ref().map(|e|e.report())}),
+    )
+}
+async fn enrollment_status(State(app): State<App>) -> Json<Value> {
+    Json(
+        app.enrollment
+            .as_ref()
+            .map_or_else(|| json!({"enabled":false}), |e| e.report()),
+    )
 }
 async fn submit(
     State(app): State<App>,
@@ -180,15 +218,18 @@ async fn cancel(State(app): State<App>, Path(id): Path<String>) -> Result<Json<T
 }
 async fn claim(
     State(app): State<App>,
+    identity: Option<axum::Extension<PeerIdentity>>,
     Json(request): Json<ClaimRequest>,
 ) -> Result<Response, ApiError> {
     if !valid_name(&request.worker_node) || !valid_name(&request.capability) {
         return Ok(StatusCode::BAD_REQUEST.into_response());
     }
+    if identity.is_some_and(|i| i.0.0 != request.worker_node) {
+        return Ok(StatusCode::FORBIDDEN.into_response());
+    }
     if request.worker_node != app.config.node_id
         && !app
-            .config
-            .peers
+            .peer_clients()
             .iter()
             .any(|p| p.node_id == request.worker_node)
     {
@@ -267,7 +308,7 @@ async fn activity(State(app): State<App>) -> Result<Json<Value>, ApiError> {
     let local = list(State(app.clone()), Query(Listing { limit: Some(20) }))
         .await?
         .0;
-    let peers: Vec<Value> = stream::iter(app.peers.clone())
+    let peers: Vec<Value> = stream::iter(app.peer_clients())
         .map(|peer| async move {
             let info = peer.get::<NodeInfo>("/v1/node").await;
             if !matches!(info, Ok(ref n) if n.node_id == peer.node_id && n.protocol == 1) {

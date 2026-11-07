@@ -2,15 +2,15 @@
 
 ## Product
 
-Citta pools capabilities and spare compute across a person's trusted devices. Agents independently discover what other devices can do, submit bounded work, inspect progress, and consume results. Humans configure the trust boundary and budgets; they do not route each task. Rust is the implementation language. The first supported platforms are macOS and Linux.
+Citta pools capabilities and spare compute across a person's trusted devices. Agents independently discover what other devices can do, submit bounded work, inspect progress, and consume results. The owner selects the trust boundary and budgets once; agents handle installation, enrollment and task routing without ongoing human involvement. Rust is the implementation language. The first supported platforms are macOS and Linux.
 
 The acceptance scenario is an agent on device A discovering a capability installed only on device B, submitting work through MCP, continuing its own work, and retrieving B's result. B must respect its configured capacity. Work and results must survive an origin restart. Disconnects must never silently replay potentially side-effecting work.
 
 ## Architecture decisions
 
 - One daemon per device; no mandatory cloud service or permanent cluster leader.
-- Each task has one durable origin. Idle workers pull matching tasks from their own origin and explicitly paired peers, rotating through peers for fairness. A SQLite transaction grants one lease. This avoids ambiguous push retries and allows peer-to-peer operation without a consensus system.
-- Tailscale provides private connectivity. The daemon binds loopback; Tailscale Serve provides the remote HTTPS endpoint. Pairing is explicit, using peer URLs and per-device bearer secrets. Discovery queries only paired peers, not the entire tailnet. Citta never enables public Funnel.
+- Each task has one durable origin. Idle workers pull matching tasks from their own origin and enrolled peers, rotating through peers for fairness. A SQLite transaction grants one lease. This avoids ambiguous push retries and allows peer-to-peer operation without a consensus system.
+- Tailscale provides private connectivity. The daemon binds loopback; Tailscale Serve provides the remote HTTPS endpoint. Automatic enrollment pins the existing Tailscale owner/tailnet/device, discovers same-owner untagged devices, and performs verified HTTPS challenge callbacks to exchange per-peer credentials. Workers adopt newly paired devices without restarts. Existing explicit peer grants remain supported for compatibility. Citta never enables public Funnel.
 - Local stdio MCP exposes discovery, submission, inspection, listing, and cancellation to agent harnesses. HTTP/JSON is the versioned inter-device protocol; authenticated WebSockets stream durable task events.
 - Workers advertise named capabilities. An operator configures a fixed executable and argument vector per capability; task input travels as JSON on stdin, never interpolated into a shell command. This supports command tools, model wrappers, and agent harness wrappers through the same contract.
 - Agents choose the capability and optionally a target device. Available matching workers claim tasks. The initial scheduler enforces global and per-capability concurrency, maximum wall time, and bounded input/output. It does not claim to enforce GPU memory, CPU quotas, or model token charges; wrappers and OS isolation must enforce those.
@@ -62,7 +62,7 @@ Task categories must correspond to enforceable capability contracts, not labels 
 
 Test/build commands themselves execute repository code. A task named `test` must not receive a broader host grant merely because it sounds harmless. Artifact import, repository staging, and patch return need their own validation before those presets can be shipped.
 
-Rules bind to authenticated origin identity, stable capability IDs, resource IDs resolved on the worker, execution budgets, and a policy revision. Human-readable node IDs or task-supplied `kind`/`origin` fields alone are not authorization. The existing shared inbound node token grants full API access; introduce per-peer credentials/scopes and separate control-plane permissions before advertising isolation between peers. In the pull protocol, check the configured origin channel and local grants before offering a capability, then revalidate the actual task immediately before spawn.
+Rules bind to authenticated origin identity, stable capability IDs, resource IDs resolved on the worker, execution budgets, and a policy revision. Human-readable node IDs or task-supplied `kind`/`origin` fields alone are not authorization. Automatic enrollment now issues identity-bound per-peer credentials, while the local/legacy node token still grants full API access. Introduce capability scopes and separate control-plane permissions before advertising isolation between peers. In the pull protocol, check the configured origin channel and local grants before offering a capability, then revalidate the actual task immediately before spawn.
 
 Approval holds must not consume worker slots or running leases. A durable approval binds to the immutable request digest, selected target, capability definition, policy revision, expiry, and requested resource grants. Editing any of those invalidates it. Default behavior for unattended workers is to leave a clear blocked/denied state, never wait indefinitely for hidden terminal prompts. The owner's explicitly configured allow-all choice removes Citta's approval requirement within that scope.
 

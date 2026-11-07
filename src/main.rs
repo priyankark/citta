@@ -40,6 +40,15 @@ enum Commands {
     },
     /// Validate configuration and credential files without starting execution.
     Check,
+    /// Enable unattended pairing with devices owned by this Tailscale account.
+    Enroll {
+        #[arg(long)]
+        tailscale_bin: PathBuf,
+        #[arg(long, default_value_t = 7332)]
+        https_port: u16,
+    },
+    /// Show automatic enrollment health, waiting devices, and paired identities.
+    Enrollment,
     /// Run the daemon and configured workers.
     Daemon,
     /// Expose Citta tools over MCP stdio to an agent harness.
@@ -122,6 +131,12 @@ async fn main() -> Result<()> {
                 json!({"config":path,"next":"Run citta --config <path> check, then daemon"}),
             );
         }
+        Commands::Enroll {
+            tailscale_bin,
+            https_port,
+        } => {
+            return print(citta::enrollment::enable(&cli.config, tailscale_bin, https_port).await?);
+        }
         Commands::Guard {
             parent,
             timeout,
@@ -164,6 +179,7 @@ async fn main() -> Result<()> {
             let value: Value = match command {
                 Commands::Mcp => return citta::mcp::serve(client).await,
                 Commands::Discover => client.get("/v1/discover").await?,
+                Commands::Enrollment => client.get("/v1/enrollment").await?,
                 Commands::Submit {
                     capability,
                     input,
@@ -229,11 +245,14 @@ async fn daemon(config: Config) -> Result<()> {
     let listener = tokio::net::TcpListener::bind(config.listen)
         .await
         .context("bind daemon")?;
+    let config = Arc::new(config);
+    let enrollment = citta::enrollment::Enrollment::open(config.clone())?;
     let app = App {
-        config: Arc::new(config),
+        config,
         store: Arc::new(store),
         token: Arc::new(token),
         peers,
+        enrollment,
         activity: Arc::new(Mutex::new(BTreeMap::new())),
         shutdown: CancellationToken::new(),
     };
@@ -246,6 +265,10 @@ async fn daemon(config: Config) -> Result<()> {
             .await
     });
     let mut workers = tokio::spawn(citta::worker::run(app.clone()));
+    let enrollment_task = app
+        .enrollment
+        .clone()
+        .map(|e| tokio::spawn(e.run(app.shutdown.clone())));
     let maintenance_app = app.clone();
     let maintenance = tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(1));
@@ -276,6 +299,9 @@ async fn daemon(config: Config) -> Result<()> {
         workers.await??;
     }
     maintenance.await?;
+    if let Some(task) = enrollment_task {
+        task.await?;
+    }
     server_stop.cancel();
     if !server_done {
         tokio::time::timeout(Duration::from_secs(10), server).await???;
