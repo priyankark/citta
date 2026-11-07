@@ -31,6 +31,7 @@ jobs:
       - run: cargo build --locked
       - run: python3 scripts/test_mesh.py
       - run: python3 scripts/test_helpers.py
+      - run: python3 scripts/test_upgrade.py
       - run: python3 scripts/test_ci_health.py
       - run: cargo build --release --locked
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

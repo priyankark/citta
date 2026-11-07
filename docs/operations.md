@@ -28,6 +28,24 @@ For a consistent backup, stop the daemon and copy the entire data directory, con
 
 Use the same reviewed commit on all participating devices. Stop new submissions, allow active tasks to finish or cancel them deliberately, stop the service, back up state, replace the binary, run `check`, and restart. Confirm discovery and a targeted remote task. The initial schema is version 1; newer schema versions are rejected rather than opened unsafely. Roll back the binary with its compatible backup if a future migration is irreversible. Keep prior binaries until the device acceptance checks pass.
 
+### Device-local upgrade helper
+
+`scripts/upgrade_device.py` (Python 3.11+) performs the offline backup and binary replacement on macOS/Linux. Run it as the existing service user through a device-local agent or established management access. Automatic pairing does not provide remote software installation. Build the candidate separately with `cargo build --release --locked`, or obtain the matching OS/architecture artifact from a verified successful CI run. Record the source commit, run, and SHA-256; a checksum alone does not authenticate a downloaded binary.
+
+Before stopping the service, run the candidate's `--config <existing-config> check`, inspect local/remote active work, and stop new submissions. Stop the existing user service and wait for it to exit. For launchd, wait until `launchctl print gui/UID/io.citta.daemon` no longer finds the old job; for systemd, use `systemctl --user stop citta.service`. Do not delete the lock file. If shutdown interrupts a racing task, retain and inspect that outcome rather than replaying it.
+
+```sh
+python3 scripts/upgrade_device.py \
+  --config "$HOME/.config/citta/config.toml" \
+  --installed "$HOME/.cargo/bin/citta" \
+  --candidate /absolute/path/to/reviewed/citta \
+  --sha256 REVIEWED_BINARY_SHA256 --apply
+```
+
+Without `--apply`, the helper validates without replacing or creating backups; the service must still be stopped. It holds the daemon's exclusive data-directory lock, refuses queued/running work and unknown storage versions, checks the candidate's digest and config, and saves the old executable, config, data, and referenced peer/node credentials under a private `upgrade-backups/` directory beside the config. The SQLite snapshot is consistent and integrity-checked. Data symlinks or nonregular files cause failure before replacement. The service definition is unchanged; back it up separately if changing it. Declared capability metadata, policy, identity, and task history are unchanged. No database migration runs until the new daemon starts.
+
+The helper flushes backups before atomically replacing the executable and records its phase in `manifest.json`. It leaves the service stopped. Restart the same service (`launchctl bootstrap gui/UID <existing-plist>` or `systemctl --user start citta.service`), verify health, automatic enrollment, permission state, and a targeted task. An error leaves evidence in place: inspect the manifest and installed digest before recovery. There is no automatic rollback or task replay, especially after a new daemon might have migrated storage or accepted work. Do not blindly rerun the installer after an uncertain failure.
+
 ## Automatic enrollment
 
 Use `citta enrollment` to inspect freshness and pairing states. A stale identity check suspends automatic credentials; a successful check restores eligible devices without restarting. Removal from the pinned owner's netmap invalidates and removes automatic credentials. Re-enrollment is automatic if the device returns. To opt a device out, disable its enrollment configuration and restart it; remove the device from Tailscale when access must be revoked network-wide. Preserve `data/enrollment.json` in private backups, and never copy a device's whole identity to a second device.

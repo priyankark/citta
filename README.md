@@ -27,7 +27,7 @@ flowchart LR
 - Global and per-capability concurrency limits, queue limits/deadlines, execution timeouts, and bounded input/output.
 - Private work directories, explicit environment allowlists, process-group cancellation, and a guardian that stops jobs when their daemon dies.
 - Harness-neutral execution and MCP tools using the official Rust MCP SDK; explicit harness/model capability metadata, CLI and HTTP APIs.
-- An agent setup skill, macOS/Linux service generator, and model/harness adapter examples.
+- An agent setup skill, macOS/Linux service generator, offline upgrade helper with private backups, and model/harness adapter examples.
 
 ## Build and run
 
