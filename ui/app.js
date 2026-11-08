@@ -130,7 +130,7 @@ function renderDevices(list) {
             metric(
               "MEMORY",
               `${bytes(r.memory_used_bytes)} used`,
-              `${bytes(r.memory_total_bytes)} installed · ${bytes(r.memory_available_bytes)} est. available`,
+              `${bytes(r.memory_total_bytes)} installed · ${bytes(r.admission_memory_bytes ?? r.memory_available_bytes)} est. available`,
               (100 * r.memory_used_bytes) / r.memory_total_bytes,
             ),
           ),

@@ -38,12 +38,11 @@ gh repo clone priyankark/citta
 cd citta
 cargo build --release --locked
 cargo install --path . --locked
-citta init --dir "$HOME/.config/citta" --node laptop
-citta --config "$HOME/.config/citta/config.toml" check
-citta --config "$HOME/.config/citta/config.toml" daemon
+citta setup
+citta doctor
 ```
 
-Initialize using the **installed binary**, so the generated echo capability points to a stable executable. `init` creates a unique token with mode 0600 and refuses to overwrite existing configuration. All paths in the configuration are absolute. Start with the harmless `echo` capability, then install trusted capabilities deliberately.
+Run setup using the **installed binary** on each device, with Tailscale connected. It configures pairing, a background user service, Codex tools/skills, and a bounded read-only agent profile when a signed-in Codex CLI is available. Missing prerequisites are reported; rerun after fixing them. Existing installations use the [offline upgrade procedure](docs/operations.md) before setup. Commands default to `~/.config/citta/config.toml`.
 
 In another terminal:
 
@@ -56,7 +55,7 @@ citta --config "$HOME/.config/citta/config.toml" inspect TASK_UUID
 
 ## Connect actual devices
 
-Follow [device setup](docs/setup.md). The setup agent enables `citta enroll` on each installed device; daemons then discover and pair automatically using the existing Tailscale account. No human pairing steps or token copying. Peers become available to workers without restarting. Existing explicit peers remain supported for staged upgrades. Remote traffic uses verified HTTPS; only numeric loopback HTTP is allowed in local tests.
+Follow [device setup](docs/setup.md). The local setup agent runs `citta setup` on each installed device; daemons then discover and pair automatically using the existing Tailscale account. No human pairing steps or token copying. Peers become available to workers without restarting. Existing explicit peers remain supported for staged upgrades. Remote traffic uses verified HTTPS; only numeric loopback HTTP is allowed in local tests.
 
 No task input contains shell commands or remote executable paths. A capability maps a name to a locally configured program and fixed argument vector. JSON input arrives on stdin, and UTF-8 stdout/stderr become the result. See [capability adapters](docs/capabilities.md).
 
@@ -77,7 +76,7 @@ Add a stdio MCP server to the harness's existing configuration, using its suppor
 
 Preserve other MCP servers. Citta reads its token from the private configuration; do not put tokens in MCP arguments or chat. MCP is local stdio. HTTP/WebSocket endpoints are Citta's peer protocol, not remote MCP endpoints.
 
-Tools: `citta_agents`, `citta_spawn_agent`, `citta_discover`, `citta_activity`, `citta_submit`, `citta_inspect`, `citta_tasks`, `citta_cancel`. Submission returns immediately. `citta_inspect` and cancellation address tasks owned by the local origin. `citta_activity` also shows recent tasks owned by other devices. Reuse a submission's idempotency key on transport retries. **An interrupted task may already have produced external side effects; inspect before resubmitting.**
+Tools: `citta_placement`, `citta_delegate`, `citta_lookup`, `citta_agents`, `citta_spawn_agent`, `citta_discover`, `citta_activity`, `citta_submit`, `citta_inspect`, `citta_tasks`, `citta_cancel`. Submission returns immediately. `citta_inspect` and cancellation address tasks owned by the local origin. `citta_activity` also shows recent tasks owned by other devices. Reuse a submission's idempotency key on transport retries. **An interrupted task may already have produced external side effects; inspect before resubmitting.**
 
 ## Agents and human monitoring
 
@@ -96,6 +95,7 @@ cargo test --locked
 cargo build --locked
 python3 scripts/test_mesh.py
 python3 scripts/test_helpers.py
+python3 scripts/test_setup.py
 python3 scripts/test_ci_health.py
 cargo audit
 ```

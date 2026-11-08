@@ -11,6 +11,8 @@ use std::{
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
+    #[serde(default)]
+    pub admission: crate::resources::Policy,
     pub node_id: String,
     pub listen: SocketAddr,
     pub data_dir: PathBuf,
@@ -50,6 +52,8 @@ pub struct Peer {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Capability {
+    #[serde(default)]
+    pub resources: crate::resources::Estimate,
     /// Operator-declared runtime metadata; absent means unspecified.
     #[serde(default)]
     pub harness: Option<String>,
@@ -75,6 +79,7 @@ impl Config {
         Ok(config)
     }
     pub fn validate(&self) -> Result<()> {
+        self.admission.validate()?;
         if let Some(settings) = &self.enrollment {
             settings.validate()?;
         }
@@ -126,6 +131,7 @@ impl Config {
         }
         names.clear();
         for cap in &self.capabilities {
+            cap.resources.validate()?;
             ensure!(
                 cap.harness.as_ref().is_none_or(|v| valid_name(v)),
                 "invalid harness identifier"
@@ -243,6 +249,7 @@ pub fn init(dir: &Path, node_id: String, port: u16) -> Result<PathBuf> {
         bail!("configuration or token already exists; refusing to overwrite");
     }
     let config = Config {
+        admission: Default::default(),
         node_id,
         listen: ([127, 0, 0, 1], port).into(),
         data_dir: dir.join("data"),
@@ -255,6 +262,7 @@ pub fn init(dir: &Path, node_id: String, port: u16) -> Result<PathBuf> {
         enrollment: None,
         inventory: Default::default(),
         capabilities: vec![Capability {
+            resources: Default::default(),
             harness: Some("builtin".into()),
             model: None,
             name: "echo".into(),

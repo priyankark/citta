@@ -35,6 +35,11 @@ impl Default for Settings {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Resources {
+    /// OS-specific admission estimate; distinct from sysinfo's raw available-memory value.
+    #[serde(default)]
+    pub admission_memory_bytes: Option<u64>,
+    #[serde(default)]
+    pub admission_memory_source: Option<String>,
     pub cpu_model: String,
     pub logical_cpus: usize,
     pub physical_cores: Option<usize>,
@@ -186,6 +191,15 @@ fn sample(system: &mut System, first: bool) -> Snapshot {
     Snapshot {
         observed_at: now(),
         resources: Resources {
+            admission_memory_bytes: admission_memory(system),
+            admission_memory_source: Some(
+                if cfg!(target_os = "macos") {
+                    "macos_memorystatus_estimate"
+                } else {
+                    "sysinfo_available_memory"
+                }
+                .into(),
+            ),
             cpu_model: system
                 .cpus()
                 .first()
@@ -206,6 +220,30 @@ fn sample(system: &mut System, first: bool) -> Snapshot {
         runtimes,
         codex_status: "not_connected".into(),
         agents_truncated: false,
+    }
+}
+fn admission_memory(system: &System) -> Option<u64> {
+    #[cfg(target_os = "macos")]
+    {
+        // The kernel's system-wide memory level includes reclaimable capacity.
+        // sysinfo 0.37 subtracts compressor pages and can report zero on a healthy Mac.
+        let mut percent: libc::c_int = 0;
+        let mut size = std::mem::size_of_val(&percent);
+        let status = unsafe {
+            libc::sysctlbyname(
+                c"kern.memorystatus_level".as_ptr(),
+                (&mut percent as *mut libc::c_int).cast(),
+                &mut size,
+                std::ptr::null_mut(),
+                0,
+            )
+        };
+        (status == 0 && size == std::mem::size_of_val(&percent) && (0..=100).contains(&percent))
+            .then(|| system.total_memory().saturating_mul(percent as u64) / 100)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        (system.total_memory() > 0).then(|| system.available_memory())
     }
 }
 fn socket_path(settings: &Settings) -> Option<PathBuf> {

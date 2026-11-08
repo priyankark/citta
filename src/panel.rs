@@ -84,16 +84,22 @@ impl Sessions {
 fn local_request(app: &App, headers: &HeaderMap) -> bool {
     let host = headers.get(header::HOST).and_then(|v| v.to_str().ok());
     let local = app.config.local_url();
+    // Browsers may use the loopback hostname instead of the configured IP.
+    // Keep the alias restricted to this listener's port; do not resolve arbitrary hosts.
+    let localhost_host = format!("localhost:{}", app.config.listen.port());
+    let localhost_origin = format!("http://{localhost_host}");
     let network = app.enrollment.as_ref().and_then(|e| e.public_url());
     let network_host = network
         .as_deref()
         .and_then(|url| url.strip_prefix("https://"));
     let known_host = host == Some(app.config.listen.to_string().as_str())
+        || host == Some(localhost_host.as_str())
         || (host.is_some() && host == network_host);
     known_host
         && headers.get(header::ORIGIN).is_none_or(|v| {
-            v.to_str()
-                .is_ok_and(|origin| origin == local || network.as_deref() == Some(origin))
+            v.to_str().is_ok_and(|origin| {
+                origin == local || origin == localhost_origin || network.as_deref() == Some(origin)
+            })
         })
         && headers
             .get("sec-fetch-site")

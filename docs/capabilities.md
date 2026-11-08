@@ -6,7 +6,7 @@ A worker receives only explicitly configured environment variables plus `CITTA_T
 
 Every task gets a fresh work directory, which is removed on normal completion. The executable still runs with the OS user's privileges. Use dedicated accounts, containers, or OS sandboxing when capabilities need stronger isolation. Trusted programs must keep descendants in their assigned process group; a program that deliberately detaches can escape lifecycle cleanup.
 
-The effective timeout is the smaller of the submitted timeout and `max_timeout_secs`. Global `slots` bounds all jobs on the device; each capability's `slots` bounds that capability. These are concurrency limits, not CPU/GPU/memory quotas. Multiple capability names using the same GPU must be configured conservatively. Model API work can continue server-side after its requesting wrapper is cancelled; enforce model-server budgets independently.
+The effective timeout is the smaller of the submitted timeout and `max_timeout_secs`. Global `slots` bounds all jobs on the device; each capability's `slots` bounds that capability. These are concurrency limits, not CPU/GPU/memory quotas. Resource-aware admission and per-capability estimates are documented in [discovery](discovery.md#resource-aware-delegation). Multiple capability names using the same GPU must be configured conservatively. Model API work can continue server-side after its requesting wrapper is cancelled; enforce model-server budgets independently.
 
 ## Local model on another device
 

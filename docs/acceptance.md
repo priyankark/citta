@@ -1,5 +1,11 @@
 # Production release acceptance
 
+## Resource-aware delegation — local verification
+
+The resource-admission build adds 4 Rust behavioral tests (33 total): fresh/compatible offers, pressure and missing telemetry, atomic reservations and release, and durable queued-task filtering/idempotency. The real-process mesh has 19 scenarios, including two daemons with the same agent profile: the origin's configured memory headroom makes it ineligible, so an unpinned task executes on the peer. Impossible capacity expires without a worker; incompatible model requirements fail before submission; same-key retries and lookup recover the original task after its worker disconnects. This is a controlled admission test, not deliberate exhaustion of host memory.
+
+Local formatting, Clippy, Rust tests, mesh tests, 5 adapter/service helper checks, 7 upgrade checks, and both skill validators are required for this change. The runtime skill also received an independent scenario-based evaluation covering stale telemetry, model constraints, uncertain submission, and interrupted partial output. Physical same-build routing requires deployment to both devices and a separate acceptance record. Existing GitHub Linux permission-test failure history remains preserved; local success does not establish new Linux CI success.
+
 Production is the delivery target. A localhost mesh validates implementation behavior; it does not qualify real devices, Tailscale routes, or installed agent harnesses. Do not tag a production release until the device checks below have evidence.
 
 ## Automated evidence
@@ -81,3 +87,11 @@ The device-local upgrade helper has seven behavioral checks: private recoverable
 The Air reported four Codex processes but zero loaded sessions from its connected Codex server. The Agents view previously showed only session rows, with process observations collapsed below; this hid the distinction between unavailable session coverage and an empty device. Coverage cards now include every device, and process observations are visible with unknown session state. Live/idle totals count reported sessions only.
 
 The browser regression check `scripts/test_panel_inventory.cjs` exercises a Mini session, a remote Linux session with the same session ID, an Air with four processes and no reported sessions, an offline peer, and an older peer without inventory. It verifies device/state/search filters, stale data, safe text rendering, and mobile layout. Run from the repository root after `cargo build --locked`, with Playwright and its Chromium installed; `CITTA_BROWSER` can select an existing Chrome executable. This is an optional browser check, separate from the Rust/mesh CI suite. Physical Air session names and busy/idle/model reporting remain unavailable while its connected server returns no loaded sessions.
+
+## Repeatable onboarding and resource placement — 2026-11-08
+
+`citta setup` now owns local enrollment, user-service installation, Codex MCP/skills, and initial bounded agent-profile registration. `citta doctor` distinguishes legacy builds, missing profiles, paused/denied execution, unreachable peers, and waiting Tailscale devices. Setup preserves existing identity and policy, stages enrollment checks before replacing a live config, retains private file backups, and resumes unfinished profile grants without regranting profiles subsequently disabled by the owner.
+
+Local verification: 36 Rust tests, seven isolated onboarding scenarios, 19 real-process mesh scenarios, seven offline-upgrade scenarios, five helper tests, six CI-history tests, formatting, warning-free Clippy, release build, both skill validators, and browser inventory/panel regression. Onboarding fixtures cover repeat setup, offline/dry-run behavior, Serve and identity conflicts, login recovery, paused/origin policy preservation, fixed-argv prompt handling, and the standard home config path. The resource-placement fixture forces the origin ineligible and verifies execution on a second local daemon; this is not a physical resource-failover claim.
+
+The Mini was upgraded with a private backup and successfully ran setup twice. Identity, token, config semantics, policy revision, and custom profiles were preserved. Both skills were installed, MCP remained enabled, and the user service stayed available. Fresh Tailscale pairing rediscovered the physical Air; target-specific echo task `155cf90e-4715-4b71-a5c4-0e0d8d18d823` succeeded there. Doctor reports the Air as requiring the resource-admission build. Same-build Air profile execution and physical resource-aware fallback remain pending; Tailscale discovery does not install remote software. Detailed records remain private under `local/seamless-setup-*.json`.

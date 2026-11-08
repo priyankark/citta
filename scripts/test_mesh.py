@@ -207,7 +207,13 @@ max_timeout_secs = 30
             self.start('beta')
 
     def test_16_panel_sessions_origin_checks_and_read_only_inspection(self):
-        base = f'http://127.0.0.1:{self.nodes["alpha"]["port"]}'
+        for host in ('127.0.0.1', 'localhost'):
+            with self.subTest(host=host):
+                self.check_panel_sessions(host)
+
+    def check_panel_sessions(self, host):
+        port = self.nodes['alpha']['port']
+        base = f'http://{host}:{port}'
         jar = http.cookiejar.CookieJar()
         browser = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
         def request(path, data=None, headers=None):
@@ -235,7 +241,16 @@ max_timeout_secs = 30
         with self.assertRaises(urllib.error.HTTPError) as error:
             request('/panel/login', {'code':code})
         self.assertEqual(error.exception.code, 401)
-        for headers in ({'Host':'evil.example'}, {'Origin':'https://evil.example'}, {'Sec-Fetch-Site':'cross-site'}):
+        for headers in (
+            {'Host':'evil.example'},
+            {'Host':f'localhost.evil.example:{port}'},
+            {'Host':f'localhost:{port + 1}'},
+            {'Origin':'https://evil.example'},
+            {'Origin':f'http://localhost.evil.example:{port}'},
+            {'Origin':f'http://localhost:{port + 1}'},
+            {'Origin':f'https://localhost:{port}'},
+            {'Sec-Fetch-Site':'cross-site'},
+        ):
             with self.assertRaises(urllib.error.HTTPError) as error:
                 request('/panel/overview', headers=headers)
             self.assertEqual(error.exception.code, 403)
@@ -446,7 +461,7 @@ max_timeout_secs = 30
             self.assertIn('tools', result['capabilities'])
             send({'method':'notifications/initialized'})
             tools = call(2, 'tools/list', {})['tools']
-            self.assertEqual({t['name'] for t in tools}, {'citta_discover','citta_agents','citta_spawn_agent','citta_activity','citta_submit','citta_inspect','citta_tasks','citta_cancel'})
+            self.assertEqual({t['name'] for t in tools}, {'citta_discover','citta_agents','citta_spawn_agent','citta_delegate','citta_placement','citta_lookup','citta_activity','citta_submit','citta_inspect','citta_tasks','citta_cancel'})
             response = call(3, 'tools/call', {'name':'citta_submit','arguments':{'capability':'compute','input':{'via':'mcp'},'target_node':'beta','idempotency_key':str(uuid.uuid4())}})
             self.assertFalse(response.get('isError', False), response)
             task = json.loads(response['content'][0]['text'])
@@ -517,6 +532,53 @@ max_timeout_secs = 30
         self.assertEqual(result['status'], 'succeeded', result['status'])
         self.assertEqual(len(result['outcome']['stdout']), 250001)
         self.assertEqual(len(result['outcome']['stderr']), 250001)
+
+    def test_19_resource_placement_offloads_and_retries_durably(self):
+        paths = {n: node['dir'] / 'config.toml' for n, node in self.nodes.items()}
+        original = {n: p.read_text() for n, p in paths.items()}
+        try:
+            for n in paths: self.stop(n)
+            # Give alpha the same agent profile, but reserve all its memory.
+            # No real memory exhaustion or production-only fixture override is needed.
+            profiles = original['beta'].split('[[capabilities]]', 1)[1]
+            paths['alpha'].write_text(original['alpha'] + '\n[admission]\nguard_all = true\nmemory_headroom_bytes = 1125899906842624\nmax_cpu_percent = 100\n[[capabilities]]' + profiles)
+            paths['beta'].write_text(original['beta'].split('[[capabilities]]', 1)[0] + '\n[admission]\nmax_cpu_percent = 100\n[[capabilities]]' + profiles)
+            for n in paths: self.start(n)
+            # Policy is persisted; explicitly grant only the new test profile on alpha.
+            initial = self.control('alpha')['snapshot']
+            self.control('alpha', {'expected_revision': initial['revision'], 'policy': {**initial['policy'], 'allowed_capabilities': ['agent-test']}})
+            req = {'profile': 'agent-test', 'requirements': {'memory_bytes': 1048576, 'cpu_cores': 0.01, 'harness':'fixture-harness', 'model':'fixture-model'}}
+            def eligible():
+                result = self.api('alpha', '/v1/placement', req)
+                return result if any(c['node_id']=='beta' and c['eligible'] for c in result['candidates']) else None
+            placement = wait_for(eligible, timeout=20)
+            self.assertFalse(next(c['eligible'] for c in placement['candidates'] if c['node_id']=='alpha'))
+            body = {**req, 'prompt':'resource-aware analysis', 'idempotency_key':str(uuid.uuid4()), 'timeout_secs':15, 'queue_ttl_secs':30}
+            task = self.api('alpha','/v1/agents/delegate',body)
+            result = self.terminal(task)
+            self.assertEqual(result['status'],'succeeded',result)
+            self.assertEqual(result['worker_node'],'beta')
+            self.assertEqual(self.api('alpha','/v1/tasks/by-key/'+body['idempotency_key'])['id'],task['id'])
+            self.stop('beta')
+            self.assertEqual(self.api('alpha','/v1/agents/delegate',body)['id'],task['id'])
+            self.start('beta')
+            # Impossible capacity queues, never falls back to unguarded execution.
+            blocked = {**body, 'idempotency_key':str(uuid.uuid4()), 'queue_ttl_secs':1, 'requirements':{**req['requirements'],'memory_bytes':1125899906842624}}
+            result = self.terminal(self.api('alpha','/v1/agents/delegate',blocked))
+            self.assertEqual(result['status'],'interrupted')
+            self.assertIsNone(result['worker_node'])
+            # An incompatible runtime is rejected before creating work.
+            with self.assertRaises(urllib.error.HTTPError) as error:
+                self.api('alpha','/v1/agents/delegate',{**body,'idempotency_key':str(uuid.uuid4()),'requirements':{'model':'not-installed'}})
+            self.assertEqual(error.exception.code,422)
+        finally:
+            for n,p in paths.items():
+                if self.nodes[n]['process'] is not None: self.stop(n)
+                p.write_text(original[n])
+                self.start(n)
+            if 'initial' in locals():
+                current=self.control('alpha')['snapshot']
+                self.control('alpha', {'expected_revision':current['revision'],'policy':initial['policy']})
 
     def test_10_unreachable_peer_is_reported(self):
         self.stop('beta')

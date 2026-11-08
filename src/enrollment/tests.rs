@@ -225,6 +225,7 @@ async fn verified_https_handshake_pairs_without_admin_tokens_and_survives_restar
     // Real API authentication accepts only the peer's identity for claims.
     let store = Arc::new(Store::open(&b.config.data_dir, "beta", 30, 1000, 10000).unwrap());
     let app = App {
+        admission: Default::default(),
         permissions: crate::permissions::Permissions::open(&b.config, store.clone()).unwrap(),
         control_token: Arc::new("e".repeat(64)),
         control_enrollment: None,
@@ -474,6 +475,7 @@ async fn owner_panel_controls_remote_device_over_separate_automatic_tls_channel(
         let store =
             Arc::new(Store::open(&e.config.data_dir, &e.config.node_id, 10, 100, 100).unwrap());
         App {
+            admission: Default::default(),
             permissions: crate::permissions::Permissions::open(&e.config, store.clone()).unwrap(),
             control_token: Arc::new(crate::permissions::control_token(&e.config).unwrap()),
             control_enrollment: Some(control.clone()),
