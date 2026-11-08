@@ -23,6 +23,7 @@ async fn authenticated_events_replay_from_durable_cursor() {
     let token = "a".repeat(64);
     let stop = CancellationToken::new();
     let config = Arc::new(Config {
+        admission: Default::default(),
         node_id: "test".into(),
         listen: address,
         data_dir: dir.path().into(),
@@ -37,6 +38,7 @@ async fn authenticated_events_replay_from_durable_cursor() {
         capabilities: vec![],
     });
     let app = App {
+        admission: Default::default(),
         permissions: citta::permissions::Permissions::open(&config, store.clone()).unwrap(),
         control_token: Arc::new("b".repeat(64)),
         control_enrollment: None,
@@ -61,6 +63,7 @@ async fn authenticated_events_replay_from_durable_cursor() {
     let task = store
         .submit(
             Submission {
+                requirements: None,
                 agent_only: false,
                 capability: "echo".into(),
                 input: json!({}),

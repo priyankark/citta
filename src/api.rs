@@ -27,6 +27,7 @@ use tokio_util::sync::CancellationToken;
 pub type Activity = Arc<Mutex<BTreeMap<String, usize>>>;
 #[derive(Clone)]
 pub struct App {
+    pub admission: Arc<crate::resources::Admission>,
     pub config: Arc<Config>,
     pub store: Arc<Store>,
     pub token: Arc<String>,
@@ -103,6 +104,7 @@ impl App {
     pub fn node_info(&self) -> NodeInfo {
         let active = self.activity.lock().unwrap_or_else(|e| e.into_inner());
         NodeInfo {
+            resource_admission_version: Some(1),
             permissions: Some(self.permissions.snapshot()),
             protocol: 1,
             node_id: self.config.node_id.clone(),
@@ -116,6 +118,18 @@ impl App {
                 .capabilities
                 .iter()
                 .map(|c| CapabilityInfo {
+                    admission: Some(
+                        self.admission.readiness(
+                            &self.config.admission,
+                            self.inventory
+                                .lock()
+                                .unwrap_or_else(|e| e.into_inner())
+                                .as_ref(),
+                            c,
+                            None,
+                            now(),
+                        ),
+                    ),
                     harness: c.harness.clone(),
                     model: c.model.clone(),
                     name: c.name.clone(),
@@ -153,8 +167,11 @@ pub fn router(app: App) -> Router {
         .route("/v1/activity", get(activity))
         .route("/v1/enrollment", get(enrollment_status))
         .route("/v1/agents", get(discover))
+        .route("/v1/agents/delegate", post(delegate_agent))
+        .route("/v1/placement", post(placement))
         .route("/v1/agents/spawn", post(spawn_agent))
         .route("/v1/tasks", post(submit).get(list))
+        .route("/v1/tasks/by-key/{key}", get(by_key))
         .route("/v1/tasks/{id}", get(inspect))
         .route("/v1/tasks/{id}/cancel", post(cancel))
         .route("/v1/tasks/{id}/renew", post(renew))
@@ -294,19 +311,125 @@ async fn spawn_agent(
             .target_node
             .as_ref()
             .is_none_or(|id| node["node_id"].as_str() == Some(id))
+            && request.requirements.as_ref().is_none_or(|req| {
+                node["resource_admission_version"] == 1
+                    && (!req.remote_only || node["node_id"] != app.config.node_id)
+                    && req
+                        .os
+                        .as_ref()
+                        .is_none_or(|v| node["os"].as_str() == Some(v))
+                    && req
+                        .arch
+                        .as_ref()
+                        .is_none_or(|v| node["arch"].as_str() == Some(v))
+            })
             && node["capabilities"].as_array().is_some_and(|caps| {
-                caps.iter()
-                    .any(|c| c["name"].as_str() == Some(&request.profile) && c["kind"] == "agent")
+                caps.iter().any(|c| {
+                    c["name"].as_str() == Some(&request.profile)
+                        && c["kind"] == "agent"
+                        && request.requirements.as_ref().is_none_or(|req| {
+                            req.harness
+                                .as_ref()
+                                .is_none_or(|v| c["harness"].as_str() == Some(v))
+                                && req
+                                    .model
+                                    .as_ref()
+                                    .is_none_or(|v| c["model"].as_str() == Some(v))
+                        })
+                })
             })
     });
     if !available {
         return Ok((
             StatusCode::UNPROCESSABLE_ENTITY,
-            Json(json!({"error":"no reachable device advertises this agent profile"})),
+            Json(json!({"error":"no reachable device supports this agent profile and its platform/runtime requirements"})),
         )
             .into_response());
     }
     submit(State(app), identity, Json(submission)).await
+}
+
+async fn delegate_agent(
+    State(app): State<App>,
+    identity: Option<axum::Extension<PeerIdentity>>,
+    Json(mut request): Json<SpawnAgent>,
+) -> Result<Response, ApiError> {
+    request.requirements.get_or_insert_default();
+    spawn_agent(State(app), identity, Json(request)).await
+}
+
+async fn placement(State(app): State<App>, Json(request): Json<PlacementRequest>) -> Response {
+    if !valid_name(&request.profile)
+        || request.requirements.validate().is_err()
+        || request.target_node.as_ref().is_some_and(|v| !valid_name(v))
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error":"invalid placement requirements"})),
+        )
+            .into_response();
+    }
+    let discovery = discover(State(app.clone())).await.0;
+    let mut candidates = vec![placement_candidate(
+        &discovery["local"],
+        &request,
+        &app.config.node_id,
+    )];
+    for peer in discovery["peers"].as_array().into_iter().flatten() {
+        candidates.push(if peer["reachable"] == true {
+            placement_candidate(&peer["node"], &request, &app.config.node_id)
+        } else {
+            json!({"node_id":peer["node_id"],"eligible":false,"reason":"peer_unreachable"})
+        });
+    }
+    Json(json!({"profile":request.profile,"requirements":request.requirements,"candidates":candidates,"routing":"first_eligible_worker","observed_at":now()})).into_response()
+}
+
+fn placement_candidate(value: &Value, request: &PlacementRequest, origin: &str) -> Value {
+    let Ok(node) = serde_json::from_value::<NodeInfo>(value.clone()) else {
+        return json!({"node_id":value["node_id"],"eligible":false,"reason":"unsupported_manifest"});
+    };
+    let reason = if request
+        .target_node
+        .as_ref()
+        .is_some_and(|v| *v != node.node_id)
+    {
+        Some("different_target")
+    } else if node.resource_admission_version != Some(1) {
+        Some("resource_admission_unsupported")
+    } else if let Some(cap) = node
+        .capabilities
+        .iter()
+        .find(|c| c.name == request.profile && c.kind == CapabilityKind::Agent)
+    {
+        if node
+            .permissions
+            .as_ref()
+            .is_some_and(|p| !p.policy.allows_capability(&cap.name))
+        {
+            Some("profile_not_permitted")
+        } else if node.active >= node.slots || cap.active >= cap.slots {
+            Some("slots_full")
+        } else if let Some(readiness) = &cap.admission {
+            if !readiness.accepting {
+                readiness
+                    .reason
+                    .as_deref()
+                    .or(Some("resources_unavailable"))
+            } else if readiness.offer.as_ref().is_some_and(|offer| {
+                offer.fits(&request.requirements, &node.node_id, origin, now())
+            }) {
+                None
+            } else {
+                Some("requirements_not_met")
+            }
+        } else {
+            Some("telemetry_unavailable")
+        }
+    } else {
+        Some("profile_missing")
+    };
+    json!({"node_id":node.node_id,"eligible":reason.is_none(),"reason":reason})
 }
 
 pub(crate) async fn overview(app: App) -> Result<Value> {
@@ -354,6 +477,12 @@ async fn list(
 }
 async fn inspect(State(app): State<App>, Path(id): Path<String>) -> Result<Json<Task>, ApiError> {
     Ok(Json(app.db(move |s| s.get(&id)).await?))
+}
+async fn by_key(State(app): State<App>, Path(key): Path<String>) -> Result<Response, ApiError> {
+    if !valid_name(&key) {
+        return Ok(StatusCode::BAD_REQUEST.into_response());
+    }
+    Ok(Json(app.db(move |s| s.by_key(&key)).await?).into_response())
 }
 async fn cancel(State(app): State<App>, Path(id): Path<String>) -> Result<Json<Task>, ApiError> {
     Ok(Json(app.db(move |s| s.cancel(&id, now())).await?))

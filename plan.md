@@ -13,7 +13,7 @@ The acceptance scenario is an agent on device A discovering a capability install
 - Tailscale provides private connectivity. The daemon binds loopback; Tailscale Serve provides the remote HTTPS endpoint. Automatic enrollment pins the existing Tailscale owner/tailnet/device, discovers same-owner untagged devices, and performs verified HTTPS challenge callbacks to exchange per-peer credentials. Workers adopt newly paired devices without restarts. Existing explicit peer grants remain supported for compatibility. Citta never enables public Funnel.
 - Local stdio MCP exposes discovery, submission, inspection, listing, and cancellation to agent harnesses. HTTP/JSON is the versioned inter-device protocol; authenticated WebSockets stream durable task events.
 - Workers advertise named capabilities. An operator configures a fixed executable and argument vector per capability; task input travels as JSON on stdin, never interpolated into a shell command. This supports command tools, model wrappers, and agent harness wrappers through the same contract.
-- Agents choose the capability and optionally a target device. Available matching workers claim tasks. The initial scheduler enforces global and per-capability concurrency, maximum wall time, and bounded input/output. It does not claim to enforce GPU memory, CPU quotas, or model token charges; wrappers and OS isolation must enforce those.
+- Agents choose the capability and optionally a target device. Available matching workers claim tasks. The scheduler enforces global and per-capability concurrency, maximum wall time, bounded input/output, and fresh CPU/RAM admission with reservations for resource-qualified tasks. It does not claim to enforce GPU memory, CPU quotas, or model token charges; wrappers and OS isolation must enforce those.
 - Each execution gets a private working directory, cleared environment with an explicit allowlist, bounded output, and a process group terminated on timeout, shutdown, cancellation, or lost lease. A working directory is not an OS security sandbox. Only trusted, operator-installed executables may run.
 
 ## Reliability contract
@@ -34,11 +34,15 @@ Jobs have bounded queue lifetimes and execution durations. Queue admission is bo
 
 ## Deliberate v1 boundaries
 
-Bounded JSON and text results are supported first. Large artifact transfer, repository synchronization, automatic worktree creation, active harness-session injection, global DAG scheduling, transitive discovery, nested delegation budgets, load/energy-aware placement, and Windows support are later work. Basic device-owned permissions are implemented; OS sandboxing and richer approval rules remain the hardening work described below. Arbitrary agent wrappers must not receive unrestricted mesh credentials or spawn unbounded child tasks. No implicit recursive delegation in v1.
+Bounded JSON and text results are supported first. Large artifact transfer, repository synchronization, automatic worktree creation, active harness-session injection, global DAG scheduling, transitive discovery, nested delegation budgets, global load/energy optimization, and Windows support are later work. Basic device-owned permissions are implemented; OS sandboxing and richer approval rules remain the hardening work described below. Arbitrary agent wrappers must not receive unrestricted mesh credentials or spawn unbounded child tasks. No implicit recursive delegation in v1.
 
 ## Discovery and human monitoring — implemented
 
-Manifests now include sampled CPU/RAM/OS telemetry, same-user runtime processes, harness-reported Codex loaded-session states, and Citta-managed executions. Agent profiles launch fresh bounded processes through the durable task machinery. The local authenticated browser panel monitors devices, agents, capacity, and recent failures. Stale/absent telemetry is unknown. Hardware-aware placement, additional harness adapters, reuse of existing idle sessions, and remote software upgrades remain future work. See [the implemented contract](docs/discovery.md).
+Manifests now include sampled CPU/RAM/OS telemetry, same-user runtime processes, harness-reported Codex loaded-session states, and Citta-managed executions. Agent profiles launch fresh bounded processes through the durable task machinery. The local authenticated browser panel monitors devices, agents, capacity, and recent failures. Stale/absent telemetry is unknown. Additional harness adapters, reuse of existing idle sessions, and remote software upgrades remain future work. See [the implemented contract](docs/discovery.md).
+
+## Resource-qualified routing — implemented
+
+`citta_delegate` queues bounded agent work with CPU/RAM estimates and optional platform/runtime constraints. Eligible workers reserve observed capacity and enforce device policy before launch. Busy origins can offload to compatible peers; tasks remain queued when none currently fit. The runtime delegation skill guides proactive use within the user’s task authorization. This does not migrate existing sessions, provide OS quotas, rank all devices globally, or implement recursive budgets. Physical rollout evidence is recorded separately.
 
 ## Device-owned permissions and unattended execution
 
@@ -93,3 +97,7 @@ Track Citta's own CI separately from product task failures. Preserve run/attempt
 ## Release evidence
 
 See `docs/acceptance.md` for the device rollout checklist and recorded verification. A local multi-process run proves protocol behavior, not physical cross-device readiness.
+
+## Repeatable local onboarding
+
+Implemented: `citta setup` configures the installed device's automatic enrollment, persistent user service, Codex MCP/skills and initial bounded read-only profile. `citta doctor` explains peer readiness. Reruns preserve device identity and existing execution policy, and resume incomplete initial grants. Each device still needs Citta installed once and Tailscale connected; no SSH or copied credentials are needed for subsequent pairing. Binary self-update and remote bootstrap on a machine without a deployment agent remain unimplemented. The Mini is verified; the Air needs the matching resource-admission build before receiving automatic agent offloads.

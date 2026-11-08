@@ -1,5 +1,22 @@
 # Enroll a device
 
+## One-time local setup
+
+Install the same tested Citta build once on each macOS/Linux device, with Tailscale connected to the same owner account. Run from the installed binary:
+
+```sh
+citta setup
+citta doctor
+```
+
+`setup` configures private Tailscale Serve and automatic enrollment, starts a user service, merges Codex MCP settings, installs the setup/delegation skills, and adds a bounded read-only Codex profile when a signed-in local CLI is available. It needs no SSH, pairing code or copied token. New harness sessions load the tools and skills. Other harnesses can use the same MCP server but require their own config wiring.
+
+Commands default to `~/.config/citta/config.toml`; `--config /absolute/path/config.toml` selects another installation. `setup --dry-run` checks prerequisites without mutations. `--tailscale-bin`, `--codex-bin`, `--harness-dir`, and `--model` override discovery for a new profile. Existing identities, profiles, permissions and explicit MCP disablement are preserved; changed files are backed up under `setup-backups`. `--no-agent` intentionally omits a new agent profile. `--no-service` leaves service lifecycle to an external manager: restart it after config changes, then rerun setup to finish pending profile grants.
+
+Read the setup result: missing login/harness means pairing can work but agent delegation is incomplete. `doctor` distinguishes missing profiles, old builds, paused devices, unreachable peers and devices waiting for pairing; an agent profile is not proof that a model run succeeded. Verify a real remote task below. Setup can be rerun after fixing prerequisites. It refuses identity changes and occupied/public Serve routes before replacing an existing config or stopping its service. It does not install or update binaries on other devices. For an older installation, use the offline upgrade procedure in [operations](operations.md), then run setup locally.
+
+The remaining sections describe lower-level/custom setup.
+
 ## Inventory and install
 
 Record device name, OS/architecture, intended capabilities, idle compute capacity, current Tailscale name, and the harness that will use MCP. Use distinct stable node IDs. Build/install the same tested Citta commit on each device. The initial platforms are macOS/Linux. Do not run Citta as root.

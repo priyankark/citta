@@ -96,7 +96,7 @@ def upgrade(config_path, installed, candidate, expected_sha256, apply=False):
         dbpath = data / 'citta.db'
         with contextlib.closing(sqlite3.connect(dbpath.as_uri() + '?mode=ro', uri=True)) as db:
             version = db.execute('PRAGMA user_version').fetchone()[0]
-            if version not in (1, 2, 3):
+            if version not in (1, 2, 3, 4):
                 raise ValueError(f'unsupported source storage version: {version}')
             node = db.execute("SELECT value FROM meta WHERE key='node'").fetchone()
             if node != (config['node_id'],):

@@ -61,10 +61,48 @@ async fn worker_loop(
             tokio::select! {_=app.shutdown.cancelled()=>return,_=tokio::time::sleep(Duration::from_millis(200))=>{}}
             continue;
         }
+        let claim_gate = tokio::select! {
+            _ = app.shutdown.cancelled() => return,
+            gate = app.admission.claims.lock() => gate,
+        };
+        let readiness = app.admission.readiness(
+            &app.config.admission,
+            app.inventory
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .as_ref(),
+            &cap,
+            None,
+            now(),
+        );
+        if app.config.admission.guard_all && !readiness.accepting {
+            drop(claim_gate);
+            drop(permit);
+            tokio::select! {_=app.shutdown.cancelled()=>return,_=tokio::time::sleep(Duration::from_millis(200))=>{}}
+            continue;
+        }
+        let offer = readiness.offer.filter(|_| readiness.accepting);
         let claim = tokio::select! {
             _ = app.shutdown.cancelled() => return,
-            result = claim_from(origin, &app.config.node_id, &cap.name, cap.kind == CapabilityKind::Agent) => result,
+            result = claim_from(origin, &app.config.node_id, &cap.name, cap.kind == CapabilityKind::Agent, offer) => result,
         };
+        let reservation = match &claim {
+            Ok(Some(claim)) => Some(
+                app.admission.reserve(
+                    &claim.task.id,
+                    cap.resources.max(
+                        claim
+                            .task
+                            .request
+                            .requirements
+                            .as_ref()
+                            .map_or(Default::default(), |r| r.estimate()),
+                    ),
+                ),
+            ),
+            _ => None,
+        };
+        drop(claim_gate);
         match claim {
             Ok(Some(claim)) => {
                 // Validate a peer's response before using its identifiers as filesystem paths.
@@ -98,7 +136,10 @@ async fn worker_loop(
                 let outcome = if app.execution_allowed(origin, &claim.task, &cap.name) {
                     execute(&app, &cap, origin, &claim).await
                 } else {
-                    Outcome::error(Status::Failed, "device permissions deny this execution")
+                    Outcome::error(
+                        Status::Interrupted,
+                        "device permissions deny this execution",
+                    )
                 };
                 if cap.kind == CapabilityKind::Agent {
                     crate::inventory::finished(&app.managed_agents, &claim.task.id, outcome.status);
@@ -119,6 +160,7 @@ async fn worker_loop(
                 tracing::debug!(node=%origin.node_id, "origin unavailable");
             }
         }
+        drop(reservation);
         drop(permit);
         tokio::select! { _ = app.shutdown.cancelled() => return, _ = tokio::time::sleep(Duration::from_millis(200)) => {} }
     }
@@ -128,6 +170,7 @@ async fn claim_from(
     worker: &str,
     capability: &str,
     agent_profile: bool,
+    offer: Option<crate::resources::Offer>,
 ) -> Result<Option<Claim>> {
     let info: NodeInfo = origin.get("/v1/node").await?;
     if info.node_id != origin.node_id || info.protocol != 1 {
@@ -137,6 +180,11 @@ async fn claim_from(
         .post(
             "/v1/claim",
             &ClaimRequest {
+                offer: if info.resource_admission_version == Some(1) {
+                    offer
+                } else {
+                    None
+                },
                 agent_profile,
                 worker_node: worker.into(),
                 capability: capability.into(),
@@ -243,7 +291,35 @@ async fn run_command(
     #[cfg(unix)]
     command.process_group(0);
     if !app.execution_allowed(origin, &claim.task, &cap.name) {
-        return Outcome::error(Status::Failed, "device permissions deny this execution");
+        return Outcome::error(
+            Status::Interrupted,
+            "device permissions deny this execution",
+        );
+    }
+    if app.config.admission.guard_all || claim.task.request.requirements.is_some() {
+        let readiness = app.admission.readiness(
+            &app.config.admission,
+            app.inventory
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .as_ref(),
+            cap,
+            Some(&claim.task.id),
+            now(),
+        );
+        let allowed =
+            readiness.accepting
+                && readiness.offer.as_ref().is_some_and(|offer| {
+                    claim.task.request.requirements.as_ref().is_none_or(|req| {
+                        offer.fits(req, &app.config.node_id, &origin.node_id, now())
+                    })
+                });
+        if !allowed {
+            return Outcome::error(
+                Status::Interrupted,
+                "resource capacity changed before execution; no process started",
+            );
+        }
     }
     let identity = app
         .execution_identity(origin, &claim.task)

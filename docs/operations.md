@@ -74,3 +74,7 @@ After upgrading, verify `agents`, the inventory collector, profile kinds, and th
 ## Permissions build: storage version 3
 
 This build stores current policy and an append-only revision history in SQLite and upgrades storage to version 3. Older binaries refuse this database. Preserve a consistent database backup with the old binary/config before upgrading; restore matching backups only after reconciling later tasks and policy changes. Keep `control.token` and `control-enrollment.json` private and include them in protected backups. Policy updates apply live and need no service restart. Read [permissions](permissions.md) before changing unattended access or using the network panel link.
+
+## Resource admission build: storage version 4
+
+Resource-qualified requests are durable task input. This build upgrades SQLite `user_version` to 4 so older daemons cannot bypass the new claim predicates. The upgrade helper accepts versions 1–4 and refuses newer versions. Stop an idle service and preserve a consistent binary/config/database backup before upgrade. Never force the version backward; rollback requires the matching pre-upgrade backup and reconciliation of later work. Existing unqualified tasks and idempotency keys keep their semantics. Updated workers can still claim legacy tasks from older peers, but both ends need the new build for resource-qualified delegation.

@@ -86,7 +86,7 @@ class Upgrade(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'tasks remain'):
                 self.run_upgrade()
         with database(self.data / 'citta.db') as db:
-            db.executescript("UPDATE tasks SET status='failed'; PRAGMA user_version=4;")
+            db.executescript("UPDATE tasks SET status='failed'; PRAGMA user_version=5;")
         with self.assertRaisesRegex(ValueError, 'unsupported source storage'):
             self.run_upgrade()
         self.assertEqual(self.installed.read_text(), 'old-binary')

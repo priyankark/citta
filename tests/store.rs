@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 fn request(key: &str) -> Submission {
     Submission {
+        requirements: None,
         agent_only: false,
         capability: "test".into(),
         input: json!({"n":1}),
@@ -15,6 +16,7 @@ fn request(key: &str) -> Submission {
 }
 fn claim() -> ClaimRequest {
     ClaimRequest {
+        offer: None,
         agent_profile: false,
         worker_node: "worker".into(),
         capability: "test".into(),
@@ -50,6 +52,7 @@ fn one_claim_under_contention_and_target_matching() {
         store
             .claim(
                 ClaimRequest {
+                    offer: None,
                     agent_profile: false,
                     worker_node: "wrong".into(),
                     capability: "test".into()
@@ -203,9 +206,9 @@ fn legacy_tasks_migrate_and_newer_storage_fails_closed() {
     assert_eq!(
         db.query_row("PRAGMA user_version", [], |r| r.get::<_, i64>(0))
             .unwrap(),
-        3
+        4
     );
-    db.execute_batch("PRAGMA user_version=4").unwrap();
+    db.execute_batch("PRAGMA user_version=5").unwrap();
     assert!(Store::open(dir.path(), "origin", 10, 100, 100).is_err());
 }
 

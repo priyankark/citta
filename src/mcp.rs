@@ -1,6 +1,6 @@
 use crate::{
     client::Client,
-    model::{SpawnAgent, Submission},
+    model::{PlacementRequest, SpawnAgent, Submission},
 };
 use anyhow::Result;
 use rmcp::{
@@ -22,6 +22,11 @@ pub struct CittaMcp {
 pub struct TaskId {
     /// Task ID returned by citta_submit. Tasks belong to the local origin daemon.
     pub task_id: uuid::Uuid,
+}
+#[derive(Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct TaskKey {
+    pub idempotency_key: String,
 }
 #[derive(Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -59,6 +64,34 @@ impl CittaMcp {
         Parameters(request): Parameters<SpawnAgent>,
     ) -> CallToolResult {
         result(self.client.post("/v1/agents/spawn", &request).await)
+    }
+    #[tool(
+        description = "Check which devices currently satisfy an agent profile's CPU, memory, OS, architecture, harness and model requirements. Returns per-device eligibility and reasons. Unknown/stale telemetry is ineligible; this is a snapshot, not a reservation. Use citta_delegate to queue work with these requirements."
+    )]
+    async fn citta_placement(
+        &self,
+        Parameters(request): Parameters<PlacementRequest>,
+    ) -> CallToolResult {
+        result(self.client.post("/v1/placement", &request).await)
+    }
+    #[tool(
+        description = "Automatically delegate a bounded agent subtask to the first eligible trusted device. Default estimates: 256 MiB RAM and 0.25 CPU cores; set requirements to the task's actual needs, including optional OS/arch/harness/model and remote_only. Workers require fresh telemetry and reserve capacity atomically before claiming. Busy compatible devices leave work queued until capacity or queue TTL. Returns a durable task ID; inspect results. Reuse the same key for uncertain submission retries; never replay interrupted work. Does not migrate running sessions, transfer files, or allow recursive delegation."
+    )]
+    async fn citta_delegate(&self, Parameters(request): Parameters<SpawnAgent>) -> CallToolResult {
+        result(self.client.post("/v1/agents/delegate", &request).await)
+    }
+    #[tool(
+        description = "Recover a task after an uncertain submission using its original idempotency key on the originating daemon. Returns the durable task including its ID, request and outcome. A missing record does not justify a different key: retry the original identical submission, within a bounded retry policy. Keys are retained until task history is explicitly pruned."
+    )]
+    async fn citta_lookup(&self, Parameters(request): Parameters<TaskKey>) -> CallToolResult {
+        if !crate::model::valid_name(&request.idempotency_key) {
+            return result(Err(anyhow::anyhow!("invalid idempotency key")));
+        }
+        result(
+            self.client
+                .get(&format!("/v1/tasks/by-key/{}", request.idempotency_key))
+                .await,
+        )
     }
     #[tool(
         description = "See recent tasks across paired devices, including which workers are executing them. Unreachable devices are explicit."

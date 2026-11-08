@@ -66,7 +66,7 @@ impl Store {
             "PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;",
         )?;
         let version: i64 = db.query_row("PRAGMA user_version", [], |r| r.get(0))?;
-        ensure!(version <= 3, "database is newer than this binary");
+        ensure!(version <= 4, "database is newer than this binary");
         db.execute_batch(
             "BEGIN IMMEDIATE;
             CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -83,7 +83,7 @@ impl Store {
                 status TEXT NOT NULL, at INTEGER NOT NULL);
             CREATE TABLE IF NOT EXISTS device_permissions(id INTEGER PRIMARY KEY CHECK(id=1),revision INTEGER NOT NULL,payload TEXT NOT NULL);
             CREATE TABLE IF NOT EXISTS permission_events(revision INTEGER PRIMARY KEY,payload TEXT NOT NULL);
-            PRAGMA user_version=3; COMMIT;",
+            PRAGMA user_version=4; COMMIT;",
         )?;
         db.execute(
             "INSERT OR IGNORE INTO meta(key,value) VALUES('node',?1)",
@@ -224,15 +224,30 @@ impl Store {
             Ok(task)
         })
     }
+    pub fn by_key(&self, key: &str) -> Result<Task> {
+        ensure!(valid_name(key), "invalid idempotency key");
+        self.transaction(|tx| {
+            find(tx, "SELECT payload FROM tasks WHERE request_key=?1", key)?
+                .ok_or_else(|| Rejection::NotFound.into())
+        })
+    }
     pub fn claim(&self, request: ClaimRequest, at: i64) -> Result<Option<Claim>> {
         ensure!(
             valid_name(&request.worker_node) && valid_name(&request.capability),
             "invalid claim"
         );
         self.transaction(|tx| {
-            let raw: Option<String> = tx.query_row("SELECT payload FROM tasks WHERE status='queued' AND capability=?1 AND (target IS NULL OR target=?2) AND deadline>?3 AND (COALESCE(json_extract(payload, '$.request.agent_only'),0)=0 OR ?4) ORDER BY created_at, rowid LIMIT 1", params![request.capability, request.worker_node, at, request.agent_profile], |r| r.get(0)).optional()?;
-            let Some(raw) = raw else { return Ok(None) };
-            let mut task: Task = serde_json::from_str(&raw)?;
+            let mut query = tx.prepare("SELECT payload FROM tasks WHERE status='queued' AND capability=?1 AND (target IS NULL OR target=?2) AND deadline>?3 AND (COALESCE(json_extract(payload, '$.request.agent_only'),0)=0 OR ?4) ORDER BY created_at, rowid")?;
+            let rows = query.query_map(params![request.capability, request.worker_node, at, request.agent_profile], |r| r.get::<_, String>(0))?;
+            let mut selected = None;
+            for raw in rows {
+                let task: Task = serde_json::from_str(&raw?)?;
+                if task.request.requirements.as_ref().is_none_or(|req| request.offer.as_ref().is_some_and(|offer| offer.fits(req, &request.worker_node, &self.node, at))) {
+                    selected = Some(task);
+                    break;
+                }
+            }
+            let Some(mut task) = selected else { return Ok(None) };
             task.status = Status::Running;
             task.worker_node = Some(request.worker_node);
             task.started_at = Some(at);

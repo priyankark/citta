@@ -22,13 +22,71 @@ use tokio_util::sync::CancellationToken;
     about = "Cross-device capabilities and task delegation for agents"
 )]
 struct Cli {
-    #[arg(long, global = true, default_value = "config.toml")]
-    config: PathBuf,
+    #[arg(long, global = true)]
+    config: Option<PathBuf>,
     #[command(subcommand)]
     command: Commands,
 }
+#[derive(clap::Args)]
+struct ResourceArgs {
+    #[arg(long)]
+    profile: String,
+    #[arg(long)]
+    target: Option<String>,
+    #[arg(long, default_value_t = 256)]
+    memory_mib: u64,
+    #[arg(long, default_value_t = 0.25)]
+    cpu_cores: f64,
+    #[arg(long)]
+    os: Option<String>,
+    #[arg(long)]
+    arch: Option<String>,
+    #[arg(long)]
+    harness: Option<String>,
+    #[arg(long)]
+    model: Option<String>,
+    #[arg(long)]
+    remote_only: bool,
+}
+impl ResourceArgs {
+    fn requirements(&self) -> Result<citta::resources::Requirements> {
+        let req = citta::resources::Requirements {
+            memory_bytes: self
+                .memory_mib
+                .checked_mul(1024 * 1024)
+                .context("memory estimate overflow")?,
+            cpu_cores: self.cpu_cores,
+            os: self.os.clone(),
+            arch: self.arch.clone(),
+            harness: self.harness.clone(),
+            model: self.model.clone(),
+            remote_only: self.remote_only,
+        };
+        req.validate()?;
+        Ok(req)
+    }
+}
 #[derive(Subcommand)]
 enum Commands {
+    /// Configure this device's pairing, user service, agent profile, tools and skills.
+    Setup(citta::setup::Options),
+    /// Explain local and peer readiness without needing SSH.
+    Doctor,
+    /// Explain current resource eligibility without submitting work.
+    Placement(ResourceArgs),
+    /// Queue an agent task for automatic placement using fresh resources and reservations.
+    Delegate {
+        #[command(flatten)]
+        placement: ResourceArgs,
+        #[arg(long)]
+        prompt: PathBuf,
+        #[arg(long)]
+        key: String,
+        #[arg(long, default_value_t = 300)]
+        timeout: u64,
+        #[arg(long, default_value_t = 300)]
+        queue_ttl: u64,
+    },
     /// Create a private device configuration and unique token; never overwrites.
     Init {
         #[arg(long)]
@@ -94,6 +152,11 @@ enum Commands {
     Inspect {
         id: uuid::Uuid,
     },
+    /// Recover the durable task ID after an uncertain submission.
+    Lookup {
+        #[arg(long)]
+        key: String,
+    },
     Tasks {
         #[arg(long, default_value_t = 50)]
         limit: usize,
@@ -137,6 +200,7 @@ async fn main() -> Result<()> {
         "Citta v1 supports macOS and Linux; process containment must be implemented before other targets"
     );
     let cli = Cli::parse();
+    let config_path = cli.config.unwrap_or_else(citta::setup::default_config);
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -146,6 +210,7 @@ async fn main() -> Result<()> {
         .with_writer(std::io::stderr)
         .init();
     match cli.command {
+        Commands::Setup(options) => return print(citta::setup::run(&config_path, options).await?),
         Commands::Init { dir, node, port } => {
             let path = config::init(&dir, node, port)?;
             return print(
@@ -156,7 +221,9 @@ async fn main() -> Result<()> {
             tailscale_bin,
             https_port,
         } => {
-            return print(citta::enrollment::enable(&cli.config, tailscale_bin, https_port).await?);
+            return print(
+                citta::enrollment::enable(&config_path, tailscale_bin, https_port).await?,
+            );
         }
         Commands::Guard {
             parent,
@@ -167,13 +234,16 @@ async fn main() -> Result<()> {
             return citta::worker::guard(parent, timeout, &program, &args);
         }
         Commands::Builtin { operation } => {
+            if operation == "prompt" {
+                std::process::exit(citta::setup::prompt_worker()?);
+            }
             ensure!(operation == "echo", "unknown builtin");
             let value: Value = serde_json::from_slice(&read_input(&PathBuf::from("-"))?)?;
             return print(value);
         }
         _ => {}
     }
-    let config = Config::load(&cli.config)?;
+    let config = Config::load(&config_path)?;
     match cli.command {
         Commands::Check => {
             config::read_token(&config.token_file)?;
@@ -183,6 +253,7 @@ async fn main() -> Result<()> {
             )
         }
         Commands::Daemon => daemon(config).await,
+        Commands::Doctor => print(citta::setup::doctor(&config).await?),
         Commands::Prune { older_than_days } => {
             ensure!(older_than_days >= 1, "minimum retention is one day");
             let store = Store::open(
@@ -198,6 +269,38 @@ async fn main() -> Result<()> {
         command => {
             let client = Client::local(&config)?;
             let value: Value = match command {
+                Commands::Placement(args) => {
+                    let requirements = args.requirements()?;
+                    client
+                        .post(
+                            "/v1/placement",
+                            &PlacementRequest {
+                                profile: args.profile,
+                                requirements,
+                                target_node: args.target,
+                            },
+                        )
+                        .await?
+                }
+                Commands::Delegate {
+                    placement,
+                    prompt,
+                    key,
+                    timeout,
+                    queue_ttl,
+                } => {
+                    let requirements = placement.requirements()?;
+                    let request = SpawnAgent {
+                        requirements: Some(requirements),
+                        profile: placement.profile,
+                        prompt: String::from_utf8(read_input(&prompt)?)?,
+                        idempotency_key: key,
+                        target_node: placement.target,
+                        timeout_secs: timeout,
+                        queue_ttl_secs: queue_ttl,
+                    };
+                    client.post("/v1/agents/delegate", &request).await?
+                }
                 Commands::Mcp => return citta::mcp::serve(client).await,
                 Commands::Discover => client.get("/v1/discover").await?,
                 Commands::Enrollment => client.get("/v1/enrollment").await?,
@@ -226,6 +329,7 @@ async fn main() -> Result<()> {
                         .post(
                             "/v1/agents/spawn",
                             &SpawnAgent {
+                                requirements: None,
                                 profile,
                                 prompt,
                                 idempotency_key: key,
@@ -245,6 +349,7 @@ async fn main() -> Result<()> {
                     queue_ttl,
                 } => {
                     let request = Submission {
+                        requirements: None,
                         agent_only: false,
                         capability,
                         input: serde_json::from_slice(&read_input(&input)?)?,
@@ -257,6 +362,10 @@ async fn main() -> Result<()> {
                     client.post("/v1/tasks", &request).await?
                 }
                 Commands::Inspect { id } => client.get(&format!("/v1/tasks/{id}")).await?,
+                Commands::Lookup { key } => {
+                    ensure!(valid_name(&key), "invalid idempotency key");
+                    client.get(&format!("/v1/tasks/by-key/{key}")).await?
+                }
                 Commands::Tasks { limit } => {
                     client
                         .get(&format!("/v1/tasks?limit={}", limit.min(100)))
@@ -309,6 +418,7 @@ async fn daemon(config: Config) -> Result<()> {
     let permissions = citta::permissions::Permissions::open(&config, store.clone())?;
     let control_token = Arc::new(citta::permissions::control_token(&config)?);
     let app = App {
+        admission: Default::default(),
         control_enrollment,
         permissions,
         control_token,

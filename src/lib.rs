@@ -6,6 +6,8 @@ pub mod inventory;
 pub mod mcp;
 pub mod model;
 pub mod panel;
+pub mod resources;
+pub mod setup;
 pub mod store;
 pub mod worker;
 

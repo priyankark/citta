@@ -212,6 +212,16 @@ async fn status(bin: &Path) -> Result<Status> {
     serde_json::from_slice(&tailscale(bin, &["status", "--json"]).await?)
         .context("invalid Tailscale status")
 }
+pub async fn local_node_name(bin: &Path) -> Result<String> {
+    let state = status(bin).await?;
+    ensure!(
+        state.backend_state == "Running",
+        "Tailscale is not connected; sign in and connect it on this device, then rerun citta setup"
+    );
+    let name = state.this.dns_name.split('.').next().unwrap_or_default();
+    ensure!(valid_name(name), "Tailscale device name unavailable");
+    Ok(name.into())
+}
 
 #[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

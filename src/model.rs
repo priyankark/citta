@@ -24,6 +24,8 @@ pub fn valid_name(s: &str) -> bool {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Submission {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requirements: Option<crate::resources::Requirements>,
     pub capability: String,
     /// Require an agent profile; ordinary capabilities cannot claim this run.
     #[serde(default, skip_serializing_if = "is_false")]
@@ -49,6 +51,9 @@ fn default_ttl() -> u64 {
 }
 impl Submission {
     pub fn validate(&self) -> anyhow::Result<()> {
+        if let Some(requirements) = &self.requirements {
+            requirements.validate()?;
+        }
         anyhow::ensure!(valid_name(&self.capability), "invalid capability name");
         anyhow::ensure!(valid_name(&self.idempotency_key), "invalid idempotency key");
         anyhow::ensure!(
@@ -123,6 +128,8 @@ impl Outcome {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ClaimRequest {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub offer: Option<crate::resources::Offer>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub agent_profile: bool,
     pub worker_node: String,
@@ -154,6 +161,8 @@ pub struct Event {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CapabilityInfo {
+    #[serde(default)]
+    pub admission: Option<crate::resources::Readiness>,
     /// Operator-declared runtime metadata; absent means unspecified.
     #[serde(default)]
     pub harness: Option<String>,
@@ -178,6 +187,8 @@ pub enum CapabilityKind {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct SpawnAgent {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub requirements: Option<crate::resources::Requirements>,
     /// Name of a receiver-installed capability whose kind is agent.
     pub profile: String,
     pub prompt: String,
@@ -189,9 +200,19 @@ pub struct SpawnAgent {
     #[serde(default = "default_ttl")]
     pub queue_ttl_secs: u64,
 }
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct PlacementRequest {
+    pub profile: String,
+    #[serde(default)]
+    pub requirements: crate::resources::Requirements,
+    #[serde(default)]
+    pub target_node: Option<String>,
+}
 impl SpawnAgent {
     pub fn submission(&self) -> Submission {
         Submission {
+            requirements: self.requirements.clone(),
             agent_only: true,
             capability: self.profile.clone(),
             input: serde_json::json!({"prompt":self.prompt}),
@@ -204,6 +225,8 @@ impl SpawnAgent {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeInfo {
+    #[serde(default)]
+    pub resource_admission_version: Option<u32>,
     #[serde(default)]
     pub permissions: Option<crate::permissions::Snapshot>,
     pub protocol: u32,
