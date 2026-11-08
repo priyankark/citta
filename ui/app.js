@@ -165,7 +165,7 @@ function renderDevices(list) {
           h(
             "div",
             "collector-note",
-            `Codex sessions: ${inv.codex_status}${inv.agents_truncated ? " · first 128 shown" : ""}`,
+            `Codex collector: ${inv.codex_status} · ${inv.agents?.length ?? "unknown"} reported sessions${inv.agents_truncated ? " · first 128 shown" : ""}`,
           ),
         );
       card.append(
@@ -215,8 +215,10 @@ function renderAgents() {
   }));
   list = list.filter(
     (a) =>
+      ($("agent-device").value === "all" ||
+        a.node_id === $("agent-device").value) &&
       (filter === "all" || a.displayState === filter) &&
-      `${a.label} ${a.harness} ${a.node_id} ${a.id}`
+      `${a.label} ${a.harness} ${a.model || ""} ${a.node_id} ${a.id}`
         .toLowerCase()
         .includes(term),
   );
@@ -264,6 +266,127 @@ function renderAgents() {
     ),
   );
   $("agents-empty").hidden = list.length > 0;
+}
+function renderAgentCoverage(list) {
+  const selection = $("agent-device").value;
+  replace("agent-device", [
+    new Option("All devices", "all"),
+    ...list.map((n) => new Option(n.node_id, n.node_id)),
+  ]);
+  $("agent-device").value = list.some((n) => n.node_id === selection)
+    ? selection
+    : "all";
+  replace(
+    "agent-coverage",
+    list.map((n) => {
+      const inv = n.inventory;
+      const current = n.reachable && fresh(inv);
+      const sessions = inv?.agents?.length;
+      const runtimes = inv?.runtimes || [];
+      const counts = new Map();
+      for (const p of runtimes)
+        counts.set(p.name, (counts.get(p.name) || 0) + 1);
+      const processText = [...counts]
+        .map(([name, count]) => `${count} ${name}`)
+        .join(" · ");
+      let status, explanation;
+      if (!n.reachable) {
+        status = "Unreachable";
+        explanation =
+          "Agent availability is unknown until this device reconnects.";
+      } else if (!current) {
+        status = inv ? "Stale discovery" : "No session telemetry";
+        explanation = "Current sessions and process availability are unknown.";
+      } else if (inv.codex_status !== "connected") {
+        status = "Session collector unavailable";
+        explanation = `Codex collector: ${inv.codex_status || "unknown"}. Process presence does not report session state.`;
+      } else if (sessions === 0 && runtimes.length) {
+        status = "Processes detected · no reported sessions";
+        explanation =
+          "The connected Codex server returned no loaded sessions. Other Codex instances or harnesses can run outside that server.";
+      } else {
+        status = `${sessions ?? "Unknown"} sessions reported`;
+        explanation =
+          "Coverage is limited to the connected Codex server and Citta-managed runs. Other sessions may exist.";
+      }
+      const button = h("button", "coverage-select", "Show device");
+      button.type = "button";
+      button.addEventListener("click", () => {
+        $("agent-device").value = n.node_id;
+        $("agent-state").value = "all";
+        $("agent-search").value = "";
+        renderAgents();
+        renderRuntimes(nodes());
+        $("agents-section").scrollIntoView({ block: "start" });
+      });
+      return h(
+        "article",
+        "coverage-card",
+        h(
+          "div",
+          "coverage-heading",
+          h("strong", null, n.node_id),
+          badge(current ? "online" : "unknown", current ? "Fresh" : "Unknown"),
+        ),
+        h("div", "coverage-status", status),
+        h("p", "muted", explanation),
+        h(
+          "div",
+          "row-sub",
+          inv
+            ? `${processText || "No detected runtimes"} · ${(n.managed_agents || []).filter((a) => a.state === "busy").length} Citta-managed running`
+            : "Process telemetry unavailable",
+        ),
+        button,
+      );
+    }),
+  );
+}
+function renderRuntimes(list) {
+  const device = $("agent-device").value;
+  const term = $("agent-search").value.toLowerCase();
+  const filter = $("agent-state").value;
+  const processes = list
+    .flatMap((n) =>
+      (n.inventory?.runtimes || []).map((p) => ({
+        ...p,
+        node: n.node_id,
+        current: n.reachable && fresh(n.inventory),
+        observed_at: n.inventory.observed_at,
+      })),
+    )
+    .filter(
+      (p) =>
+        (device === "all" || p.node === device) &&
+        (filter === "all" || filter === "unknown") &&
+        `${p.node} ${p.name} ${p.pid}`.toLowerCase().includes(term),
+    );
+  $("runtime-count").textContent = `(${processes.length} processes)`;
+  replace(
+    "runtimes",
+    processes.map((p) =>
+      h(
+        "article",
+        "runtime",
+        h(
+          "div",
+          "runtime-heading",
+          h("strong", null, `${p.name} · PID ${p.pid}`),
+          badge("unknown", "Session state unknown"),
+        ),
+        h("div", "runtime-device", p.node),
+        h("div", null, "Model not reported · process observation"),
+        h(
+          "div",
+          null,
+          p.current
+            ? `${bytes(p.memory_bytes)} memory · seen ${ago(p.observed_at)}`
+            : `Stale observation · ${ago(p.observed_at)}`,
+        ),
+      ),
+    ),
+  );
+  $("runtimes-empty").hidden = processes.length > 0;
 }
 function renderProfiles(list) {
   const profiles = list
@@ -406,12 +529,12 @@ function render() {
         "◈",
       ],
       [
-        "Live agents",
+        "Reported live sessions",
         liveAgents.length,
         `${liveAgents.filter((a) => a.state === "busy").length} busy · ${liveAgents.filter((a) => a.state === "blocked").length} need attention`,
         "◎",
       ],
-      ["Idle agents", idle.length, "Reported by their harness", "○"],
+      ["Reported idle sessions", idle.length, "Supported collectors only", "○"],
       [
         "Available memory",
         inventory.length ? bytes(free) : "—",
@@ -431,24 +554,14 @@ function render() {
   $("resource-coverage").textContent =
     `${live.length} reachable · ${inventory.length} reporting resources`;
   $("nav-agent-count").textContent = liveAgents.length;
+  $("nav-agent-count").title =
+    "Live sessions reported by supported collectors; not a complete process count";
   renderDevices(list);
+  renderAgentCoverage(list);
   renderAgents();
   renderProfiles(list);
   renderRuns();
-  const processes = list.flatMap((n) =>
-    (n.inventory?.runtimes || []).map((p) => ({ ...p, node: n.node_id })),
-  );
-  $("runtime-count").textContent = `(${processes.length})`;
-  replace(
-    "runtimes",
-    processes.map((p) =>
-      h(
-        "div",
-        "runtime",
-        `${p.node} · ${p.name} · PID ${p.pid} · ${bytes(p.memory_bytes)}`,
-      ),
-    ),
-  );
+  renderRuntimes(list);
   renderPermissionDevices();
   applyView();
 }
@@ -457,10 +570,10 @@ function applyView() {
   $("permissions-section").hidden = v !== "permissions";
   $("stats").hidden = v === "permissions";
   document.querySelector(".runtime-section").hidden = v === "permissions";
-  for (const name of ["devices", "agents", "profiles", "runs"])
+  for (const name of ["devices", "coverage", "agents", "profiles", "runs"])
     $(`${name}-section`).hidden =
       v !== "overview" &&
-      !(v === "agents" && ["agents", "profiles"].includes(name)) &&
+      !(v === "agents" && ["coverage", "agents", "profiles"].includes(name)) &&
       !(v === "runs" && name === "runs");
   $("page-title").textContent =
     v === "permissions"
@@ -474,7 +587,7 @@ function applyView() {
     v === "permissions"
       ? "Choose what each device may execute, and which devices may send it work."
       : v === "agents"
-        ? "See who is working, who is idle, and which profiles can start new agents."
+        ? "See reported sessions, detected runtimes, and discovery coverage on every device."
         : v === "runs"
           ? "Follow execution, inspect results, and keep failed runs visible."
           : "A live view of the devices, agents, and work across your mesh.";
@@ -542,8 +655,13 @@ async function start() {
   }, 1000);
 }
 $("refresh").addEventListener("click", refresh);
-$("agent-search").addEventListener("input", renderAgents);
-$("agent-state").addEventListener("change", renderAgents);
+function filterAgents() {
+  renderAgents();
+  renderRuntimes(nodes());
+}
+$("agent-search").addEventListener("input", filterAgents);
+$("agent-state").addEventListener("change", filterAgents);
+$("agent-device").addEventListener("change", filterAgents);
 $("failures-only").addEventListener("change", renderRuns);
 $("close-dialog").addEventListener("click", () => $("run-dialog").close());
 document.querySelectorAll(".nav").forEach((button) =>

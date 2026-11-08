@@ -539,14 +539,9 @@ input[type="checkbox"] {
   margin-top: 30px;
   padding-top: 18px;
 }
-.runtime-section summary {
-  cursor: pointer;
-  color: var(--muted);
-  font-size: 12px;
-}
 .runtime-grid {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
   gap: 8px;
   margin-top: 12px;
 }
@@ -557,6 +552,51 @@ input[type="checkbox"] {
   border-radius: 5px;
   font: 10px var(--mono);
   color: var(--muted);
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+.runtime-heading,
+.coverage-heading {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.runtime-device {
+  color: var(--text);
+  font-size: 12px;
+}
+.coverage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 12px;
+}
+.coverage-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 16px;
+  background: var(--surface);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.coverage-status {
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.coverage-card p {
+  font-size: 12px;
+  line-height: 1.6;
+}
+.coverage-select {
+  margin-top: 14px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 6px 10px;
+  cursor: pointer;
 }
 footer {
   border-top: 1px solid var(--border);

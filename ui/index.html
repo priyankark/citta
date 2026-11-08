@@ -197,13 +197,31 @@
           </div>
           <div id="devices" class="device-grid"></div>
         </section>
+        <section id="coverage-section" class="section">
+          <div class="section-heading">
+            <div>
+              <span class="section-kicker">EVERY DEVICE</span>
+              <h2>Agent discovery coverage</h2>
+            </div>
+          </div>
+          <div id="agent-coverage" class="coverage-grid"></div>
+          <p class="table-note">
+            Reported sessions are only those visible to the connected harness
+            collector. Detected processes are listed separately below; one
+            process can host multiple sessions or support another process.
+          </p>
+        </section>
         <section id="agents-section" class="section">
           <div class="section-heading">
             <div>
               <span class="section-kicker">WHO'S HERE</span>
-              <h2>Agent sessions</h2>
+              <h2>Reported agent sessions</h2>
             </div>
             <div class="filters">
+              <label class="sr-only" for="agent-device">Agent device</label>
+              <select id="agent-device">
+                <option value="all">All devices</option>
+              </select>
               <label class="sr-only" for="agent-search">Search agents</label
               ><input
                 id="agent-search"
@@ -233,13 +251,30 @@
               <tbody id="agents"></tbody>
             </table>
             <div id="agents-empty" class="empty" hidden>
-              No sessions match this view.
+              No reported sessions match these filters. Check discovery coverage
+              and detected processes below.
             </div>
           </div>
           <p class="table-note">
             Idle is reported by the harness. Observed sessions keep their
             existing owner and permissions.
           </p>
+        </section>
+        <section class="runtime-section section">
+          <div class="section-heading">
+            <div>
+              <span class="section-kicker">PROCESS OBSERVATIONS</span>
+              <h2>Detected runtimes <span id="runtime-count"></span></h2>
+            </div>
+          </div>
+          <p class="muted">
+            Process presence does not establish agent availability. Only
+            supported harness adapters report session state.
+          </p>
+          <div id="runtimes" class="runtime-grid"></div>
+          <div id="runtimes-empty" class="empty" hidden>
+            No process observations match these filters.
+          </div>
         </section>
         <section id="profiles-section" class="section">
           <div class="section-heading">
@@ -279,16 +314,6 @@
             </div>
           </div>
         </section>
-        <details class="runtime-section">
-          <summary>
-            Detected runtime processes <span id="runtime-count"></span>
-          </summary>
-          <p class="muted">
-            Process presence does not establish agent availability. Only
-            supported harness adapters report session state.
-          </p>
-          <div id="runtimes" class="runtime-grid"></div>
-        </details>
         <footer>
           <span
             >CITTA <span class="footer-dot">/</span> PRIVATE NETWORK
