@@ -28,8 +28,8 @@ A capability with `kind = "agent"` is a spawn profile. Its fixed program/argumen
 ```sh
 citta --config "$HOME/.config/citta/config.toml" agents
 citta --config "$HOME/.config/citta/config.toml" spawn-agent \
-  --profile codex-readonly --prompt /absolute/path/to/prompt.txt \
-  --key review-001 --target desktop --timeout 180
+  --profile codex --prompt /absolute/path/to/prompt.txt \
+  --key review-001 --target desktop --timeout 3600
 citta --config "$HOME/.config/citta/config.toml" inspect TASK_UUID
 ```
 
@@ -39,7 +39,7 @@ Spawn requires a reachable device advertising the profile. Full slots can queue 
 
 Managed agents carry their selected profile’s harness/model metadata and appear while executing and in a bounded recent history (128 completed entries alongside active runs). This in-memory registry resets on daemon restart; durable task history remains at each origin. Process completion can precede origin acknowledgement; inspect the origin task for the authoritative result. A disconnected execution is never automatically replayed.
 
-An observed idle session is **visible, not adopted**: it retains its existing owner, context, and permissions. This version can launch new agents but cannot inject work into arbitrary existing sessions. Nested delegation, parent/child budgets, shared checkouts, and recursive cancellation are not yet implemented.
+An observed idle session is **visible, not adopted**: it retains its existing owner, context, and permissions. This version can launch new agents but cannot inject work into arbitrary existing sessions. Full-tool agents may delegate further using their own local MCP/CLI. Child jobs are independent; shared parent/child budgets, shared checkouts and cascading cancellation are not implemented. Track and collect/cancel each child explicitly.
 
 ## Resource-aware delegation
 

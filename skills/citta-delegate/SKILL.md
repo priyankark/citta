@@ -14,11 +14,17 @@ Use remote capacity proactively when it helps the user's task and delegation is 
 - Placement is a snapshot. `citta_delegate` queues an agent subtask for the first compatible worker that has fresh telemetry, free slots, and enough estimated capacity. The worker reserves capacity and rechecks before starting. Prefer this over manually guessing a device from stale telemetry. An unavailable device or a busy compatible mesh is not permission to lower the task's estimates or relax policy.
 - Default requirements are 256 MiB and 0.25 CPU cores, suitable only as a starting estimate for a light cloud-backed harness. Builds and local inference need workload-specific estimates and installed profiles. Admission is not an OS memory/CPU quota, and GPU capacity is not measured.
 
+## Tool access
+
+Prefer the `codex` full-tool profile for general work. It can use Bash, run scripts and tests, edit code, access the network, and load the device’s configured MCP tools and installed skills. Delegation itself does not restrict these tools. Use `codex-readonly` only when the task explicitly requires read-only execution. Harness, account and OS permissions still determine actual availability; no profile can supply a tool absent from that device.
+
 ## Supply a complete subtask
 
 Give a bounded objective, relevant facts or small input snippets, required output, constraints, and completion criteria. Device files and repositories are not shared automatically: a local path is not an input on another device. Use provided text or an already-provisioned remote checkout, and pin the relevant revision. Never send credentials or an entire conversation merely to provide context. Observed idle sessions are not available workers; launch a fresh installed profile.
 
-Count submissions with uncertain acceptance as outstanding. Keep at most two outstanding delegated tasks unless the user or parent workflow provides a different budget. Use a finite timeout and queue TTL appropriate to the task, and a unique stable idempotency key per intended execution. Continue independent local work while it runs. When running inside a Citta worker (`CITTA_TASK_ID` and `CITTA_ORIGIN_NODE` are present), complete the assigned subtask without further Citta delegation, including through the CLI. Spawned profiles must keep Citta MCP access disabled until parent/child budgets and cancellation are implemented.
+Count submissions with uncertain acceptance as outstanding. Choose parallelism from the user’s task, available slots/resources and any explicit workflow budget. Use a timeout and queue TTL appropriate to the work, and a unique stable idempotency key per intended execution. The full-tool profile supports up to 24 hours per task; agent submission defaults to one hour. Continue independent work while it runs.
+
+Delegated agents may use skills and delegate further through MCP or the CLI. Record every child task’s originating daemon and task ID, and collect or cancel it before finishing. Child tasks are independent durable jobs: cancellation of a parent does not automatically cancel them. Include those references in progress/results so the parent can recover them. Avoid waiting for a child on the same device/profile when all its slots are occupied by waiting parents; choose an eligible remote device or do the subtask directly. Do not recursively delegate the same unchanged objective.
 
 ## Collect and recover
 
@@ -34,8 +40,8 @@ Prefer MCP when available. If the current harness has not loaded Citta's tools, 
 
 ```sh
 citta --config "$HOME/.config/citta/config.toml" discover
-citta --config "$HOME/.config/citta/config.toml" placement --profile codex-readonly --memory-mib 512 --cpu-cores 0.5
-citta --config "$HOME/.config/citta/config.toml" delegate --profile codex-readonly --prompt /absolute/path/subtask.txt --key UNIQUE-STABLE-KEY --memory-mib 512 --cpu-cores 0.5 --timeout 180 --queue-ttl 300
+citta --config "$HOME/.config/citta/config.toml" placement --profile codex --memory-mib 512 --cpu-cores 0.5
+citta --config "$HOME/.config/citta/config.toml" delegate --profile codex --prompt /absolute/path/subtask.txt --key UNIQUE-STABLE-KEY --memory-mib 512 --cpu-cores 0.5 --timeout 3600 --queue-ttl 300
 citta --config "$HOME/.config/citta/config.toml" lookup --key UNIQUE-STABLE-KEY
 citta --config "$HOME/.config/citta/config.toml" inspect TASK_ID
 citta --config "$HOME/.config/citta/config.toml" cancel TASK_ID

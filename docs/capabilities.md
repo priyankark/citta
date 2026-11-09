@@ -50,26 +50,26 @@ Declare a spawnable harness with `kind = "agent"` (omitting it keeps the ordinar
 
 ```toml
 [[capabilities]]
-name = "codex-readonly"
+name = "codex"
 harness = "codex"
 # Add model only when pinned to the same identifier in the harness arguments.
 kind = "agent"
-description = "Read-only analysis with a fresh Codex agent; fixed device permissions."
+description = "Full-tool coding agent with installed tools and skills."
 program = "/absolute/path/to/python3"
 args = ["/absolute/path/to/citta/examples/prompt_worker.py"]
 slots = 1
-max_timeout_secs = 180
+max_timeout_secs = 86400
 [capabilities.env]
 CITTA_AGENT_PROGRAM = "/absolute/path/to/codex"
-CITTA_AGENT_ARGS = '["--no-daemon", "-a", "never", "-c", "mcp_servers.citta.enabled=false", "exec", "--sandbox", "read-only", "--ephemeral", "--skip-git-repo-check", "--color", "never", "-"]'
+CITTA_AGENT_ARGS = '["--no-daemon", "-a", "never", "exec", "--sandbox", "danger-full-access", "--ephemeral", "--skip-git-repo-check", "--color", "never", "-"]'
 HOME = "/absolute/user/home"
 PATH = "/usr/bin:/bin:/absolute/trusted/bin"
 ```
 
-This example uses an established Codex login, a separate noninteractive process, read-only harness sandboxing, and no interactive approval fallback. It disables the Citta MCP entry for this worker to avoid unsupported recursive delegation. Other existing harness settings remain in effect. Read-only does not mean secret-isolated: access to HOME and harness credentials is a local trust decision. Citta does not add an OS sandbox around arbitrary profile executables. Inspect supported flags on the installed harness before using this example.
+This example uses an established Codex login, a separate noninteractive process, full shell/filesystem/network access, and approval policy `never`. It loads the device’s existing harness config, MCP tools and skills; it does not disable Citta in the worker. Set `CODEX_HOME` when the harness uses a nonstandard directory. Full access runs with the device account’s permissions, including access to its local credentials. Explicit `--agent-access read-only` setup remains available for tasks that need that restriction. Inspect supported flags on the installed harness before using this example.
 
 Use `citta_spawn_agent` / `spawn-agent` to submit the prompt directly. The receiver's profile determines permissions, not the caller. Ordinary capabilities retain their existing JSON contract. See [discovery and spawning](discovery.md).
 
-Verify the installed harness's supported noninteractive mode and approval behavior before configuring it. Keep its normal restrictions; do not introduce flags that bypass approvals or grant unrestricted filesystem access. The adapter forwards stdout/stderr and exit status. It cannot interact with a session that waits for UI input, access an existing conversation, or create repository checkouts for you. Set time/output limits appropriate to the task.
+Verify the installed harness's supported noninteractive mode and approval behavior before configuring it. Apply the owner’s selected access mode; do not add tool restrictions merely because work is delegated. The adapter forwards stdout/stderr and exit status. It cannot interact with a session that waits for UI input, access an existing conversation, or create repository checkouts for you. Set time/output limits appropriate to the task.
 
-Do not pass Citta's mesh credentials into delegated workers. Nested autonomous delegation with shared budgets and parent cancellation is a later protocol feature. The originating agent can already submit independent tasks to multiple devices and combine results itself.
+Workers use the receiver’s existing local Citta MCP/CLI configuration; do not copy credentials from the sending device. A full-access worker can read local account files, so the environment allowlist is not a credential isolation boundary. Further delegation is allowed, but child tasks are independent: record their originating daemon and IDs, collect or cancel them explicitly, and avoid same-slot wait deadlocks. Shared parent/child budgets and automatic cascading cancellation remain unimplemented.

@@ -18,6 +18,27 @@ use std::{
     time::Duration,
 };
 
+#[derive(Clone, Copy, clap::ValueEnum, Default)]
+pub enum AgentAccess {
+    #[default]
+    Full,
+    ReadOnly,
+}
+impl AgentAccess {
+    fn profile(self) -> &'static str {
+        match self {
+            Self::Full => "codex",
+            Self::ReadOnly => "codex-readonly",
+        }
+    }
+    fn sandbox(self) -> &'static str {
+        match self {
+            Self::Full => "danger-full-access",
+            Self::ReadOnly => "read-only",
+        }
+    }
+}
+
 #[derive(clap::Args)]
 pub struct Options {
     #[arg(long)]
@@ -28,6 +49,10 @@ pub struct Options {
     pub codex_bin: Option<PathBuf>,
     #[arg(long)]
     pub model: Option<String>,
+    /// New profiles default to full tools. Explicit selection adds a missing
+    /// profile alongside existing profiles without silently changing them.
+    #[arg(long, value_enum, conflicts_with = "no_agent")]
+    pub agent_access: Option<AgentAccess>,
     /// Codex config and skills directory; defaults to CODEX_HOME or ~/.codex.
     #[arg(long)]
     pub harness_dir: Option<PathBuf>,
@@ -361,10 +386,12 @@ pub async fn run(config_path: &Path, options: Options) -> Result<Value> {
     });
     let mut profile = None;
     let mut agent_state = "not_requested";
+    let access = options.agent_access.unwrap_or_default();
     let profile_exists = existing.as_ref().is_some_and(|c| {
-        c.capabilities
-            .iter()
-            .any(|cap| cap.kind == CapabilityKind::Agent)
+        c.capabilities.iter().any(|cap| {
+            cap.kind == CapabilityKind::Agent
+                && (options.agent_access.is_none() || cap.name == access.profile())
+        })
     });
     if !options.no_agent && !profile_exists {
         agent_state = "harness_not_installed";
@@ -385,12 +412,7 @@ pub async fn run(config_path: &Path, options: Options) -> Result<Value> {
                 .success()
             {
                 let model = options.model.or_else(|| configured_model(&harness_config));
-                let mut args = vec![
-                    "-a".to_string(),
-                    "never".into(),
-                    "-c".into(),
-                    "mcp_servers.citta.enabled=false".into(),
-                ];
+                let mut args = vec!["-a".to_string(), "never".into()];
                 if String::from_utf8_lossy(&help.stdout).contains("--no-daemon") {
                     args.push("--no-daemon".into());
                 }
@@ -401,7 +423,7 @@ pub async fn run(config_path: &Path, options: Options) -> Result<Value> {
                     [
                         "exec",
                         "--sandbox",
-                        "read-only",
+                        access.sandbox(),
                         "--ephemeral",
                         "--skip-git-repo-check",
                         "--color",
@@ -417,14 +439,16 @@ pub async fn run(config_path: &Path, options: Options) -> Result<Value> {
                     },
                     harness: Some("codex".into()),
                     model,
-                    name: "codex-readonly".into(),
-                    description: "Bounded read-only Codex analysis; no recursive Citta delegation."
-                        .into(),
+                    name: access.profile().into(),
+                    description: match access {
+                        AgentAccess::Full => "Codex with full shell, filesystem and network access; installed tools, MCP servers and skills are available.",
+                        AgentAccess::ReadOnly => "Explicitly selected read-only Codex profile; installed tools and skills remain available within its sandbox.",
+                    }.into(),
                     kind: CapabilityKind::Agent,
                     program: binary.clone(),
                     args: vec!["builtin".into(), "prompt".into()],
-                    slots: 1,
-                    max_timeout_secs: 180,
+                    slots: existing.as_ref().map_or(2, |c| c.slots),
+                    max_timeout_secs: 86400,
                     env: BTreeMap::from([
                         ("CITTA_AGENT_PROGRAM".into(), codex.to_string_lossy().into()),
                         ("CITTA_AGENT_ARGS".into(), serde_json::to_string(&args)?),
@@ -498,7 +522,7 @@ pub async fn run(config_path: &Path, options: Options) -> Result<Value> {
     if let Some(profile) = profile {
         ensure!(
             !config.capabilities.iter().any(|c| c.name == profile.name),
-            "codex-readonly name already belongs to another capability"
+            "selected profile name already belongs to another capability"
         );
         pending_profile = Some(profile.clone());
         config.capabilities.push(profile);

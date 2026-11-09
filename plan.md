@@ -101,3 +101,7 @@ See `docs/acceptance.md` for the device rollout checklist and recorded verificat
 ## Repeatable local onboarding
 
 Implemented: `citta setup` configures the installed device's automatic enrollment, persistent user service, Codex MCP/skills and initial bounded read-only profile. `citta doctor` explains peer readiness. Reruns preserve device identity and existing execution policy, and resume incomplete initial grants. Each device still needs Citta installed once and Tailscale connected; no SSH or copied credentials are needed for subsequent pairing. Binary self-update and remote bootstrap on a machine without a deployment agent remain unimplemented. The Mini is verified; the Air needs the matching resource-admission build before receiving automatic agent offloads.
+
+## Full-tool agent execution
+
+General-purpose setup now installs a `codex` profile with full shell/filesystem/network access and the device’s configured tools, MCP servers and skills. Explicit read-only profiles remain selectable. Agents may delegate further; child tasks are independent and must be tracked and collected/cancelled explicitly. Automatic cascading cancellation and shared parent/child budgets remain future work. Resource admission and device/task lifecycle controls are separate from tool availability.

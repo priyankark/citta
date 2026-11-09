@@ -46,6 +46,9 @@ fn is_false(value: &bool) -> bool {
 fn default_timeout() -> u64 {
     300
 }
+fn default_agent_timeout() -> u64 {
+    3600
+}
 fn default_ttl() -> u64 {
     3600
 }
@@ -195,7 +198,7 @@ pub struct SpawnAgent {
     pub idempotency_key: String,
     /// Optional device. Otherwise an available matching worker claims the run.
     pub target_node: Option<String>,
-    #[serde(default = "default_timeout")]
+    #[serde(default = "default_agent_timeout")]
     pub timeout_secs: u64,
     #[serde(default = "default_ttl")]
     pub queue_ttl_secs: u64,

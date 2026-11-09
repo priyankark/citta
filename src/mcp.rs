@@ -75,7 +75,7 @@ impl CittaMcp {
         result(self.client.post("/v1/placement", &request).await)
     }
     #[tool(
-        description = "Automatically delegate a bounded agent subtask to the first eligible trusted device. Default estimates: 256 MiB RAM and 0.25 CPU cores; set requirements to the task's actual needs, including optional OS/arch/harness/model and remote_only. Workers require fresh telemetry and reserve capacity atomically before claiming. Busy compatible devices leave work queued until capacity or queue TTL. Returns a durable task ID; inspect results. Reuse the same key for uncertain submission retries; never replay interrupted work. Does not migrate running sessions, transfer files, or allow recursive delegation."
+        description = "Automatically delegate a bounded agent subtask to the first eligible trusted device. Default estimates: 256 MiB RAM and 0.25 CPU cores; set requirements to the task's actual needs, including optional OS/arch/harness/model and remote_only. Workers require fresh telemetry and reserve capacity atomically before claiming. Busy compatible devices leave work queued until capacity or queue TTL. Returns a durable task ID; inspect results. Reuse the same key for uncertain submission retries; never replay interrupted work. Full-tool profiles may delegate further. Child tasks are independent: track their origin and ID and collect/cancel them explicitly; parent cancellation does not cascade. Does not migrate running sessions or transfer files."
     )]
     async fn citta_delegate(&self, Parameters(request): Parameters<SpawnAgent>) -> CallToolResult {
         result(self.client.post("/v1/agents/delegate", &request).await)
