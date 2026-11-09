@@ -900,6 +900,11 @@ pub async fn run(config_path: &Path, options: Options) -> Result<Value> {
             include_str!("../skills/citta-delegate/SKILL.md"),
             include_str!("../skills/citta-delegate/agents/openai.yaml"),
         ),
+        (
+            "citta-desktop",
+            include_str!("../skills/citta-desktop/SKILL.md"),
+            include_str!("../skills/citta-desktop/agents/openai.yaml"),
+        ),
     ] {
         save(
             &harness.join("skills").join(name).join("SKILL.md"),
@@ -912,6 +917,37 @@ pub async fn run(config_path: &Path, options: Options) -> Result<Value> {
             metadata.as_bytes(),
             &backup,
             &format!("{name}.yaml"),
+        )?;
+    }
+    // Install only portable source/instructions. Native dependencies, compilation
+    // and OS approval belong to an explicitly requested desktop task.
+    for (relative, contents) in [
+        (
+            "references/usage.md",
+            include_str!("../skills/citta-desktop/references/usage.md"),
+        ),
+        (
+            "scripts/desktop-control.cjs",
+            include_str!("../skills/citta-desktop/scripts/desktop-control.cjs"),
+        ),
+        (
+            "scripts/desktop-context.swift",
+            include_str!("../skills/citta-desktop/scripts/desktop-context.swift"),
+        ),
+        (
+            "scripts/owned-fixture.swift",
+            include_str!("../skills/citta-desktop/scripts/owned-fixture.swift"),
+        ),
+        (
+            "scripts/test-control.cjs",
+            include_str!("../skills/citta-desktop/scripts/test-control.cjs"),
+        ),
+    ] {
+        save(
+            &harness.join("skills/citta-desktop").join(relative),
+            contents.as_bytes(),
+            &backup,
+            &format!("citta-desktop-{}", relative.replace('/', "-")),
         )?;
     }
     if !options.no_service {
