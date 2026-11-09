@@ -52,7 +52,7 @@ The remaining sections describe lower-level/custom setup.
 
 ## Inventory and install
 
-Record device name, OS/architecture, intended capabilities, idle compute capacity, current Tailscale name, and the harness that will use MCP. Use distinct stable node IDs. Build/install the same tested Citta commit on each device. The initial platforms are macOS/Linux. Do not run Citta as root.
+Record device name, OS/architecture, intended capabilities, idle compute capacity, current Tailscale name, and the harness that will use MCP. Use distinct stable node IDs. Install a verified artifact or build the same tested Citta commit on each device. Before compiling, check the compiler and available disk space using the [build and artifact preflight](operations.md#build-and-artifact-preflight). The initial platforms are macOS/Linux. Do not run Citta as root.
 
 ```sh
 cargo install --path . --locked

@@ -22,8 +22,11 @@ A successful later attempt of the same run is linked as recovery. A different gr
 | [42271799418](https://github.com/priyankark/citta/actions/runs/42271799418), attempt 1 | Cancelled | Superseded development verification; not evidence of a source failure |
 | [42271955325](https://github.com/priyankark/citta/actions/runs/42271955325), attempt 1 | Linux and audit passed; macOS never acquired a runner | GitHub infrastructure failure. Annotation: "The job was not acquired by Runner of type hosted even after multiple attempts" |
 | Same run, attempt 2 | Targeted macOS rerun passed; complete run is green | Infrastructure incident recovered; attempt 1 remains in history |
+| [42679383677](https://github.com/priyankark/citta/actions/runs/42679383677), attempt 1 | Linux and audit passed; macOS ran no steps because a hosted runner was not acquired | GitHub runner infrastructure failure, with Apple Silicon capacity reported. One targeted macOS retry was requested; its pending status is not a pass. Both attempts remain in history. |
 
 The full attempt history is preserved in the local snapshot and GitHub. A pending/rerunning check is not counted as a passing release gate.
+
+Routine macOS CI now uses the standard Intel `macos-26-intel` runner, retaining every native test and artifact step. It also runs `cargo check --locked --target aarch64-apple-darwin` to check ARM compilation; this does not execute ARM tests. A manual CI dispatch can select `macos-26` for the same suite on native ARM. These are [GitHub's standard macOS runner labels](https://docs.github.com/en/actions/reference/runners/github-hosted-runners). Artifacts retain the actual runner OS and architecture in their names; an Intel artifact is not an Air/Apple Silicon build. Physical ARM validation remains separate from hosted CI, and changing runners does not erase the earlier infrastructure failure or guarantee runner availability.
 
 Product task failure tracking is a separate milestone in [the plan](../plan.md#failure-visibility-and-build-history): policy denials, sandbox errors, command failures, timeouts, and interrupted tasks should have a durable CLI/MCP failure inbox. Existing task history already retains terminal outcomes; the richer inbox is planned, not implemented.
 

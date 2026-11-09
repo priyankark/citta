@@ -14,6 +14,8 @@ Use remote capacity proactively when it helps the user's task and delegation is 
 - Placement is a snapshot. `citta_delegate` queues an agent subtask for the first compatible worker that has fresh telemetry, free slots, and enough estimated capacity. The worker reserves capacity and rechecks before starting. Prefer this over manually guessing a device from stale telemetry. An unavailable device or a busy compatible mesh is not permission to lower the task's estimates or relax policy.
 - Default requirements are 256 MiB and 0.25 CPU cores, suitable only as a starting estimate for a light cloud-backed harness. Builds and local inference need workload-specific estimates and installed profiles. Admission is not an OS memory/CPU quota, and GPU capacity is not measured.
 
+Before a delegated source build, check the receiver’s compiler/toolchain and free disk space; CPU/RAM admission does not establish either. Use an already qualified artifact for the same OS/architecture and commit when it satisfies the task, or place the build on a suitable device. Use a task-specific build target for disposable tests, preserve the global toolchain and unrelated caches, and inspect a failed build before retrying.
+
 ## Tool access
 
 Prefer the `codex` full-tool profile for general work. It can use Bash, run scripts and tests, edit code, access the network, and load the device’s configured MCP tools and installed skills. Delegation itself does not restrict these tools. Use `codex-readonly` only when the task explicitly requires read-only execution. Harness, account and OS permissions still determine actual availability; no profile can supply a tool absent from that device.

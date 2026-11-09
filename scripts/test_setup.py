@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Repeatable onboarding with isolated Tailscale/harness fixtures and real Citta."""
+"""Isolated onboarding checks; CITTA_TEST_BINARY can select a verified prebuilt Citta."""
 import json
 import fcntl
 import os
@@ -15,6 +15,24 @@ import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
 BINARY = Path(os.environ.get('CITTA_TEST_BINARY', ROOT / 'target/debug/citta')).resolve()
+
+def require_test_binary():
+    try:
+        result = subprocess.run([str(BINARY), '--version'], stdin=subprocess.DEVNULL,
+                                capture_output=True, text=True, errors='replace', timeout=10)
+        if result.returncode == 0 and result.stdout.startswith('citta '):
+            return
+        reason = f'exit status {result.returncode}' if result.returncode else 'unexpected version output'
+    except subprocess.TimeoutExpired:
+        reason = '--version did not finish within 10 seconds'
+    except OSError as error:
+        reason = str(error)
+    raise SystemExit(
+        f'Citta test binary unavailable or blocked: {BINARY} ({reason}). '
+        'Run cargo build --locked, or set CITTA_TEST_BINARY to the absolute path of a verified prebuilt Citta binary. '
+        'If the OS blocked execution, complete its approval for that binary before retrying. '
+        'No setup scenarios were run.'
+    )
 
 def pending_profiles(receipt):
     if isinstance(receipt, list):
@@ -523,4 +541,5 @@ sys.exit(0 if 'daemon-reload' in sys.argv else 1)
         self.assertEqual(json.loads(result.stdout)['node_id'], 'fixture')
 
 if __name__ == '__main__':
+    require_test_binary()
     unittest.main(verbosity=2)

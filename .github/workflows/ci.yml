@@ -3,6 +3,16 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      macos_runner:
+        description: macOS runner architecture for this validation run
+        type: choice
+        required: true
+        default: macos-26-intel
+        options:
+          - macos-26-intel
+          - macos-26
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -13,7 +23,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os:
+          - ubuntu-latest
+          - ${{ inputs.macos_runner || 'macos-26-intel' }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     steps:
@@ -35,6 +47,11 @@ jobs:
       - run: python3 scripts/test_setup.py
       - run: python3 scripts/test_ci_health.py
       - run: cargo build --release --locked
+      - name: Check ARM compilation on Intel macOS
+        if: runner.os == 'macOS' && runner.arch == 'X64'
+        run: |
+          rustup target add aarch64-apple-darwin
+          cargo check --locked --target aarch64-apple-darwin
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: citta-${{ runner.os }}-${{ runner.arch }}

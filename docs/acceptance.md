@@ -30,6 +30,18 @@ task without a new execution. Email acceptance remains pending an unlocked,
 authenticated receiving-device session; a successful preflight worker is not a
 successful email send. Private evidence is retained under `local/air-onboarding-*`.
 
+Additional physical Air testing exposed two installation prerequisites. Its
+default Rust 1.86 was too old; a build with the installed qualified toolchain then
+exhausted available disk space. The test's reproducible debug cache was cleaned
+after checking for active builds and service references, recovering about 810 MB.
+Sources, release artifacts, installed binary, identity, policy and service were
+preserved. A matching Mini-built arm64 executable was delivered through Tailscale
+and its checksum verified. Gatekeeper denied its execution, confirmed in the
+receiving system log; the subsequent suite attempt established no passing Air
+scenario coverage. These failures remain in the private evidence. They motivated
+compiler/disk checks, isolated build targets, verified-artifact guidance and an
+explicit receiving-OS execution check before tests.
+
 ## Resource-aware delegation — local verification
 
 The resource-admission build adds 4 Rust behavioral tests (33 total): fresh/compatible offers, pressure and missing telemetry, atomic reservations and release, and durable queued-task filtering/idempotency. The real-process mesh has 19 scenarios, including two daemons with the same agent profile: the origin's configured memory headroom makes it ineligible, so an unpinned task executes on the peer. Impossible capacity expires without a worker; incompatible model requirements fail before submission; same-key retries and lookup recover the original task after its worker disconnects. This is a controlled admission test, not deliberate exhaustion of host memory.

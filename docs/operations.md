@@ -28,6 +28,22 @@ For a consistent backup, stop the daemon and copy the entire data directory, con
 
 Use the same reviewed commit on all participating devices. Stop new submissions, allow active tasks to finish or cancel them deliberately, stop the service, back up state, replace the binary, run `check`, and restart. Confirm discovery and a targeted remote task. The initial schema is version 1; newer schema versions are rejected rather than opened unsafely. Roll back the binary with its compatible backup if a future migration is irreversible. Keep prior binaries until the device acceptance checks pass.
 
+### Build and artifact preflight
+
+Before compiling, inspect `rustc --version`, `cargo --version`, installed toolchains and free space on the build/install/backup volumes. Use this checkout’s qualified toolchain; the manifest’s minimum version is not evidence that a toolchain was tested. Select an installed toolchain per command with `cargo +TOOLCHAIN` rather than changing the global default. Build output and backups need more space than the final executable.
+
+When disk is constrained, prefer an existing qualified binary for the same OS, architecture and reviewed commit from authenticated CI or a trusted device. Record its provenance and SHA-256, verify the digest after transfer, then follow the offline upgrade procedure for an existing installation. File delivery does not install or restart the service.
+
+macOS may require approval before running a downloaded executable, including one
+received through Tailscale. After verifying the artifact, follow the system's
+per-app approval flow on the receiving device. A denied or unavailable executable
+is an installation blocker; it is not evidence that the application's tests ran.
+Keep the original diagnostic and verify execution before starting the test suite.
+
+For disposable build tests, use a task-specific `CARGO_TARGET_DIR`. Clean only that task’s reproducible output after confirming no active build or service uses it; preserve the candidate, installed binary, state, backups and unrelated caches. Reassess space after a disk-full failure before retrying.
+
+Tailscale file transfer is an optional artifact delivery channel, not a pairing prerequisite. Use a unique filename, inspect the receiver’s actual inbox/destination and select only that artifact. Do not assume it appears in Downloads or move unrelated pending files.
+
 ### Device-local upgrade helper
 
 `scripts/upgrade_device.py` (Python 3.11+) performs the offline backup and binary replacement on macOS/Linux. Run it as the existing service user through a device-local agent or established management access. Automatic pairing does not provide remote software installation. Build the candidate separately with `cargo build --release --locked`, or obtain the matching OS/architecture artifact from a verified successful CI run. Record the source commit, run, and SHA-256; a checksum alone does not authenticate a downloaded binary.
