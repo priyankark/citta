@@ -44,6 +44,8 @@ citta doctor
 
 Run setup using the **installed binary** on each device, with Tailscale connected. It configures pairing, a background user service, Codex tools/skills, and a full-tool agent profile when a signed-in Codex CLI is available. Missing prerequisites are reported; rerun after fixing them. Existing installations use the [offline upgrade procedure](docs/operations.md) before setup. Commands default to `~/.config/citta/config.toml`.
 
+Tell the setup agent what you want to do on each device. Shell/code tasks use the installed harness and tools; desktop input, screen capture and connected apps need their own receiving-device checks. The [onboarding access guide](docs/setup.md#choose-what-this-device-should-do) explains which permissions to grant and how a real delegated task verifies them. Pairing alone does not verify desktop or email access.
+
 In another terminal:
 
 ```sh
@@ -57,7 +59,7 @@ citta --config "$HOME/.config/citta/config.toml" inspect TASK_UUID
 
 Follow [device setup](docs/setup.md). The local setup agent runs `citta setup` on each installed device; daemons then discover and pair automatically using the existing Tailscale account. No human pairing steps or token copying. Peers become available to workers without restarting. Existing explicit peers remain supported for staged upgrades. Remote traffic uses verified HTTPS; only numeric loopback HTTP is allowed in local tests.
 
-No task input contains shell commands or remote executable paths. A capability maps a name to a locally configured program and fixed argument vector. JSON input arrives on stdin, and UTF-8 stdout/stderr become the result. See [capability adapters](docs/capabilities.md).
+A capability maps a name to a locally configured program and fixed argument vector; submitting a task does not replace that program or its arguments. JSON input arrives on stdin, and UTF-8 stdout/stderr become the result. An agent profile receives a prompt, and a full-tool agent can use shell commands, scripts and code edits to carry it out. See [capability adapters](docs/capabilities.md).
 
 ## Give an agent Citta tools
 

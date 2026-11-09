@@ -94,6 +94,33 @@
             Manage any paired device from this panel. Settings are stored and
             enforced on the selected device.
           </p>
+          <details class="permission-guide" open>
+            <summary>Set up access for the work you want to delegate</summary>
+            <p>
+              Run <code>citta setup</code> once on each device, then
+              <code>citta doctor</code> to check connections and agent profiles.
+              A connected device still needs access to the apps used by your task.
+            </p>
+            <dl>
+              <dt>Shell, scripts and code</dt>
+              <dd>Allow the full-tool agent profile below and sign in to its
+                harness on the receiving device. It uses that device’s files,
+                installed tools and skills.</dd>
+              <dt>Desktop and browser interaction</dt>
+              <dd>Keep the receiving desktop unlocked. On a Mac, open System Settings → Privacy &amp;
+                Security. Allow Accessibility for input and Screen &amp; System
+                Audio Recording for screenshots when your task needs them.
+                Grant Automation for the specific app if macOS requests it.
+                These grants are separate from Citta’s execution mode.</dd>
+              <dt>Email and other signed-in apps</dt>
+              <dd>Sign in to the intended account on the receiving device and
+                check the sender and recipient before sending. A connection or
+                completed agent run alone does not confirm that a message was sent.</dd>
+            </dl>
+            <p>After changing macOS grants, restart Citta when its jobs are idle.
+              Ask a delegated worker to test the action. Desktop and account
+              access are not verified by this panel.</p>
+          </details>
           <div
             id="permission-message"
             class="notice"

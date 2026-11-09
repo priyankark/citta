@@ -253,7 +253,7 @@ async fn main() -> Result<()> {
             )
         }
         Commands::Daemon => daemon(config).await,
-        Commands::Doctor => print(citta::setup::doctor(&config).await?),
+        Commands::Doctor => print(citta::setup::doctor(&config, &config_path).await?),
         Commands::Prune { older_than_days } => {
             ensure!(older_than_days >= 1, "minimum retention is one day");
             let store = Store::open(

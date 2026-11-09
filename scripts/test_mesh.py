@@ -4,6 +4,7 @@ import argparse
 import concurrent.futures
 import json
 import http.cookiejar
+import io
 import os
 from pathlib import Path
 import queue
@@ -15,7 +16,9 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 
@@ -155,12 +158,53 @@ max_timeout_secs = 30
     def api(cls, node, path, data=None, token=None, headers=None):
         info = cls.nodes[node]
         request = urllib.request.Request(f'http://127.0.0.1:{info["port"]}{path}', data=None if data is None else json.dumps(data).encode(), headers={'Authorization': f'Bearer {info["token"] if token is None else token}', 'Content-Type':'application/json', **(headers or {})})
+        started = time.monotonic()
         try:
             with urllib.request.urlopen(request, timeout=10) as response:
                 return json.load(response)
         except urllib.error.HTTPError as error:
             error.close()
             raise
+        except (TimeoutError, urllib.error.URLError) as error:
+            if isinstance(error, TimeoutError) or isinstance(error.reason, TimeoutError):
+                # Preserve the original timeout and never replay a possibly
+                # committed mutation. Capture evidence before fixture cleanup.
+                try:
+                    cls.timeout_diagnostics(node, request.get_method(), path, time.monotonic() - started)
+                except Exception:
+                    pass
+            raise
+
+    @classmethod
+    def timeout_diagnostics(cls, node, method, path, elapsed):
+        secrets = [info['token'].strip() for info in cls.nodes.values()]
+        for info in cls.nodes.values():
+            try:
+                with (info['dir'] / 'data/control.token').open() as stream:
+                    secrets.append(stream.read(512).strip())
+            except OSError:
+                pass
+        daemons = []
+        for name, info in cls.nodes.items():
+            process = info['process']
+            diagnostic = {'node':name, 'pid':process.pid if process else None,
+                          'exit_status':process.poll() if process else None}
+            try:
+                with (info['dir'] / 'daemon.log').open('rb') as stream:
+                    stream.seek(0, os.SEEK_END)
+                    stream.seek(max(0, stream.tell() - 4096))
+                    tail = stream.read(4096).decode('utf-8', errors='replace')
+                for secret in secrets:
+                    if secret:
+                        tail = tail.replace(secret, '[redacted]')
+                diagnostic['log_tail'] = '\n'.join(tail.splitlines()[-30:])
+            except OSError:
+                diagnostic['log_tail'] = 'unavailable'
+            daemons.append(diagnostic)
+        print(json.dumps({'event':'request_timeout', 'node':node, 'method':method,
+                          'path':urllib.parse.urlsplit(path).path,
+                          'elapsed_seconds':round(elapsed, 3), 'daemons':daemons}),
+              file=sys.stderr, flush=True)
 
     def submit(self, input=None, **kwargs):
         body = {'capability':'compute', 'input':input or {}, 'idempotency_key':str(uuid.uuid4()), 'target_node':'beta', 'timeout_secs':20, 'queue_ttl_secs':60, **kwargs}
@@ -590,6 +634,38 @@ max_timeout_secs = 30
         finally:
             self.start('beta')
         self.assertEqual(self.terminal(queued)['status'], 'succeeded')
+
+class RequestDiagnostics(unittest.TestCase):
+    def test_timeout_reports_bounded_evidence_without_replaying_request(self):
+        with tempfile.TemporaryDirectory(prefix='citta-timeout-diagnostics-') as temp:
+            directory = Path(temp)
+            (directory / 'data').mkdir()
+            (directory / 'data/control.token').write_text('private-control-token')
+            (directory / 'daemon.log').write_text('old line\n' * 1000 + 'private-node-token private-control-token worker ready\n')
+            process = mock.Mock(pid=123)
+            process.poll.return_value = None
+            nodes = {'fixture':{'port':1, 'token':'private-node-token', 'dir':directory, 'process':process}}
+            failure = TimeoutError('timed out')
+            output = io.StringIO()
+            with mock.patch.object(Mesh, 'nodes', nodes, create=True), \
+                    mock.patch('urllib.request.urlopen', side_effect=failure) as opened, \
+                    mock.patch('sys.stderr', output):
+                with self.assertRaises(TimeoutError) as caught:
+                    Mesh.api('fixture', '/v1/control/permissions?private=query', {'private':'request-payload'})
+            self.assertIs(caught.exception, failure)
+            opened.assert_called_once()
+            self.assertEqual(opened.call_args.kwargs['timeout'], 10)
+            evidence = json.loads(output.getvalue())
+            self.assertEqual(evidence['method'], 'POST')
+            self.assertEqual(evidence['path'], '/v1/control/permissions')
+            self.assertGreaterEqual(evidence['elapsed_seconds'], 0)
+            self.assertEqual(evidence['daemons'][0]['pid'], 123)
+            self.assertIsNone(evidence['daemons'][0]['exit_status'])
+            self.assertLessEqual(len(evidence['daemons'][0]['log_tail'].splitlines()), 30)
+            self.assertIn('worker ready', evidence['daemons'][0]['log_tail'])
+            for private in ['private-node-token', 'private-control-token', 'request-payload', 'private=query']:
+                self.assertNotIn(private, output.getvalue())
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
