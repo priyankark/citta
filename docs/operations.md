@@ -78,3 +78,12 @@ This build stores current policy and an append-only revision history in SQLite a
 ## Resource admission build: storage version 4
 
 Resource-qualified requests are durable task input. This build upgrades SQLite `user_version` to 4 so older daemons cannot bypass the new claim predicates. The upgrade helper accepts versions 1–4 and refuses newer versions. Stop an idle service and preserve a consistent binary/config/database backup before upgrade. Never force the version backward; rollback requires the matching pre-upgrade backup and reconciliation of later work. Existing unqualified tasks and idempotency keys keep their semantics. Updated workers can still claim legacy tasks from older peers, but both ends need the new build for resource-qualified delegation.
+
+
+## Desktop access from delegated workers
+
+Citta Allow all and a harness's full-access sandbox mode do not grant macOS desktop permissions. Check Accessibility and Screen Recording inside the actual service-launched worker; an interactive Terminal can be authorized while an otherwise identical Node process launched through Citta is denied. Use System Settings → Privacy & Security to grant the installed service executable the owner's requested access. On the qualified Mini, Accessibility appears under Device Control Data Access, and screen access is a separate Screen & System Audio Recording entry. Follow the actual OS labels; do not edit the privacy database.
+
+Stop an idle service and restart it after permission changes, then verify the new worker. Confirm input delivery in an owned focused test window and inspect a real screenshot. Rusty Robot 0.1.2 input succeeded on the Mini, but its ScreenCaptureKit capture timed out even with permission granted. An explicitly selected `/usr/sbin/screencapture` fallback produced a valid screenshot from the same delegated worker. This is not evidence that the Rust capture backend succeeded. Do not terminate another capture session to force a check to pass.
+
+Desktop probes are separate from external side effects. A harness run can exit successfully while its returned report says an email or UI task was blocked; inspect the result before claiming completion or retrying. A grant or service restart is not evidence that an earlier email was sent.

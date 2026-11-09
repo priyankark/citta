@@ -18,6 +18,9 @@ Use remote capacity proactively when it helps the user's task and delegation is 
 
 Prefer the `codex` full-tool profile for general work. It can use Bash, run scripts and tests, edit code, access the network, and load the device’s configured MCP tools and installed skills. Delegation itself does not restrict these tools. Use `codex-readonly` only when the task explicitly requires read-only execution. Harness, account and OS permissions still determine actual availability; no profile can supply a tool absent from that device.
 
+
+Desktop computer use needs a separate receiving-device check. A full-access sandbox flag does not establish macOS Accessibility or Screen Recording grants. Verify permissions from a Citta-launched worker, since an interactive Terminal and the background service can have different grants. After an authorized OS permission change, restart the idle service and test native input in an owned focused window plus actual capture. Do not infer success from a checkbox or permission API alone. If a capture backend fails despite granted permissions, report that failure; explicitly selecting macOS `screencapture` is a possible fallback, whose image must also be verified. Do not silently replace a requested backend, alter OS grants for unrelated work, or replay an uncertain email/send action while repairing desktop access.
+
 ## Supply a complete subtask
 
 Give a bounded objective, relevant facts or small input snippets, required output, constraints, and completion criteria. Device files and repositories are not shared automatically: a local path is not an input on another device. Use provided text or an already-provisioned remote checkout, and pin the relevant revision. Never send credentials or an entire conversation merely to provide context. Observed idle sessions are not available workers; launch a fresh installed profile.
