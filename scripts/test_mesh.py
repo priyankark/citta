@@ -54,6 +54,9 @@ class Mesh(unittest.TestCase):
         worker_script = cls.root / 'worker.py'
         worker_script.write_text('''import json, os, subprocess, sys, time
 v = json.load(sys.stdin)
+if v.get("stderr_output"):
+    sys.stderr.buffer.write(v.get("stderr_character", "x").encode() * v["stderr_output"] + b"\\nCITTA_DIAGNOSTIC_END\\n")
+    sys.stderr.buffer.flush()
 if v.get("spawn"):
     child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(300)"])
     with open(v["pid_file"], "w") as f: f.write(str(child.pid))
@@ -64,6 +67,7 @@ else:
     time.sleep(v.get("sleep", 20 if v.get("prompt") == "wait-long" else 2 if v.get("prompt") == "wait" else 0))
     print(json.dumps({"worker":os.environ["CITTA_WORKER_NODE"], "input":v,
                       "secret":os.environ.get("CITTA_TEST_SECRET"), "cwd":os.getcwd()}))
+sys.exit(v.get("exit_code", 0))
 ''')
         for name in ('alpha', 'beta'):
             directory = cls.root / name
@@ -576,6 +580,46 @@ max_timeout_secs = 30
         self.assertEqual(result['status'], 'succeeded', result['status'])
         self.assertEqual(len(result['outcome']['stdout']), 250001)
         self.assertEqual(len(result['outcome']['stderr']), 250001)
+
+    def test_20_agent_diagnostics_do_not_abort_success_or_hide_exit_status(self):
+        for exit_code in (0, 17):
+            with self.subTest(exit_code=exit_code):
+                task = self.submit({'stderr_output':300000, 'stderr_character':'\U0001f642', 'exit_code':exit_code}, capability='agent-test')
+                result = self.terminal(task)
+                self.assertEqual(result['status'], 'succeeded' if exit_code == 0 else 'failed', result)
+                self.assertEqual(result['outcome']['exit_code'], exit_code)
+                self.assertEqual(json.loads(result['outcome']['stdout'])['worker'], 'beta')
+                stderr = result['outcome']['stderr']
+                self.assertLessEqual(len(stderr.encode()), 256 * 1024)
+                self.assertIn('agent stderr truncated:', stderr)
+                self.assertIn(str(1200000 + len(b'\nCITTA_DIAGNOSTIC_END\n')) + ' raw bytes observed', stderr)
+                self.assertTrue(stderr.endswith('\nCITTA_DIAGNOSTIC_END\n'))
+
+    def test_21_agent_timeout_retains_diagnostics_and_limits_stay_scoped(self):
+        result = self.terminal(self.submit({'stderr_output':300000, 'sleep':20}, capability='agent-test', timeout_secs=1))
+        self.assertEqual(result['status'], 'failed', result)
+        self.assertIn('CITTA_DIAGNOSTIC_END', result['outcome']['stderr'])
+        # Ordinary capability stderr and all stdout retain their strict contract.
+        for body, capability in [({'stderr_output':300000}, 'compute'), ({'output':300000}, 'agent-test')]:
+            with self.subTest(capability=capability):
+                result = self.terminal(self.submit(body, capability=capability))
+                self.assertEqual(result['status'], 'failed', result)
+                self.assertIn('output exceeds', result['outcome']['error'])
+
+    def test_22_cancelling_a_noisy_agent_stops_its_descendants(self):
+        pid_file = self.root / 'noisy-agent-descendant.pid'
+        task = self.submit({'stderr_output':300000, 'spawn':True, 'pid_file':str(pid_file), 'sleep':20}, capability='agent-test')
+        wait_for(pid_file.exists)
+        pid = int(pid_file.read_text())
+        self.api('alpha', f'/v1/tasks/{task["id"]}/cancel', {})
+        self.assertEqual(self.terminal(task)['status'], 'cancelled')
+        def dead():
+            try: os.kill(pid, 0)
+            except ProcessLookupError: return True
+            stat = Path(f'/proc/{pid}/stat')
+            return stat.exists() and stat.read_text().split()[2] == 'Z'
+        wait_for(dead, 10)
+        wait_for(lambda: self.api('beta', '/v1/node')['active'] == 0)
 
     def test_19_resource_placement_offloads_and_retries_durably(self):
         paths = {n: node['dir'] / 'config.toml' for n, node in self.nodes.items()}

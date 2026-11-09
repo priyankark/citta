@@ -1,6 +1,11 @@
 use crate::{api::App, client::Client, config::Capability, model::*};
 use anyhow::{Context, Result, bail};
-use std::{process::Stdio, sync::Arc, time::Duration};
+use std::{
+    collections::VecDeque,
+    process::Stdio,
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 use tokio::{
     io::{AsyncRead, AsyncReadExt, AsyncWriteExt},
     process::Command,
@@ -337,7 +342,12 @@ async fn run_command(
     let stderr = child.stderr.take().expect("piped stderr");
     let input = serde_json::to_vec(&claim.task.request.input).expect("JSON input");
     let timeout = Duration::from_secs(claim.task.request.timeout_secs.min(cap.max_timeout_secs));
-    let outcome = {
+    // Agent stderr is a diagnostic transcript, not the final response. Keep
+    // draining it so verbose tools cannot terminate an otherwise valid task.
+    // The shared tail survives dropping the execution future on interruption.
+    let agent_stderr = (cap.kind == CapabilityKind::Agent)
+        .then(|| Arc::new(Mutex::new(DiagnosticTail::default())));
+    let mut outcome = {
         let execution = async {
             let write = async {
                 stdin.write_all(&input).await?;
@@ -346,9 +356,17 @@ async fn run_command(
                 drop(stdin);
                 Ok::<_, anyhow::Error>(())
             };
+            let diagnostics = async {
+                if let Some(tail) = &agent_stderr {
+                    drain_diagnostics(stderr, tail).await?;
+                    Ok(String::new())
+                } else {
+                    read_bounded(stderr).await
+                }
+            };
             let wait = async { child.wait().await.context("wait for worker") };
             let (_, stdout, stderr, status) =
-                tokio::try_join!(write, read_bounded(stdout), read_bounded(stderr), wait)?;
+                tokio::try_join!(write, read_bounded(stdout), diagnostics, wait)?;
             Ok::<_, anyhow::Error>(Outcome {
                 status: if status.success() {
                     Status::Succeeded
@@ -399,8 +417,68 @@ async fn run_command(
         let _ = child.kill().await;
         let _ = child.wait().await;
     }
+    if let Some(tail) = agent_stderr {
+        outcome.stderr = tail.lock().unwrap_or_else(|e| e.into_inner()).render();
+    }
     outcome
 }
+
+#[derive(Default)]
+struct DiagnosticTail {
+    bytes: VecDeque<u8>,
+    observed: u64,
+}
+impl DiagnosticTail {
+    fn append(&mut self, bytes: &[u8]) {
+        self.observed = self.observed.saturating_add(bytes.len() as u64);
+        if bytes.len() >= MAX_OUTPUT {
+            self.bytes.clear();
+            self.bytes.extend(&bytes[bytes.len() - MAX_OUTPUT..]);
+        } else {
+            let discard = (self.bytes.len() + bytes.len()).saturating_sub(MAX_OUTPUT);
+            self.bytes.drain(..discard);
+            self.bytes.extend(bytes);
+        }
+    }
+
+    fn render(&self) -> String {
+        let bytes: Vec<_> = self.bytes.iter().copied().collect();
+        // Diagnostics may contain split or invalid UTF-8. Replacement characters
+        // can expand the encoding, so bound the rendered text as well as storage.
+        let text = String::from_utf8_lossy(&bytes);
+        if self.observed <= MAX_OUTPUT as u64 && text.len() <= MAX_OUTPUT {
+            return text.into_owned();
+        }
+        let mut start = text.len().saturating_sub(MAX_OUTPUT - 256);
+        while !text.is_char_boundary(start) {
+            start += 1;
+        }
+        let retained = &text[start..];
+        format!(
+            "[Citta agent stderr truncated: {} raw bytes observed; retaining {} UTF-8 bytes]\n{}",
+            self.observed,
+            retained.len(),
+            retained
+        )
+    }
+}
+
+async fn drain_diagnostics(
+    mut reader: impl AsyncRead + Unpin,
+    tail: &Mutex<DiagnosticTail>,
+) -> Result<()> {
+    let mut buffer = [0u8; 8192];
+    loop {
+        let size = reader.read(&mut buffer).await?;
+        if size == 0 {
+            return Ok(());
+        }
+        tail.lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .append(&buffer[..size]);
+    }
+}
+
 async fn read_bounded(mut reader: impl AsyncRead + Unpin) -> Result<String> {
     let mut output = Vec::new();
     let mut buffer = [0u8; 8192];
@@ -488,5 +566,48 @@ impl Drop for JobGroup {
         unsafe {
             libc::kill(-(self.0 as i32), libc::SIGKILL);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn agent_diagnostics_are_drained_and_keep_the_last_bytes() {
+        let mut source = vec![b'x'; MAX_OUTPUT * 3];
+        source.extend_from_slice(b"last diagnostic\n");
+        let tail = Mutex::new(DiagnosticTail::default());
+        drain_diagnostics(source.as_slice(), &tail).await.unwrap();
+        let tail = tail.lock().unwrap();
+        assert_eq!(tail.observed, source.len() as u64);
+        assert_eq!(tail.bytes.len(), MAX_OUTPUT);
+        let result = tail.render();
+        assert!(result.len() <= MAX_OUTPUT);
+        assert!(result.starts_with("[Citta agent stderr truncated:"));
+        assert!(result.contains(&format!("{} raw bytes observed", source.len())));
+        assert!(result.ends_with("last diagnostic\n"));
+    }
+
+    #[test]
+    fn diagnostic_tail_bounds_utf8_and_invalid_bytes_after_decoding() {
+        for source in [
+            "\u{1f642}".repeat(MAX_OUTPUT).into_bytes(),
+            vec![0xff; MAX_OUTPUT / 2],
+        ] {
+            let mut tail = DiagnosticTail::default();
+            // Deliberately split code points and exercise ring-buffer eviction.
+            for chunk in source.chunks(7) {
+                tail.append(chunk);
+            }
+            tail.append(b"end");
+            let result = tail.render();
+            assert!(result.len() <= MAX_OUTPUT);
+            assert!(result.starts_with("[Citta agent stderr truncated:"));
+            assert!(result.ends_with("end"));
+        }
+        let mut short = DiagnosticTail::default();
+        short.append("small \u{1f642}\n".as_bytes());
+        assert_eq!(short.render(), "small \u{1f642}\n");
     }
 }

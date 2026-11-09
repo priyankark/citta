@@ -1,6 +1,6 @@
 # Capability contract
 
-A capability is installed locally by the operator. Its `program` must be an existing absolute file. Its `args` are fixed strings, never expanded by a shell. Each task's `input` is serialized as one JSON value plus a newline on stdin, followed by EOF. Stdout/stderr must be UTF-8 and each must stay within 256 KiB. Nonzero exit, timeout, invalid output, or excess output fails the task.
+A capability is installed locally by the operator. Its `program` must be an existing absolute file. Its `args` are fixed strings, never expanded by a shell. Each task's `input` is serialized as one JSON value plus a newline on stdin, followed by EOF. For ordinary capabilities, stdout/stderr must be UTF-8 and each must stay within 256 KiB. Nonzero exit, timeout, invalid output, or excess output fails the task. Agent diagnostic stderr has the separate retention behavior described below.
 
 A worker receives only explicitly configured environment variables plus `CITTA_TASK_ID`, `CITTA_ORIGIN_NODE`, and `CITTA_WORKER_NODE`. Provide a minimal `PATH` if the wrapper needs subprocess lookup. Inherited home directories, API keys, proxy settings, and Citta credentials are not automatically forwarded. Environment configuration can contain secrets: keep the TOML private.
 
@@ -69,6 +69,8 @@ PATH = "/usr/bin:/bin:/absolute/trusted/bin"
 This example uses an established Codex login, a separate noninteractive process, full shell/filesystem/network access, and approval policy `never`. It loads the device’s existing harness config, MCP tools and skills; it does not disable Citta in the worker. Set `CODEX_HOME` when the harness uses a nonstandard directory. Full access runs with the device account’s permissions, including access to its local credentials. Explicit `--agent-access read-only` setup remains available for tasks that need that restriction. Inspect supported flags on the installed harness before using this example.
 
 Use `citta_spawn_agent` / `spawn-agent` to submit the prompt directly. The receiver's profile determines permissions, not the caller. Ordinary capabilities retain their existing JSON contract. See [discovery and spawning](discovery.md).
+
+For `kind = "agent"`, stderr is a diagnostic stream: Citta continuously drains it and retains a tail within 256 KiB, replacing invalid UTF-8 and reporting truncation plus the number of raw bytes observed. Verbose diagnostics do not abort the agent or override its exit status. Agent stdout still has the strict UTF-8/256 KiB limit. The diagnostic tail is also included in timeout/error completions; an already cancelled or expired origin task remains authoritative and does not accept late completion data. No separate durable transcript is created.
 
 Verify the installed harness's supported noninteractive mode and approval behavior before configuring it. Apply the owner’s selected access mode; do not add tool restrictions merely because work is delegated. The adapter forwards stdout/stderr and exit status. It cannot interact with a session that waits for UI input, access an existing conversation, or create repository checkouts for you. Set time/output limits appropriate to the task.
 
