@@ -11,11 +11,42 @@ citta doctor
 
 `setup` configures private Tailscale Serve and automatic enrollment, starts a user service, merges Codex MCP settings, installs the setup/delegation skills, and adds a full-tool Codex profile when a signed-in local CLI is available. It needs no SSH, pairing code or copied token. New harness sessions load the tools and skills. Other harnesses can use the same MCP server but require their own config wiring.
 
+### Choose what this device should do
+
+Give the setup agent the intended use, such as “coding and tests” or “use my browser to send email from my personal account.” It can check existing access and explain any remaining step before the first real task. Permissions belong to the device doing the work; granting access on your laptop does not grant it on another computer.
+
+| Intended use | Access needed on the receiving device | What proves it works |
+| --- | --- | --- |
+| Discover your other devices | Tailscale signed in to the same owner account, private Serve available, Citta set up on each device | Fresh pairing and an echo task executed on the named other device |
+| Run shell commands, scripts, code edits and tests | Signed-in agent harness, installed tools, a permitted full-tool profile, access to the working files | A delegated worker writes a small test file and runs it |
+| Use connected apps, MCP tools or skills | Those tools/skills installed for the worker's account; the requested app account connected there | The worker discovers and uses the required tool with the intended account |
+| Click and type in desktop apps | An unlocked desktop session and macOS Accessibility access for the process identified by the system | A service-launched worker types a unique marker in an owned test window |
+| See the desktop | macOS Screen Recording access for the process identified by the system | A service-launched worker captures an image and checks its contents |
+| Control an app through Apple events | The specific macOS Automation grant requested for that app, if this method is used | The worker performs the intended app operation |
+
+For macOS desktop work, use **System Settings → Privacy & Security** and follow the labels on that OS version. Accessibility may appear as **Device Control Data Access**; screen access may appear as **Screen & System Audio Recording**. The permission prompt or test should identify the executable that needs access. In the qualified Citta service setup this was the installed `citta` executable, commonly `~/.cargo/bin/citta`. Authorizing Terminal alone did not authorize its background worker. After a grant, restart the idle service and repeat the worker test; see [desktop access](operations.md#desktop-access-from-delegated-workers).
+
+Coding does not require desktop permissions. A connected email API may work without any desktop permission; browser clicking needs its own input/capture checks. Add access for the chosen method as needed. Full Disk Access, SSH and public Funnel are not general onboarding prerequisites. Linux desktop access depends on the session and automation backend; the macOS steps do not apply there.
+
+### Know when setup is complete
+
+Readiness has three useful milestones:
+
+1. **Paired:** the other device is reachable with fresh identity.
+2. **Agent configured:** a profile is installed. Check `doctor` and placement for whether its execution policy and current capacity permit the requested task.
+3. **Task verified:** a worker on that device performed the requested kind of work, including any app account or desktop access it needs.
+
+An untested permission is **not verified**, rather than automatically denied or granted. `setup` and `doctor` describe configuration and connectivity; they do not certify every app login or desktop permission. Keep the remaining action concrete, for example “sign in to the personal email account on the Air” or “grant screen access to the Citta service on the Air, then rerun the capture check.”
+
+Setup's `next_steps` lists unresolved configuration actions. Its `permissions` guide explains execution access, task-specific accounts and desktop checks; `permissions.desktop.service_executable` identifies the executable for setup’s managed service. It is null for `--no-service` and `doctor`; inspect the installed service definition in those cases. `invoked_executable` is the CLI that ran the check, which may differ from the service. `execution_verified: false` and `desktop_verified: false` mean setup has not run those functional tests, even if a previous task worked. Doctor includes the local permission guide and marks each device's execution/desktop verification as untested by that command. Use the actual task evidence to report what has been verified.
+
 Commands default to `~/.config/citta/config.toml`; `--config /absolute/path/config.toml` selects another installation. `setup --dry-run` checks prerequisites without mutations. `--tailscale-bin`, `--codex-bin`, `--harness-dir`, and `--model` override discovery for a new profile. Existing identities, profiles, permissions and explicit MCP disablement are preserved; changed files are backed up under `setup-backups`. `--no-agent` intentionally omits a new agent profile. `--no-service` leaves service lifecycle to an external manager: restart it after config changes, then rerun setup to finish pending profile grants.
 
 The default `codex` profile uses `danger-full-access` and approval policy `never`, with the user’s configured tools, MCP servers and skills. It can run shell commands, write code, run tests, access the network and delegate further. Profiles use the node’s slot count and allow tasks up to 24 hours; agent requests default to one hour. `setup --agent-access full` adds this profile to an existing device without rewriting its other profiles; `--agent-access read-only` creates an explicit `codex-readonly` alternative. An existing profile with the selected name is preserved. Child tasks have their own durable lifecycle and need explicit collection/cancellation; parent cancellation does not cascade.
 
 Read the setup result: missing login/harness means pairing can work but agent delegation is incomplete. `doctor` distinguishes missing profiles, old builds, paused devices, unreachable peers and devices waiting for pairing; an agent profile is not proof that a model run succeeded. Verify a real remote task below. Setup can be rerun after fixing prerequisites. It refuses identity changes and occupied/public Serve routes before replacing an existing config or stopping its service. It does not install or update binaries on other devices. For an older installation, use the offline upgrade procedure in [operations](operations.md), then run setup locally.
+
+For an authorized email test, specify the sending account and recipient in the delegated task. The worker must verify the account before composing, send one message with a unique test marker, and check the provider's sent record or message identifier. Keep a draft, a successful agent exit and a confirmed send distinct. If the result is interrupted or unclear, inspect that same account's sent record before another attempt; Citta's submission key prevents duplicate tasks while history is retained, but does not make email sending exactly once. See [app actions and account verification](operations.md#app-actions-and-account-verification).
 
 The remaining sections describe lower-level/custom setup.
 

@@ -601,7 +601,11 @@ async function refresh() {
   state.loading = true;
   $("refresh").disabled = true;
   try {
-    const r = await fetch("/panel/overview", { cache: "no-store" });
+    const r = await fetch("/panel/overview", {
+      cache: "no-store",
+      // Peer discovery can take 32s at the supported 64-peer limit.
+      signal: AbortSignal.timeout(45000),
+    });
     if (r.status === 401) {
       $("login").hidden = false;
       $("dashboard").hidden = true;
@@ -619,7 +623,10 @@ async function refresh() {
     render();
   } catch (e) {
     $("connection").textContent = "Reconnecting";
-    notice(`${e.message}. Showing the last successful snapshot, if available.`);
+    const reason = e.name === "TimeoutError"
+      ? "The device did not respond within 45 seconds"
+      : e.message;
+    notice(`${reason}. Retrying automatically. ${state.data ? "Showing the last successful snapshot. " : ""}Run citta doctor on this device to check its service and Tailscale connection. If the service is stopped, run citta setup.`);
     if (state.data) render();
   } finally {
     state.loading = false;
@@ -634,6 +641,7 @@ async function start() {
     try {
       const r = await fetch("/panel/login", {
         method: "POST",
+        signal: AbortSignal.timeout(15000),
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code }),
       });
@@ -642,7 +650,7 @@ async function start() {
           "That login link expired or was already used. Open a fresh link from Citta.",
         );
     } catch {
-      notice("Could not connect to the local Citta daemon.");
+      notice("Could not confirm the browser connection. Run citta doctor on this device; open a fresh citta panel link if a session is still required.");
     }
   }
   await refresh();

@@ -46,6 +46,29 @@ button:disabled {
   opacity: 0.5;
   cursor: wait;
 }
+.permission-guide {
+  margin: 20px 0;
+  padding: 18px 22px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  max-width: 900px;
+}
+.permission-guide summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.permission-guide p,
+.permission-guide dd {
+  color: var(--muted);
+}
+.permission-guide dt {
+  margin-top: 12px;
+  font-weight: 600;
+}
+.permission-guide dd {
+  margin: 4px 0 0;
+}
 a {
   color: inherit;
   text-decoration: none;

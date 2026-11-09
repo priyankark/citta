@@ -15,6 +15,8 @@ Inspect OS/architecture, Citta binary/version, current config/service, Tailscale
 
 Keep the existing identity, secrets, peers, and unrelated harness/network settings. `citta init` is for new installations and refuses to overwrite. A startup lock failure usually means a daemon is already running. Do not remove locks or reset a database to bypass it.
 
+Explain access during onboarding using the intended work, not a blanket list of grants. Read `docs/setup.md` → “Choose what this device should do”: coding needs the receiving harness/tools and working files; connected apps need that device's account/tool connection; desktop input/capture may need macOS Accessibility and Screen Recording; Apple events may need the specific app's Automation grant. Verify existing access before asking the user to change anything. Give the exact device, executable/app and next action for a missing grant. SSH, public Funnel and Full Disk Access are not general prerequisites.
+
 ## Install and pair
 
 1. For a new installation, build/install the reviewed checkout with `cargo install --path . --locked`, then run the **installed binary** with `citta setup`. It discovers Tailscale, preserves or initializes device identity, configures private Serve, installs a persistent user service, merges Codex MCP, and installs the setup/delegation skills. CLI commands default to `~/.config/citta/config.toml`; use `--config <absolute-path>` for another installation. `setup --dry-run` reports prerequisites without writing or starting anything.
@@ -28,6 +30,8 @@ When the owner explicitly requests full access for all existing agents, also mig
 Setup refuses identity changes and conflicting Serve/Funnel routes before replacing an existing live configuration. It backs up changed files under the private config directory and preserves unrelated settings. An existing service pointing at another binary/config must be upgraded in place. Do not reset all Tailscale routes or remove locks to force a retry. Use the lower-level instructions in `docs/setup.md` only for custom deployments or builds predating `setup`.
 
 ## Prove the result
+
+Report paired, agent-configured and task-verified separately. Read setup's `next_steps` and `permissions` guide; its executable path applies to that local device. The `execution_verified: false` and `desktop_verified: false` fields mean that command did not perform worker tests, not that a prior task failed. Mark untested app/desktop access as unverified. For requested desktop use, test from an actual Citta-launched worker, not an interactive terminal: deliver a marker to an owned test window and inspect a captured image. Follow `docs/operations.md` for idle-service restart after OS grants. For an authorized email or other app action, verify the intended receiving-device account before acting and inspect provider evidence afterward; a successful agent exit alone does not prove the action completed.
 
 Require the automatic enrollment report to list the other device as paired with fresh Tailscale identity, then run discovery in both directions. Submit a unique-key `echo` task with `target_node` set to the other device; inspect it on its originating device. Require the expected remote `worker_node`, successful result, and echoed payload. Repeat in the reverse direction. Local echo success alone is insufficient.
 

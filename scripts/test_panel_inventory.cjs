@@ -164,6 +164,36 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   if (await p.evaluate(() => document.documentElement.scrollWidth > innerWidth))
     throw Error("mobile overflow");
   await p.screenshot({ path: path.resolve("local/agent-coverage-mobile.png") });
+  await p.locator('[data-view="permissions"]').click();
+  const guide = p.locator(".permission-guide");
+  if (!(await guide.isVisible()) ||
+      !(await guide.innerText()).includes("not verified by this panel"))
+    throw Error("Task-specific permission guidance missing");
+  if (await p.evaluate(() => document.documentElement.scrollWidth > innerWidth))
+    throw Error("permission guide mobile overflow");
+  await p.screenshot({ path: path.resolve("local/onboarding-permissions-mobile.png"), fullPage: true });
+  await p.setViewportSize({ width: 1440, height: 1100 });
+  await p.screenshot({ path: path.resolve("local/onboarding-permissions-desktop.png"), fullPage: true });
+  // A hanging overview must release refresh and allow the next request to recover.
+  const stall = async () => {};
+  await p.route("**/panel/overview", stall);
+  await p.locator("#refresh").click();
+  await p.waitForFunction(() => document.getElementById("notice").textContent.includes("45 seconds"), null, { timeout: 50000 });
+  if (!(await p.locator("#notice").innerText()).includes("citta doctor"))
+    throw Error("Reconnect guidance lacks an actionable diagnosis");
+  await p.unroute("**/panel/overview", stall);
+  await p.waitForFunction(() => !document.getElementById("refresh").disabled);
+  await p.locator("#refresh").click();
+  await p.waitForFunction(() => document.getElementById("connection").textContent === "Connected");
+  const firstVisit = await browser.newPage();
+  firstVisit.on("pageerror", (e) => errors.push(e.message));
+  await firstVisit.route("**/panel/login", async () => {});
+  const freshLink = JSON.parse(execFileSync(binary, ["--config", config, "panel"], { encoding: "utf8" }));
+  await firstVisit.goto(freshLink.url);
+  await firstVisit.locator("#login").waitFor({ state: "visible", timeout: 20000 });
+  if (!(await firstVisit.locator("#notice").innerText()).includes("fresh citta panel link"))
+    throw Error("Stalled first login has no recovery guidance");
+  await firstVisit.close();
   if (errors.length) throw Error(errors.join("\n"));
   console.log(
     JSON.stringify({
@@ -176,6 +206,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       olderDeviceUnknown: true,
       xssSafe: true,
       mobile: true,
+      permissionGuidance: true,
+      stalledRequestRecovery: true,
+      stalledLoginRecovery: true,
     }),
   );
 })()

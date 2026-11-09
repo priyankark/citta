@@ -336,6 +336,284 @@ fn ensure_idle(config: &Config) -> Result<()> {
     Ok(())
 }
 
+fn permission_guide(binary: &Path, service_binary: Option<&Path>, mac: bool) -> Value {
+    let desktop_checks = if mac {
+        json!([
+            {"permission":"Accessibility / Device Control Data Access","needed_for":"Clicking, typing and controlling apps","action":"In System Settings → Privacy & Security, grant access to the actual Citta service executable. Use service_executable when reported; otherwise inspect the installed service definition. A Terminal grant may not cover the background worker."},
+            {"permission":"Screen & System Audio Recording","needed_for":"Seeing the desktop or taking screenshots","action":"Grant screen access to the Citta service executable. Verify an actual screenshot from a delegated worker."},
+            {"permission":"Automation","needed_for":"Controlling another app through Apple Events, when the chosen tool uses them","action":"Allow the specific app control prompt for the requested workflow. This is separate from Accessibility."}
+        ])
+    } else {
+        json!([
+            {"permission":"Desktop session access","needed_for":"Clicking, typing or capturing the desktop","action":"Use the desktop session or portal supported by your automation tool. A background user service may not have access; verify from a delegated worker."}
+        ])
+    };
+    json!({
+        "execution": {
+            "full_tool_access":"Full-tool profiles run shell commands, edit files and use network access as your device account, without per-command approval. Installed tools, MCP servers and skills remain available.",
+            "owner_policy":"Citta's Allowed capabilities, allowed origins and Pause controls still apply. Setup preserves existing owner choices.",
+            "trust":"Automatic pairing trusts eligible devices owned by the same pinned Tailscale account. Install Citta once on each device."
+        },
+        "desktop": {
+            "status":"unverified",
+            "needed_for":"Desktop interaction only; shell and ordinary code tasks do not require desktop grants.",
+            "invoked_executable":binary,
+            "service_executable":service_binary,
+            "checks":desktop_checks,
+            "verification":"After a permission change, restart the idle Citta service. Test input in an owned window and inspect an actual screenshot from a delegated worker. Setup does not grant or verify OS permissions."
+        },
+        "accounts": {
+            "status":"task_specific",
+            "action":"Sign in to each required app or account on the receiving device and enable its required tool permissions. Before an email test, verify the sending account and recipient; verify Sent after sending and inspect an uncertain result before retrying."
+        }
+    })
+}
+
+fn setup_next_steps(
+    agent_state: &str,
+    no_agent: bool,
+    daemon_reachable: bool,
+    pending_grants: bool,
+    mcp_disabled: bool,
+) -> Vec<&'static str> {
+    let mut steps = Vec::new();
+    if !no_agent {
+        match agent_state {
+            "harness_not_installed" => steps.push(
+                "Install Codex on this device, sign in, then rerun citta setup to add an agent profile.",
+            ),
+            "harness_login_required" => steps.push(
+                "Sign in with codex login using the configured Codex home, then rerun citta setup.",
+            ),
+            _ => {}
+        }
+    }
+    if !daemon_reachable || pending_grants {
+        steps.push("Start or restart the externally managed Citta service after its work finishes, then rerun citta setup to finish configuration and pending profile grants.");
+    }
+    if mcp_disabled {
+        steps.push("Citta MCP is explicitly disabled in your harness config. Enable it there if you want this harness to discover and delegate tasks, then start a new harness session.");
+    } else {
+        steps.push("Start a new harness session to load the installed Citta tools and skills.");
+    }
+    steps.push("Run citta doctor. Install and run citta setup once on each other intended device, then verify a task executes on that device; pairing alone does not prove execution.");
+    steps.push("For desktop tasks, follow permissions.desktop on the receiving device and verify input and capture from a delegated worker. For account tasks, verify the intended signed-in account and tools there.");
+    steps
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct GrantAttempt {
+    expected_revision: i64,
+    original_policy: crate::permissions::Policy,
+    policy: crate::permissions::Policy,
+    names: Vec<String>,
+}
+
+fn is_false(value: &bool) -> bool {
+    !value
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PendingProfiles {
+    version: u32,
+    profiles: Vec<Capability>,
+    grant_attempt: Option<GrantAttempt>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    baselines: BTreeMap<String, i64>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    legacy: bool,
+}
+impl PendingProfiles {
+    fn load(path: &Path) -> Result<Self> {
+        let mut pending = Self {
+            version: 1,
+            profiles: Vec::new(),
+            grant_attempt: None,
+            baselines: BTreeMap::new(),
+            legacy: false,
+        };
+        if path.exists() {
+            let value: Value = serde_json::from_slice(&fs::read(path)?)?;
+            if value.get("version").is_some() {
+                pending = serde_json::from_value(value)?;
+                ensure!(pending.version == 1, "unsupported setup receipt version");
+            } else {
+                pending.legacy = true;
+                pending.profiles = if value.is_array() {
+                    serde_json::from_value(value)?
+                } else {
+                    vec![serde_json::from_value(value)?]
+                };
+            }
+        }
+        Ok(pending)
+    }
+
+    fn save(&self, path: &Path) -> Result<()> {
+        if self.profiles.is_empty() && self.grant_attempt.is_none() {
+            if path.exists() {
+                fs::remove_file(path)?;
+            }
+            return Ok(());
+        }
+        crate::enrollment::atomic_private(path, &serde_json::to_vec(self)?)
+    }
+
+    fn retire(&mut self, names: &[String]) {
+        self.profiles
+            .retain(|profile| !names.contains(&profile.name));
+        self.baselines.retain(|name, _| !names.contains(name));
+        self.grant_attempt = None;
+    }
+}
+
+fn permission_revision(config: &Config) -> Result<i64> {
+    use rusqlite::OptionalExtension;
+    let path = config.data_dir.join("citta.db");
+    if !path.exists() {
+        return Ok(0);
+    }
+    let db =
+        rusqlite::Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+    db.busy_timeout(Duration::from_secs(5))?;
+    Ok(db
+        .query_row(
+            "SELECT revision FROM device_permissions WHERE id=1",
+            [],
+            |row| row.get(0),
+        )
+        .optional()?
+        .unwrap_or(0))
+}
+
+async fn finish_profile_grants(
+    config: &Config,
+    live: &NodeInfo,
+    path: &Path,
+    pending: &mut PendingProfiles,
+) -> Result<()> {
+    if pending.profiles.is_empty() && pending.grant_attempt.is_none() {
+        return Ok(());
+    }
+    let control = Client::control_local(config)?;
+    let state: Value = control.get("/v1/control/permissions").await?;
+    let mut snapshot: crate::permissions::Snapshot =
+        serde_json::from_value(state["snapshot"].clone())?;
+    let history: Vec<crate::permissions::Snapshot> =
+        serde_json::from_value(state["history"].clone())?;
+    if let Some(attempt) = &pending.grant_attempt {
+        let applied_revision = attempt.expected_revision.checked_add(1);
+        if history
+            .iter()
+            .any(|event| Some(event.revision) == applied_revision && event.policy == attempt.policy)
+        {
+            // The grant happened, even if an owner subsequently revoked it.
+            // Retire the intent without changing today's owner policy.
+            let names = attempt.names.clone();
+            pending.retire(&names);
+            pending.save(path)?;
+        } else {
+            ensure!(
+                snapshot.revision == attempt.expected_revision
+                    && snapshot.policy == attempt.original_policy,
+                "pending setup grant needs manual reconciliation: policy changed or its audit proof is unavailable; existing owner choices and setup-pending-profile.json were preserved"
+            );
+            ensure!(
+                attempt
+                    .names
+                    .iter()
+                    .all(|name| live.capabilities.iter().any(|c| c.name == *name)),
+                "pending setup grant needs manual reconciliation: an attempted profile is absent from the live daemon"
+            );
+            control
+                .post::<Value>(
+                    "/v1/control/permissions",
+                    &crate::permissions::Update {
+                        expected_revision: attempt.expected_revision,
+                        policy: attempt.policy.clone(),
+                    },
+                )
+                .await?;
+            snapshot.revision += 1;
+            snapshot.policy = attempt.policy.clone();
+            let names = attempt.names.clone();
+            pending.retire(&names);
+            pending.save(path)?;
+        }
+    }
+    if !pending.profiles.is_empty() {
+        // A fresh daemon's initial policy can grant a profile before setup's
+        // first POST. Reconcile that grant too, including later revocation.
+        // Receipts without creation baselines need complete audit history.
+        let previously_granted: Vec<_> = pending
+            .profiles
+            .iter()
+            .filter(|profile| {
+                let baseline = pending.baselines.get(&profile.name).copied().unwrap_or(0);
+                snapshot.policy.allowed_capabilities.contains(&profile.name)
+                    || history.iter().any(|event| {
+                        event.revision >= baseline
+                            && event.policy.allowed_capabilities.contains(&profile.name)
+                    })
+            })
+            .map(|profile| profile.name.clone())
+            .collect();
+        pending.retire(&previously_granted);
+        ensure!(
+            pending.profiles.iter().all(|profile| {
+                let baseline = pending
+                    .baselines
+                    .get(&profile.name)
+                    .copied()
+                    .unwrap_or(0)
+                    .max(1);
+                snapshot.revision >= baseline
+                    && history.iter().any(|event| event.revision == baseline)
+            }),
+            "pending setup grant needs manual reconciliation: receipt has no complete audit history since profile creation; existing owner choices and setup-pending-profile.json were preserved"
+        );
+        pending.legacy = false;
+        pending.save(path)?;
+    }
+    let names: Vec<_> = pending
+        .profiles
+        .iter()
+        .filter(|profile| live.capabilities.iter().any(|c| c.name == profile.name))
+        .map(|profile| profile.name.clone())
+        .collect();
+    if names.is_empty() {
+        return Ok(());
+    }
+    let mut policy = snapshot.policy.clone();
+    for name in &names {
+        if !policy.allowed_capabilities.contains(name) {
+            policy.allowed_capabilities.push(name.clone());
+        }
+    }
+    pending.grant_attempt = Some(GrantAttempt {
+        expected_revision: snapshot.revision,
+        original_policy: snapshot.policy,
+        policy: policy.clone(),
+        names: names.clone(),
+    });
+    // Write intent before sending even an unchanged policy. The next revision
+    // is durable evidence for recovery after a lost response or process crash.
+    pending.save(path)?;
+    control
+        .post::<Value>(
+            "/v1/control/permissions",
+            &crate::permissions::Update {
+                expected_revision: snapshot.revision,
+                policy,
+            },
+        )
+        .await?;
+    pending.retire(&names);
+    pending.save(path)
+}
+
 pub async fn run(config_path: &Path, options: Options) -> Result<Value> {
     let home = PathBuf::from(std::env::var_os("HOME").context("HOME unavailable")?);
     ensure!(
@@ -479,7 +757,7 @@ pub async fn run(config_path: &Path, options: Options) -> Result<Value> {
         == Some(false);
     if options.dry_run {
         return Ok(
-            json!({"dry_run":true,"config":config_path,"node_id":existing.as_ref().map(|c|c.node_id.as_str()).unwrap_or(options.node.as_deref().unwrap_or(&discovered_node)),"agent":agent_state,"mcp_explicitly_disabled":mcp_disabled,"service":service,"ssh_required":false}),
+            json!({"dry_run":true,"config":config_path,"node_id":existing.as_ref().map(|c|c.node_id.as_str()).unwrap_or(options.node.as_deref().unwrap_or(&discovered_node)),"agent":agent_state,"mcp_explicitly_disabled":mcp_disabled,"service":service,"ssh_required":false,"permissions":permission_guide(&binary,(!options.no_service).then_some(binary.as_path()),cfg!(target_os="macos")),"execution_verified":false,"desktop_verified":false,"next_steps":["Review the permission guide, then run citta setup without --dry-run. No files, OS permissions or services were changed by this check."]}),
         );
     }
     let dir = config_path.parent().context("config directory required")?;
@@ -514,17 +792,23 @@ pub async fn run(config_path: &Path, options: Options) -> Result<Value> {
         .join(uuid::Uuid::new_v4().to_string());
     let before = serde_json::to_value(&config)?;
     let receipt = dir.join("setup-pending-profile.json");
-    let mut pending_profile: Option<Capability> = if receipt.exists() {
-        Some(serde_json::from_slice(&fs::read(&receipt)?)?)
-    } else {
-        None
-    };
+    let mut pending = PendingProfiles::load(&receipt)?;
     if let Some(profile) = profile {
         ensure!(
             !config.capabilities.iter().any(|c| c.name == profile.name),
             "selected profile name already belongs to another capability"
         );
-        pending_profile = Some(profile.clone());
+        if let Some(saved) = pending.profiles.iter().find(|p| p.name == profile.name) {
+            ensure!(
+                serde_json::to_value(saved)? == serde_json::to_value(&profile)?,
+                "pending setup profile was changed; inspect setup-pending-profile.json before restoring it"
+            );
+        } else {
+            pending
+                .baselines
+                .insert(profile.name.clone(), permission_revision(&config)?);
+            pending.profiles.push(profile.clone());
+        }
         config.capabilities.push(profile);
     }
     // New installations opt in; existing operator-selected admission policy is preserved.
@@ -536,6 +820,30 @@ pub async fn run(config_path: &Path, options: Options) -> Result<Value> {
         };
     }
     config.validate()?;
+    for profile in &pending.profiles {
+        if !config.capabilities.iter().any(|c| c.name == profile.name) {
+            let action = match profile.name.as_str() {
+                "codex" => {
+                    "If its config save was interrupted and you still want this profile, repeat setup with --agent-access full using the same model/harness options."
+                }
+                "codex-readonly" => {
+                    "If its config save was interrupted and you still want this profile, repeat setup with --agent-access read-only using the same model/harness options."
+                }
+                _ => "Review the missing profile and its saved setup receipt before restoring it.",
+            };
+            bail!(
+                "pending setup profile {} is missing from config. {action} If you intentionally removed it, reconcile setup-pending-profile.json instead; setup will not silently restore it.",
+                profile.name
+            );
+        }
+        ensure!(
+            config
+                .capabilities
+                .iter()
+                .any(|c| serde_json::to_value(c).ok() == serde_json::to_value(profile).ok()),
+            "pending setup profile was changed; inspect setup-pending-profile.json before granting it"
+        );
+    }
     // Validate identity and Serve configuration against a staging file before
     // stopping anything or replacing the live configuration.
     let staged = dir.join(format!(".setup-{}.toml", uuid::Uuid::new_v4()));
@@ -566,15 +874,8 @@ pub async fn run(config_path: &Path, options: Options) -> Result<Value> {
         stop_service().await?;
         recovery.0 = Some(service.clone());
     }
-    if let Some(profile) = &pending_profile {
-        ensure!(
-            config
-                .capabilities
-                .iter()
-                .any(|c| serde_json::to_value(c).ok() == serde_json::to_value(profile).ok()),
-            "pending setup profile was changed; inspect setup-pending-profile.json before granting it"
-        );
-        crate::enrollment::atomic_private(&receipt, &serde_json::to_vec(profile)?)?;
+    if !pending.profiles.is_empty() {
+        pending.save(&receipt)?;
     }
     save(
         config_path,
@@ -654,41 +955,22 @@ pub async fn run(config_path: &Path, options: Options) -> Result<Value> {
         .get::<NodeInfo>("/v1/node")
         .await
         .ok();
-    if let (Some(profile), Some(live)) = (&pending_profile, &live)
-        && live.capabilities.iter().any(|c| c.name == profile.name)
-    {
-        let control = Client::control_local(&config)?;
-        let state: Value = control.get("/v1/control/permissions").await?;
-        let mut snapshot: crate::permissions::Snapshot =
-            serde_json::from_value(state["snapshot"].clone())?;
-        if !snapshot
-            .policy
-            .allowed_capabilities
-            .iter()
-            .any(|v| v == &profile.name)
-        {
-            snapshot
-                .policy
-                .allowed_capabilities
-                .push(profile.name.clone());
-            control
-                .post::<Value>(
-                    "/v1/control/permissions",
-                    &crate::permissions::Update {
-                        expected_revision: snapshot.revision,
-                        policy: snapshot.policy,
-                    },
-                )
-                .await?;
-        }
-        fs::remove_file(&receipt)?;
+    if let Some(live) = &live {
+        finish_profile_grants(&config, live, &receipt, &mut pending).await?;
     }
     let agent_configured = config
         .capabilities
         .iter()
         .any(|c| c.kind == CapabilityKind::Agent);
+    let next_steps = setup_next_steps(
+        agent_state,
+        options.no_agent,
+        live.is_some(),
+        receipt.exists(),
+        mcp_disabled,
+    );
     Ok(
-        json!({"configured":true,"agent_configured":agent_configured,"daemon_reachable":live.is_some(),"profile_grant_pending":receipt.exists(),"config":config_path,"node_id":config.node_id,"agent":agent_state,"mcp_explicitly_disabled":mcp_disabled,"service":if options.no_service{"externally_managed"}else{"running"},"enrollment":enrollment,"ssh_required":false,"next":if agent_configured{"Run citta doctor, then a remote task to verify execution. New harness sessions load the installed tools and skills."}else{"Install/sign in to Codex locally and rerun citta setup to enable agent delegation; pairing alone does not provide an agent."}}),
+        json!({"configured":true,"agent_configured":agent_configured,"daemon_reachable":live.is_some(),"profile_grant_pending":receipt.exists(),"config":config_path,"node_id":config.node_id,"agent":agent_state,"mcp_explicitly_disabled":mcp_disabled,"service":if options.no_service{"externally_managed"}else{"running"},"enrollment":enrollment,"ssh_required":false,"next":next_steps.join(" "),"next_steps":next_steps,"permissions":permission_guide(&binary,(!options.no_service).then_some(binary.as_path()),cfg!(target_os="macos")),"execution_verified":false,"desktop_verified":false}),
     )
 }
 
@@ -725,18 +1007,18 @@ fn summarize(node: &Value) -> Value {
         "upgrade_required" => "upgrade_installed_binary_then_run_citta_setup_locally",
         _ => "run_citta_setup_on_that_device",
     };
-    json!({"node_id":node["node_id"],"state":state,"action":action})
+    json!({"node_id":node["node_id"],"state":state,"action":action,"execution_verified":false,"desktop_verified":false,"verification":"This checks configuration and policy only. Verify a real delegated task and any required desktop/account access on this device."})
 }
 
-pub async fn doctor(config: &Config) -> Result<Value> {
+pub async fn doctor(config: &Config, config_path: &Path) -> Result<Value> {
     let discovery: Value = Client::local(config)?
         .get("/v1/discover")
         .await
-        .context("Citta daemon unavailable; run citta setup on this device")?;
+        .with_context(|| format!("Citta daemon is unavailable on this device (config: {}). Run citta setup with this config to restore its user service; if you use --no-service, start the existing daemon through its service manager. Inspect {} on macOS or the user service journal on Linux if it still cannot connect; do not reinitialize its identity.",config_path.display(),config_path.parent().unwrap_or(Path::new(".")).join("logs").display()))?;
     let peers:Vec<Value>=discovery["peers"].as_array().into_iter().flatten().map(|p|if p["reachable"]==true{summarize(&p["node"])}else{json!({"node_id":p["node_id"],"state":"unreachable","action":"check_device_tailscale_and_citta_service"})}).collect();
     let waiting:Vec<Value>=discovery["enrollment"]["peers"].as_array().into_iter().flatten().filter(|p|p["state"]!="paired").map(|p|json!({"device_id":p["device_id"],"online":p["online"],"state":if p["online"]==true{"citta_not_ready"}else{"device_offline"},"action":"run_citta_setup_locally_if_not_already_installed; check_same_port_and_tailnet_policy"})).collect();
     Ok(
-        json!({"local":summarize(&discovery["local"]),"tailscale_identity_fresh":discovery["enrollment"]["fresh"],"peers":peers,"waiting_devices":waiting,"ssh_required":false,"scope":"Citta must be installed once per device. Pairing is automatic; remote software installation is not implied by Tailscale membership."}),
+        json!({"local":summarize(&discovery["local"]),"tailscale_identity_fresh":discovery["enrollment"]["fresh"],"peers":peers,"waiting_devices":waiting,"ssh_required":false,"permissions":permission_guide(&std::env::current_exe()?,None,cfg!(target_os="macos")),"scope":"Citta must be installed once per device. Pairing is automatic; remote software installation is not implied by Tailscale membership. The permission guide describes this device. invoked_executable is this CLI, not proof of the running service path; setup reports service_executable when it manages that service. Run setup locally on each device."}),
     )
 }
 

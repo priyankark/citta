@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Repeatable onboarding with isolated Tailscale/harness fixtures and real Citta."""
 import json
+import fcntl
 import os
 from pathlib import Path
 import socket
@@ -15,9 +16,15 @@ import urllib.request
 ROOT = Path(__file__).resolve().parents[1]
 BINARY = Path(os.environ.get('CITTA_TEST_BINARY', ROOT / 'target/debug/citta')).resolve()
 
+def pending_profiles(receipt):
+    if isinstance(receipt, list):
+        return receipt
+    return receipt['profiles'] if 'version' in receipt else [receipt]
+
 class Setup(unittest.TestCase):
     def setUp(self):
-        temp = tempfile.TemporaryDirectory(prefix='citta-setup-')
+        # Real home/config paths can contain spaces; every scenario must preserve them.
+        temp = tempfile.TemporaryDirectory(prefix='citta setup-')
         self.addCleanup(temp.cleanup)
         self.root = Path(temp.name)
         self.config = self.root / 'device/config.toml'
@@ -80,6 +87,17 @@ print(sys.stdin.read())
         with urllib.request.urlopen(request, timeout=3) as response:
             return json.load(response)
 
+    def pending_agent_grant(self):
+        """Create a real existing policy that has not granted the new profile."""
+        self.setup_device('--no-agent')
+        process = self.daemon()
+        process.terminate(); process.wait(timeout=10)
+        self.setup_device()
+        self.daemon()
+        state = self.api('/v1/control/permissions')['snapshot']
+        self.assertNotIn('codex', state['policy']['allowed_capabilities'])
+        return state
+
     def test_fresh_setup_rerun_preserves_identity_settings_and_explicit_disable(self):
         result = self.setup_device()
         self.assertTrue(result['agent_configured'])
@@ -124,6 +142,316 @@ print(sys.stdin.read())
         self.assertIn('danger-full-access', json.loads(config['capabilities'][2]['env']['CITTA_AGENT_ARGS']))
         self.setup_device('--agent-access', 'full')
         self.assertEqual(len(tomllib.loads(self.config.read_text())['capabilities']), 3)
+
+    def test_empty_harness_setup_installs_tools_without_inventing_a_model(self):
+        self.harness.joinpath('config.toml').unlink()
+        result = self.setup_device()
+        self.assertTrue(result['agent_configured'])
+        self.assertFalse(result['mcp_explicitly_disabled'])
+        config = tomllib.loads(self.config.read_text())
+        profile = next(c for c in config['capabilities'] if c['kind'] == 'agent')
+        self.assertNotIn('--model', json.loads(profile['env']['CITTA_AGENT_ARGS']))
+        harness = tomllib.loads(self.harness.joinpath('config.toml').read_text())
+        self.assertEqual(harness['mcp_servers']['citta']['command'], str(BINARY))
+        self.assertEqual(harness['mcp_servers']['citta']['args'], ['--config', str(self.config), 'mcp'])
+        for skill in ['citta-setup', 'citta-delegate']:
+            self.assertTrue(self.harness.joinpath('skills', skill, 'SKILL.md').is_file())
+            self.assertTrue(self.harness.joinpath('skills', skill, 'agents/openai.yaml').is_file())
+
+    def test_multiple_pending_profiles_receive_grants_after_daemon_starts(self):
+        self.setup_device('--no-agent')
+        process = self.daemon()
+        process.terminate(); process.wait(timeout=10)
+        self.setup_device('--agent-access', 'read-only')
+        self.setup_device('--agent-access', 'full')
+        self.daemon()
+        self.assertFalse(self.setup_device()['profile_grant_pending'])
+        state = self.api('/v1/control/permissions')['snapshot']
+        self.assertEqual(state['policy']['mode'], 'restricted')
+        self.assertEqual(set(state['policy']['allowed_capabilities']), {'echo', 'codex-readonly', 'codex'})
+        revision = state['revision']
+        self.setup_device()
+        self.assertEqual(self.api('/v1/control/permissions')['snapshot']['revision'], revision)
+
+    def test_invalid_harness_settings_fail_before_device_or_network_mutation(self):
+        for contents in ['not valid [toml', 'mcp_servers="not a table"\n', '[mcp_servers]\ncitta="not a table"\n']:
+            with self.subTest(contents=contents):
+                self.harness.joinpath('config.toml').write_text(contents)
+                self.setup_device(ok=False)
+                self.assertEqual(self.harness.joinpath('config.toml').read_text(), contents)
+                self.assertFalse(self.config.exists())
+                self.assertFalse(self.root.joinpath('serve-added').exists())
+
+    def test_only_live_profiles_are_granted_until_external_daemon_restarts(self):
+        self.setup_device('--no-agent')
+        process = self.daemon()
+        process.terminate(); process.wait(timeout=10)
+        self.setup_device('--agent-access', 'read-only')
+        process = self.daemon()
+        result = self.setup_device('--agent-access', 'full')
+        self.assertTrue(result['profile_grant_pending'])
+        state = self.api('/v1/control/permissions')['snapshot']
+        self.assertIn('codex-readonly', state['policy']['allowed_capabilities'])
+        self.assertNotIn('codex', state['policy']['allowed_capabilities'])
+        receipt = self.config.with_name('setup-pending-profile.json')
+        self.assertEqual([c['name'] for c in pending_profiles(json.loads(receipt.read_text()))], ['codex'])
+        process.terminate(); process.wait(timeout=10)
+        self.daemon()
+        self.assertFalse(self.setup_device()['profile_grant_pending'])
+        state = self.api('/v1/control/permissions')['snapshot']
+        self.assertEqual(set(state['policy']['allowed_capabilities']), {'echo', 'codex-readonly', 'codex'})
+        self.assertFalse(receipt.exists())
+
+    def test_changed_pending_profile_is_rejected_before_network_mutation(self):
+        self.setup_device()
+        before = self.config.read_bytes()
+        receipt = self.config.with_name('setup-pending-profile.json')
+        pending = json.loads(receipt.read_text())
+        profiles = pending_profiles(pending)
+        profiles[0]['model'] = 'different-than-configured-model'
+        receipt.write_text(json.dumps(pending))
+        self.root.joinpath('serve-added').unlink()
+        self.assertIn('pending setup profile was changed', self.setup_device(ok=False))
+        self.assertEqual(self.config.read_bytes(), before)
+        self.assertFalse(self.root.joinpath('serve-added').exists())
+
+    def record_grant_attempt(self, state):
+        """Persist the durable boundary immediately before a grant API call."""
+        receipt = self.config.with_name('setup-pending-profile.json')
+        original = json.loads(receipt.read_text())
+        profiles = pending_profiles(original)
+        planned = dict(state['policy'], allowed_capabilities=state['policy']['allowed_capabilities'] + ['codex'])
+        attempt = dict(original) if isinstance(original, dict) and 'version' in original else {}
+        attempt.update({'version':1, 'legacy':False, 'profiles':profiles, 'grant_attempt':{
+            'expected_revision':state['revision'], 'original_policy':state['policy'],
+            'policy':planned, 'names':['codex'],
+        }})
+        receipt.write_text(json.dumps(attempt))
+        return receipt, planned
+
+    def test_crash_after_grant_then_owner_revocation_does_not_regrant(self):
+        state = self.pending_agent_grant()
+        receipt, planned = self.record_grant_attempt(state)
+        # Commit the recorded POST, leaving its intent on disk as if setup died
+        # before retiring the receipt. Then the owner deliberately revokes it.
+        self.api('/v1/control/permissions', {'expected_revision':state['revision'], 'policy':planned})
+        granted = self.api('/v1/control/permissions')['snapshot']
+        self.api('/v1/control/permissions', {'expected_revision':granted['revision'], 'policy':state['policy']})
+        revoked = self.api('/v1/control/permissions')['snapshot']
+        result = self.setup_device()
+        self.assertFalse(result['profile_grant_pending'])
+        self.assertFalse(receipt.exists())
+        self.assertEqual(self.api('/v1/control/permissions')['snapshot'], revoked)
+        self.setup_device()
+        self.assertEqual(self.api('/v1/control/permissions')['snapshot'], revoked)
+
+    def test_uncommitted_grant_intent_retries_only_the_recorded_revision(self):
+        state = self.pending_agent_grant()
+        receipt, planned = self.record_grant_attempt(state)
+        self.assertFalse(self.setup_device()['profile_grant_pending'])
+        applied = self.api('/v1/control/permissions')['snapshot']
+        self.assertEqual(applied['revision'], state['revision'] + 1)
+        self.assertEqual(applied['policy'], planned)
+        self.assertFalse(receipt.exists())
+
+    def test_uncertain_grant_conflict_keeps_evidence_and_does_not_report_success(self):
+        state = self.pending_agent_grant()
+        receipt, _ = self.record_grant_attempt(state)
+        def intent():
+            value = json.loads(receipt.read_text())
+            value.setdefault('legacy', False)
+            return value
+        original_receipt = intent()
+        owner_policy = dict(state['policy'], mode='paused', allowed_origins=['local:fixture'])
+        self.api('/v1/control/permissions', {'expected_revision':state['revision'], 'policy':owner_policy})
+        changed = self.api('/v1/control/permissions')['snapshot']
+        error = self.setup_device(ok=False)
+        self.assertIn('pending setup grant needs manual reconciliation', error)
+        self.assertEqual(intent(), original_receipt)
+        self.assertEqual(self.api('/v1/control/permissions')['snapshot'], changed)
+        # A repeated recovery attempt must remain unresolved rather than apply
+        # a fresh policy update over the owner's intervening decision.
+        self.assertIn('pending setup grant needs manual reconciliation', self.setup_device(ok=False))
+        self.assertEqual(intent(), original_receipt)
+        self.assertEqual(self.api('/v1/control/permissions')['snapshot'], changed)
+
+    def test_legacy_receipt_preserves_owner_revocation_after_an_earlier_grant(self):
+        state = self.pending_agent_grant()
+        receipt = self.config.with_name('setup-pending-profile.json')
+        profile = pending_profiles(json.loads(receipt.read_text()))[0]
+        receipt.write_text(json.dumps(profile))
+        planned = dict(state['policy'], allowed_capabilities=state['policy']['allowed_capabilities'] + ['codex'])
+        self.api('/v1/control/permissions', {'expected_revision':state['revision'], 'policy':planned})
+        granted = self.api('/v1/control/permissions')['snapshot']
+        self.api('/v1/control/permissions', {'expected_revision':granted['revision'], 'policy':state['policy']})
+        revoked = self.api('/v1/control/permissions')['snapshot']
+        self.assertFalse(self.setup_device()['profile_grant_pending'])
+        self.assertFalse(receipt.exists())
+        self.assertEqual(self.api('/v1/control/permissions')['snapshot'], revoked)
+
+    def test_initial_daemon_grant_revoked_before_setup_completion_is_preserved(self):
+        self.setup_device()
+        receipt = self.config.with_name('setup-pending-profile.json')
+        self.assertIsNone(json.loads(receipt.read_text())['grant_attempt'])
+        self.daemon()
+        initial = self.api('/v1/control/permissions')['snapshot']
+        self.assertIn('codex', initial['policy']['allowed_capabilities'])
+        owner_policy = dict(initial['policy'], allowed_capabilities=['echo'])
+        self.api('/v1/control/permissions', {'expected_revision':initial['revision'], 'policy':owner_policy})
+        revoked = self.api('/v1/control/permissions')['snapshot']
+        self.assertFalse(self.setup_device()['profile_grant_pending'])
+        self.assertFalse(receipt.exists())
+        self.assertEqual(self.api('/v1/control/permissions')['snapshot'], revoked)
+
+    def test_unattempted_receipt_with_truncated_revocation_history_is_not_regranted(self):
+        self.setup_device()
+        receipt = self.config.with_name('setup-pending-profile.json')
+        self.daemon()
+        initial = self.api('/v1/control/permissions')['snapshot']
+        owner_policy = dict(initial['policy'], allowed_capabilities=['echo'])
+        self.api('/v1/control/permissions', {'expected_revision':initial['revision'], 'policy':owner_policy})
+        revoked = self.api('/v1/control/permissions')['snapshot']
+        for _ in range(21):
+            self.api('/v1/control/permissions', {'expected_revision':revoked['revision'], 'policy':revoked['policy']})
+            revoked = self.api('/v1/control/permissions')['snapshot']
+        self.assertIn('pending setup grant needs manual reconciliation', self.setup_device(ok=False))
+        self.assertTrue(receipt.exists())
+        self.assertEqual(self.api('/v1/control/permissions')['snapshot'], revoked)
+
+    def test_legacy_receipt_with_truncated_history_requires_reconciliation(self):
+        state = self.pending_agent_grant()
+        receipt = self.config.with_name('setup-pending-profile.json')
+        profile = pending_profiles(json.loads(receipt.read_text()))[0]
+        receipt.write_text(json.dumps(profile))
+        # The API returns only recent policy history. An old legacy receipt
+        # cannot prove an earlier grant never happened once that history drops out.
+        for _ in range(21):
+            self.api('/v1/control/permissions', {'expected_revision':state['revision'], 'policy':state['policy']})
+            state = self.api('/v1/control/permissions')['snapshot']
+        self.assertIn('pending setup grant needs manual reconciliation', self.setup_device(ok=False))
+        self.assertTrue(receipt.exists())
+        self.assertEqual(pending_profiles(json.loads(receipt.read_text())), [profile])
+        self.assertEqual(self.api('/v1/control/permissions')['snapshot'], state)
+
+    def test_new_profile_on_mature_policy_uses_its_recorded_baseline(self):
+        self.setup_device('--no-agent')
+        process = self.daemon()
+        state = self.api('/v1/control/permissions')['snapshot']
+        for _ in range(21):
+            self.api('/v1/control/permissions', {'expected_revision':state['revision'], 'policy':state['policy']})
+            state = self.api('/v1/control/permissions')['snapshot']
+        process.terminate(); process.wait(timeout=10)
+        self.setup_device()
+        self.daemon()
+        self.assertFalse(self.setup_device()['profile_grant_pending'])
+        granted = self.api('/v1/control/permissions')['snapshot']
+        self.assertEqual(granted['revision'], state['revision'] + 1)
+        self.assertEqual(set(granted['policy']['allowed_capabilities']), {'echo', 'codex'})
+
+    def test_legacy_pending_profile_receipt_resumes_without_resetting_policy(self):
+        self.setup_device('--no-agent')
+        process = self.daemon()
+        state = self.api('/v1/control/permissions')['snapshot']
+        policy = state['policy']
+        policy.update(mode='paused', allowed_origins=['local:fixture'])
+        self.api('/v1/control/permissions', {'expected_revision':state['revision'], 'policy':policy})
+        process.terminate(); process.wait(timeout=10)
+        self.setup_device()
+        receipt = self.config.with_name('setup-pending-profile.json')
+        pending = json.loads(receipt.read_text())
+        # Prior builds persisted a single profile object rather than a list.
+        receipt.write_text(json.dumps(pending_profiles(pending)[0]))
+        self.daemon()
+        self.assertFalse(self.setup_device()['profile_grant_pending'])
+        state = self.api('/v1/control/permissions')['snapshot']
+        self.assertEqual(state['policy']['mode'], 'paused')
+        self.assertEqual(state['policy']['allowed_origins'], ['local:fixture'])
+        self.assertIn('codex', state['policy']['allowed_capabilities'])
+        self.assertFalse(receipt.exists())
+
+    def test_unsupported_harness_fails_before_initialization(self):
+        self.codex.write_text(f'#!{sys.executable}\nprint("old harness without noninteractive support")\n')
+        error = self.setup_device(ok=False)
+        self.assertIn('Codex', error)
+        self.assertFalse(self.config.exists())
+        self.assertFalse(self.root.joinpath('serve-added').exists())
+
+    def test_explicit_missing_harness_fails_before_initialization(self):
+        self.codex.unlink()
+        error = self.setup_device(ok=False)
+        self.assertIn('Codex', error)
+        self.assertFalse(self.config.exists())
+        self.assertFalse(self.root.joinpath('serve-added').exists())
+
+    def test_simultaneous_setup_is_rejected_without_changing_existing_files(self):
+        self.setup_device()
+        before = self.config.read_bytes()
+        harness_before = self.harness.joinpath('config.toml').read_bytes()
+        self.root.joinpath('serve-added').unlink()
+        with self.config.with_name('setup.lock').open('r+') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            self.assertIn('another setup is already running', self.setup_device(ok=False))
+        self.assertEqual(self.config.read_bytes(), before)
+        self.assertEqual(self.harness.joinpath('config.toml').read_bytes(), harness_before)
+        self.assertFalse(self.root.joinpath('serve-added').exists())
+
+    def test_failed_service_start_preserves_setup_for_recovery(self):
+        # Never invoke the user's real service manager, even though this scenario
+        # exercises setup's normal service-install path.
+        manager_dir = self.root / 'service manager'
+        manager_dir.mkdir()
+        for manager in ['launchctl', 'systemctl']:
+            executable = manager_dir / manager
+            executable.write_text(f'''#!{sys.executable}
+import json, pathlib, sys
+with pathlib.Path(__file__).with_name('calls.jsonl').open('a') as log:
+ log.write(json.dumps(sys.argv[1:]) + '\\n')
+sys.exit(0 if 'daemon-reload' in sys.argv else 1)
+''')
+            executable.chmod(0o700)
+        self.env['PATH'] = str(manager_dir) + os.pathsep + self.env.get('PATH', '')
+        self.setup_args.remove('--no-service')
+        self.assertIn('service', self.setup_device(ok=False))
+        self.assertTrue(self.config.is_file())
+        token = self.config.with_name('node.token').read_bytes()
+        calls = [json.loads(line) for line in manager_dir.joinpath('calls.jsonl').read_text().splitlines()]
+        self.assertTrue(any('bootstrap' in call or 'enable' in call for call in calls))
+        self.assertFalse(any('bootout' in call or 'stop' in call for call in calls))
+        self.setup_args.append('--no-service')
+        self.daemon()
+        recovered = self.setup_device()
+        self.assertTrue(recovered['daemon_reachable'])
+        self.assertFalse(recovered['profile_grant_pending'])
+        self.assertEqual(self.config.with_name('node.token').read_bytes(), token)
+
+    def test_permission_guidance_is_available_before_setup_and_does_not_claim_verification(self):
+        for extra in [('--dry-run',), ()]:
+            result = self.setup_device(*extra)
+            self.assertFalse(result['execution_verified'])
+            self.assertFalse(result['desktop_verified'])
+            self.assertEqual(result['permissions']['desktop']['status'], 'unverified')
+            self.assertEqual(result['permissions']['desktop']['invoked_executable'], str(BINARY))
+            self.assertIsNone(result['permissions']['desktop']['service_executable'])
+            self.assertTrue(result['permissions']['desktop']['checks'])
+            self.assertEqual(result['permissions']['accounts']['status'], 'task_specific')
+        self.assertTrue(result['next_steps'])
+        self.assertTrue(result['mcp_explicitly_disabled'])
+        self.assertFalse(result['daemon_reachable'])
+
+    def test_intentional_pairing_only_setup_does_not_ask_to_install_a_harness(self):
+        result = self.setup_device('--no-agent')
+        self.assertFalse(result['agent_configured'])
+        self.assertEqual(result['agent'], 'not_requested')
+        self.assertNotIn('Install/sign in to Codex', result['next'])
+        self.assertNotIn('Install Codex', result['next'])
+        self.assertNotIn('codex login', result['next'])
+
+    def test_doctor_with_stopped_daemon_offers_recovery(self):
+        self.setup_device()
+        result = subprocess.run(self.cmd + ['doctor'], env=self.env, capture_output=True, text=True, timeout=15)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('citta setup', result.stderr)
+        self.assertIn(str(self.config), result.stderr)
 
     def test_dry_run_and_offline_preflight_do_not_initialize(self):
         original = self.harness.joinpath('config.toml').read_bytes()

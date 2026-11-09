@@ -1,5 +1,35 @@
 # Production release acceptance
 
+## Onboarding permissions and recovery — 2026-11-09
+
+Setup and doctor now distinguish configured profiles from verified execution,
+desktop access and account access. Setup provides task-specific permission
+guidance; the browser's Permissions view explains receiving-device requirements.
+Status and first-login requests have bounded waits with recovery guidance.
+
+The isolated onboarding suite passes 29 scenarios, including empty homes, paths
+with spaces, missing or incompatible harnesses, login recovery, concurrent setup,
+mocked service-start failure, multi-profile pending grants, legacy receipts,
+partial grants, interrupted config writes, and policy changes around interrupted
+grant updates. Per-profile creation revisions and durable grant intents preserve
+owner revocations, including grants made by the first daemon initialization.
+Missing audit proof requires explicit reconciliation rather than regranting.
+Service-manager failures are simulated; these fixtures do not reset live devices.
+
+Local validation also passed 36 Rust tests, 19 process-based mesh scenarios,
+formatting, Clippy, a release build, skill validation and desktop/mobile browser
+checks. Browser tests exercise stalled overview and first-login requests plus
+subsequent recovery. These checks do not establish app-account readiness.
+
+A physical Air worker completed preflight task
+`2cb9f2af-2646-41ff-adb6-0a78c9e17e0c`: the session was locked, Accessibility
+and Screen Recording were unavailable to the worker, and no working authenticated
+email/browser path was found. No email was sent or UIUC account accessed.
+Retrying the identical request with its original key returned the same completed
+task without a new execution. Email acceptance remains pending an unlocked,
+authenticated receiving-device session; a successful preflight worker is not a
+successful email send. Private evidence is retained under `local/air-onboarding-*`.
+
 ## Resource-aware delegation — local verification
 
 The resource-admission build adds 4 Rust behavioral tests (33 total): fresh/compatible offers, pressure and missing telemetry, atomic reservations and release, and durable queued-task filtering/idempotency. The real-process mesh has 19 scenarios, including two daemons with the same agent profile: the origin's configured memory headroom makes it ineligible, so an unpinned task executes on the peer. Impossible capacity expires without a worker; incompatible model requirements fail before submission; same-key retries and lookup recover the original task after its worker disconnects. This is a controlled admission test, not deliberate exhaustion of host memory.

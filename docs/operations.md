@@ -65,6 +65,22 @@ Generate a fresh cryptographically random token (at least 32 URL-safe characters
 - Task failed: inspect bounded stderr/error; fix the wrapper, missing environment/credentials, timeout, or output limit.
 - Duplicate daemon error: find the existing service rather than deleting the lock or copying the database elsewhere.
 
+### Recover interrupted setup grants
+
+Setup keeps pending profiles and a permission-update intent in the private
+`setup-pending-profile.json` beside the config. On a retry it checks the saved
+policy revision and audit history before completing a grant. An already-applied
+grant is retired without undoing a later owner revocation. Several profiles can
+wait for one externally managed daemon restart.
+
+If setup reports that audit evidence is missing or permissions changed during an
+uncertain update, inspect the selected device's current permissions and history
+in the panel. Resolve the named profiles to the owner's intended settings, then
+archive the receipt in the private backup directory before rerunning setup.
+Keep the receipt as recovery evidence; repeatedly running setup must not override
+the owner's choices. If a pending profile is absent from the config, use the
+specific recovery action in the error only when that profile is still intended.
+
 ## Agent inventory build: storage upgrade
 
 The agent-spawning build upgrades SQLite `user_version` from 1 to 2 to guard the new agent-only task records. Existing tasks remain readable and are never replayed. Stop an idle daemon and take a consistent database backup alongside its config/binary before upgrading. Version-1 binaries deliberately refuse a version-2 database; do not edit the version pragma to force a downgrade. Rollback to such a binary requires its matching database/config backup and reconciliation of work accepted after that backup. Preserve newer history separately; never restore over uninspected running/interrupted work.
@@ -87,3 +103,13 @@ Citta Allow all and a harness's full-access sandbox mode do not grant macOS desk
 Stop an idle service and restart it after permission changes, then verify the new worker. Confirm input delivery in an owned focused test window and inspect a real screenshot. Rusty Robot 0.1.2 input succeeded on the Mini, but its ScreenCaptureKit capture timed out even with permission granted. An explicitly selected `/usr/sbin/screencapture` fallback produced a valid screenshot from the same delegated worker. This is not evidence that the Rust capture backend succeeded. Do not terminate another capture session to force a check to pass.
 
 Desktop probes are separate from external side effects. A harness run can exit successfully while its returned report says an email or UI task was blocked; inspect the result before claiming completion or retrying. A grant or service restart is not evidence that an earlier email was sent.
+
+Report permission checks with their context: device, service-launched worker, tool/backend, observed input or capture, and task ID. Treat an unrun check as unverified. An API reporting a grant is useful diagnosis, but the functional test is the acceptance evidence. A permission granted on one device or in an interactive terminal does not establish access for another device's background worker. If changing a grant requires restarting the service, let active work finish first; restarting from inside its own worker can interrupt that task.
+
+## App actions and account verification
+
+For a requested external action, discover the tools and signed-in account on the receiving device before acting. Prefer an already connected app tool when it supports the task; use desktop interaction when appropriate and verify the required input/capture access there. App authentication, macOS Automation, Accessibility and Screen Recording are separate checks. Granting all desktop permissions does not connect an email account. Do not request desktop grants for a working API-only flow.
+
+An email test should name its sender, recipient, unique subject marker and expected result. Verify the sender in the tool's account metadata or compose UI before sending; do not infer it from the default browser profile or an unrelated signed-in account. Keep unrelated accounts and mail out of the test. After sending, inspect the provider's sent record or returned message ID and retain the task ID, device and marker as evidence without copying inbox content. Provider acceptance or a Sent entry proves submission, not recipient delivery unless delivery is independently checked.
+
+Separate outcomes in the report: `blocked_before_send`, `draft_created`, `send_confirmed` or `send_uncertain`, with the observed reason/evidence. These are reporting conventions, not new Citta task states. If a send may have happened, search the same account's sent records for the marker before retrying. A successful agent process is not itself send confirmation; an interrupted process is not proof that nothing happened. Task idempotency deduplicates submission while retained, not provider actions within a task.
