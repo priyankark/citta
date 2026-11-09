@@ -42,7 +42,7 @@ citta setup
 citta doctor
 ```
 
-Run setup using the **installed binary** on each device, with Tailscale connected. It configures pairing, a background user service, Codex tools/skills, and a bounded read-only agent profile when a signed-in Codex CLI is available. Missing prerequisites are reported; rerun after fixing them. Existing installations use the [offline upgrade procedure](docs/operations.md) before setup. Commands default to `~/.config/citta/config.toml`.
+Run setup using the **installed binary** on each device, with Tailscale connected. It configures pairing, a background user service, Codex tools/skills, and a full-tool agent profile when a signed-in Codex CLI is available. Missing prerequisites are reported; rerun after fixing them. Existing installations use the [offline upgrade procedure](docs/operations.md) before setup. Commands default to `~/.config/citta/config.toml`.
 
 In another terminal:
 

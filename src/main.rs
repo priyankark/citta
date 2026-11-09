@@ -82,7 +82,7 @@ enum Commands {
         prompt: PathBuf,
         #[arg(long)]
         key: String,
-        #[arg(long, default_value_t = 300)]
+        #[arg(long, default_value_t = 3600)]
         timeout: u64,
         #[arg(long, default_value_t = 300)]
         queue_ttl: u64,
@@ -125,7 +125,7 @@ enum Commands {
         key: String,
         #[arg(long)]
         target: Option<String>,
-        #[arg(long, default_value_t = 300)]
+        #[arg(long, default_value_t = 3600)]
         timeout: u64,
     },
     /// Run the daemon and configured workers.
