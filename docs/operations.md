@@ -44,6 +44,14 @@ For disposable build tests, use a task-specific `CARGO_TARGET_DIR`. Clean only t
 
 Tailscale file transfer is an optional artifact delivery channel, not a pairing prerequisite. Use a unique filename, inspect the receiver’s actual inbox/destination and select only that artifact. Do not assume it appears in Downloads or move unrelated pending files.
 
+### macOS signing identity and desktop access
+
+Before replacing a Mac service executable, inspect both installed and candidate files with `codesign -d -r- --verbose=4 /absolute/path/to/citta`. Compare the signing identity and designated requirement, not just the filename. An ad-hoc signature can bind the requirement to a code hash; replacing that binary at the same path can change its identity and invalidate desktop grants. This does not mean every upgrade loses permissions.
+
+Record the existing service worker's Accessibility and Screen Recording checks. If the replacement may require fresh grants for desktop work and OS approval cannot be completed, keep the candidate staged until the receiving device is unlocked and the system approval flow is available. After replacement/restart, check a new service-launched worker and verify actual input/capture before claiming desktop readiness. An interactive shell's flags do not establish the worker's grants; worker flags alone do not establish functional input/capture. Do not edit TCC records or sign with an unrelated application's identity to bypass approval.
+
+If a replacement loses required grants, deliberate recovery can restore only the prior verified binary **when it is compatible with the current database schema and config**. First verify no queued/running or worker jobs remain, stop the service and back up the current state; then replace the binary atomically, restart and recheck the worker. Preserve the current database, config, permissions and task history. Do not restore a stale database merely to recover OS grants. If compatibility or approval is unavailable, retain the evidence and staged candidate for completion on the device.
+
 ### Device-local upgrade helper
 
 `scripts/upgrade_device.py` (Python 3.11+) performs the offline backup and binary replacement on macOS/Linux. Run it as the existing service user through a device-local agent or established management access. Automatic pairing does not provide remote software installation. Build the candidate separately with `cargo build --release --locked`, or obtain the matching OS/architecture artifact from a verified successful CI run. Record the source commit, run, and SHA-256; a checksum alone does not authenticate a downloaded binary.

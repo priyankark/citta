@@ -26,6 +26,8 @@ Give the setup agent the intended use, such as “coding and tests” or “use 
 
 For macOS desktop work, use **System Settings → Privacy & Security** and follow the labels on that OS version. Accessibility may appear as **Device Control Data Access**; screen access may appear as **Screen & System Audio Recording**. The permission prompt or test should identify the executable that needs access. In the qualified Citta service setup this was the installed `citta` executable, commonly `~/.cargo/bin/citta`. Authorizing Terminal alone did not authorize its background worker. After a grant, restart the idle service and repeat the worker test; see [desktop access](operations.md#desktop-access-from-delegated-workers).
 
+A macOS upgrade can change the executable's signing identity even at the same path, so existing desktop grants may need renewal. Check [signing identity and desktop access](operations.md#macos-signing-identity-and-desktop-access) before replacement, and verify the receiving service worker afterward. Keep the candidate staged if required OS approval cannot be completed on that device.
+
 Coding does not require desktop permissions. A connected email API may work without any desktop permission; browser clicking needs its own input/capture checks. Add access for the chosen method as needed. Full Disk Access, SSH and public Funnel are not general onboarding prerequisites. Linux desktop access depends on the session and automation backend; the macOS steps do not apply there.
 
 ### Know when setup is complete

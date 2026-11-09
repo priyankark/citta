@@ -27,7 +27,7 @@ jobs:
           - ubuntu-latest
           - ${{ inputs.macos_runner || 'macos-26-intel' }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 25
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
