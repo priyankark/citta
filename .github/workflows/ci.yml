@@ -45,6 +45,11 @@ jobs:
           node-version: '22'
       - name: Test desktop adapter without desktop access
         run: node skills/citta-desktop/scripts/test-control.cjs
+      - name: Compile desktop helpers on macOS
+        if: runner.os == 'macOS'
+        run: |
+          swiftc -target "$(uname -m)-apple-macos14.0" skills/citta-desktop/scripts/desktop-context.swift -o "$RUNNER_TEMP/citta-desktop-context"
+          swiftc -target "$(uname -m)-apple-macos14.0" skills/citta-desktop/scripts/owned-fixture.swift -o "$RUNNER_TEMP/citta-owned-fixture"
       - run: cargo fmt --check
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo test --locked
