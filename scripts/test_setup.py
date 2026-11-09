@@ -172,9 +172,59 @@ print(sys.stdin.read())
         harness = tomllib.loads(self.harness.joinpath('config.toml').read_text())
         self.assertEqual(harness['mcp_servers']['citta']['command'], str(BINARY))
         self.assertEqual(harness['mcp_servers']['citta']['args'], ['--config', str(self.config), 'mcp'])
-        for skill in ['citta-setup', 'citta-delegate']:
+        for skill in ['citta-setup', 'citta-delegate', 'citta-desktop']:
             self.assertTrue(self.harness.joinpath('skills', skill, 'SKILL.md').is_file())
             self.assertTrue(self.harness.joinpath('skills', skill, 'agents/openai.yaml').is_file())
+
+    def test_desktop_assets_install_passively_repeatably_and_preserve_local_files(self):
+        tools = self.root / 'desktop-tools'
+        tools.mkdir()
+        invoked = self.root / 'desktop-tool-invoked'
+        for name in ['node', 'npm', 'swiftc', 'open', 'osascript', 'screencapture']:
+            tool = tools / name
+            tool.write_text(f'#!{sys.executable}\nfrom pathlib import Path\nPath({str(invoked)!r}).write_text("unexpected desktop setup")\nraise SystemExit(99)\n')
+            tool.chmod(0o700)
+        self.env['PATH'] = str(tools) + os.pathsep + self.env.get('PATH', '')
+        installed = self.harness / 'skills/citta-desktop'
+        source = ROOT / 'skills/citta-desktop'
+        files = [p.relative_to(source) for p in source.rglob('*') if p.is_file()]
+        self.setup_device('--dry-run')
+        self.assertFalse(installed.exists())
+        self.setup_device()
+        for relative in files:
+            self.assertEqual((installed / relative).read_bytes(), (source / relative).read_bytes())
+        self.assertFalse(self.root.joinpath('.local/share/citta/desktop-control').exists())
+        self.assertFalse(installed.joinpath('scripts/desktop-context').exists())
+        self.assertFalse(installed.joinpath('scripts/owned-fixture').exists())
+        self.assertFalse(invoked.exists())
+        modified = {
+            Path('SKILL.md'): b'previous locally edited skill',
+            Path('scripts/desktop-control.cjs'): b'previous desktop adapter',
+        }
+        for relative, contents in modified.items():
+            (installed / relative).write_bytes(contents)
+        unrelated = installed / 'user-notes.txt'
+        unrelated.write_text('keep my notes')
+        compiled = installed / 'scripts/desktop-context'
+        compiled.write_bytes(b'existing locally compiled helper')
+        compiled.chmod(0o700)
+        self.setup_device()
+        backups = self.config.parent / 'setup-backups'
+        saved_contents = [p.read_bytes() for p in backups.rglob('*') if p.is_file()]
+        for contents in modified.values():
+            self.assertIn(contents, saved_contents)
+        for relative in files:
+            self.assertEqual((installed / relative).read_bytes(), (source / relative).read_bytes())
+        self.assertEqual(unrelated.read_text(), 'keep my notes')
+        self.assertEqual(compiled.read_bytes(), b'existing locally compiled helper')
+        self.assertEqual(compiled.stat().st_mode & 0o777, 0o700)
+        before = {p.relative_to(installed): p.stat().st_mtime_ns for p in installed.rglob('*') if p.is_file()}
+        backup_files = sorted(str(p) for p in backups.rglob('*') if p.is_file())
+        self.setup_device()
+        after = {p.relative_to(installed): p.stat().st_mtime_ns for p in installed.rglob('*') if p.is_file()}
+        self.assertEqual(before, after)
+        self.assertEqual(backup_files, sorted(str(p) for p in backups.rglob('*') if p.is_file()))
+        self.assertFalse(invoked.exists())
 
     def test_multiple_pending_profiles_receive_grants_after_daemon_starts(self):
         self.setup_device('--no-agent')

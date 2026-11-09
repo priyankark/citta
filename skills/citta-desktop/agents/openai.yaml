@@ -1,0 +1,4 @@
+interface:
+  display_name: "Citta Desktop"
+  short_description: "Verify and use native desktop controls on a worker"
+  default_prompt: "Use $citta-desktop to verify native input and screenshot access on the receiving device and complete the authorized desktop task."

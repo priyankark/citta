@@ -9,7 +9,7 @@ citta setup
 citta doctor
 ```
 
-`setup` configures private Tailscale Serve and automatic enrollment, starts a user service, merges Codex MCP settings, installs the setup/delegation skills, and adds a full-tool Codex profile when a signed-in local CLI is available. It needs no SSH, pairing code or copied token. New harness sessions load the tools and skills. Other harnesses can use the same MCP server but require their own config wiring.
+`setup` configures private Tailscale Serve and automatic enrollment, starts a user service, merges Codex MCP settings, installs the setup, delegation and desktop skills, and adds a full-tool Codex profile when a signed-in local CLI is available. It needs no SSH, pairing code or copied token. New harness sessions load the tools and skills. Other harnesses can use the same MCP server but require their own config wiring.
 
 ### Choose what this device should do
 
@@ -29,6 +29,12 @@ For macOS desktop work, use **System Settings → Privacy & Security** and follo
 A macOS upgrade can change the executable's signing identity even at the same path, so existing desktop grants may need renewal. Check [signing identity and desktop access](operations.md#macos-signing-identity-and-desktop-access) before replacement, and verify the receiving service worker afterward. Keep the candidate staged if required OS approval cannot be completed on that device.
 
 Coding does not require desktop permissions. A connected email API may work without any desktop permission; browser clicking needs its own input/capture checks. Add access for the chosen method as needed. Full Disk Access, SSH and public Funnel are not general onboarding prerequisites. Linux desktop access depends on the session and automation backend; the macOS steps do not apply there.
+
+### Desktop controls on first use
+
+`setup` installs the `citta-desktop` skill and its text helpers under the selected harness directory (`~/.codex/skills/citta-desktop` by default). Installation is passive: it does not download native packages, compile helpers, launch a desktop server, request OS grants or change permissions. Coding-only devices need none of those desktop prerequisites.
+
+For a requested macOS desktop task, the receiving agent loads that skill and follows its [usage reference](../skills/citta-desktop/references/usage.md). It installs the pinned prebuilt Node addon in a private per-user directory and compiles two small helpers for the receiver’s architecture and OS. Existing shell and image-viewing tools are sufficient to drive this path; an app-hosted computer tool is optional. The helper reports native status, captures images, and checks foreground focus before input. Initial verification types a unique marker in an owned window and inspects its screenshot; successful process exit alone does not establish delivery. Linux workers retain their normal tools, but these AppKit helpers are macOS-specific.
 
 ### Know when setup is complete
 
