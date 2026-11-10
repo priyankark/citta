@@ -36,6 +36,8 @@ def acquire(root):
 
 
 def readiness(status):
+    if status.get('probe_error'):
+        return 'desktop_probe_failed'
     p, c = status.get('permissions', {}), status.get('context', {})
     if p.get('accessibility') is not True or p.get('screenCapture') is not True:
         return 'permission_refused_or_unknown'
@@ -126,8 +128,8 @@ def native(request, lease_fd=None):
 def probe():
     try:
         return native({'action': 'status'})
-    except Exception:
-        return {}  # Fail closed; status CLI reports unknown readiness.
+    except Exception as error:
+        return {'probe_error': str(error)}  # Installation failures are not missing OS grants.
 
 
 def serve(root, token, ttl, fd):

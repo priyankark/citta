@@ -11,6 +11,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location('session', Path(__file__).with_name('desktop-session.py'))
 s = importlib.util.module_from_spec(spec)
@@ -41,6 +42,11 @@ class Sessions(unittest.TestCase):
             status['permissions'][key] = False
             self.assertEqual(s.readiness(status), 'permission_refused_or_unknown')
         self.assertIsNotNone(s.readiness({}))
+        self.assertEqual(s.readiness({'probe_error': 'addon missing'}), 'desktop_probe_failed')
+
+    def test_probe_preserves_installation_failure(self):
+        with patch.object(s, 'native', side_effect=RuntimeError('addon missing')):
+            self.assertEqual(s.probe(), {'probe_error': 'addon missing'})
 
     def test_wait_unlock_pause_resume(self):
         status = ready()
@@ -94,6 +100,25 @@ class Sessions(unittest.TestCase):
             fd = s.acquire(root)
             os.close(fd)
 
+    def test_inflight_child_retains_lock_after_owner_exits(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            fd = s.acquire(root)
+            child = subprocess.Popen([sys.executable, '-c',
+                'import time; print("ready",flush=True); time.sleep(30)'],
+                pass_fds=(fd,), stdout=subprocess.PIPE, text=True)
+            os.close(fd)
+            try:
+                self.assertEqual(child.stdout.readline().strip(), 'ready')
+                with self.assertRaisesRegex(RuntimeError, 'desktop_busy'):
+                    s.acquire(root)
+            finally:
+                child.kill()
+                child.wait()
+                child.stdout.close()
+            fd = s.acquire(root)
+            os.close(fd)
+
     def test_unowned_cli_refuses_capture_and_input(self):
         env = os.environ.copy()
         env.pop('CITTA_DESKTOP_SESSION', None)
@@ -137,6 +162,14 @@ class Sessions(unittest.TestCase):
                 self.assertFalse(s.client(root, credential, 'action', request)['ok'])
                 self.assertFalse(actions.exists())
                 self.assertEqual(s.client(root, credential, 'status')['state'], 'waiting')
+                before = time.monotonic()
+                with patch.object(s, 'ROOT', root), patch.object(sys, 'argv',
+                        ['desktop-session.py', 'wait', '--session', str(credential), '--timeout', '0.05']):
+                    waiting = s.main()
+                self.assertEqual(waiting['error'], 'wait_timeout')
+                self.assertEqual(waiting['reason'], 'locked')
+                self.assertLess(time.monotonic() - before, 2)
+                self.assertFalse(actions.exists())
                 status_file.write_text(json.dumps(ready()))
                 self.assertEqual(s.client(root, credential, 'status')['state'], 'active')
                 self.assertTrue(s.client(root, credential, 'action', request)['ok'])

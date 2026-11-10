@@ -67,8 +67,8 @@ Python 3.9+ and Unix `fcntl` are required. Setup installs all portable sources; 
 ```sh
 umask 077
 mkdir -p "$HOME/.local/state/citta/my-desktop-task"
+env -u CITTA_DESKTOP_SESSION python3 desktop-session.py status
 export CITTA_DESKTOP_SESSION="$HOME/.local/state/citta/my-desktop-task/session.json"
-python3 desktop-session.py status
 python3 desktop-session.py start --session "$CITTA_DESKTOP_SESSION" --ttl 300
 python3 desktop-session.py wait --session "$CITTA_DESKTOP_SESSION" --timeout 30
 # Only state active permits the existing JSON capture/input commands.
@@ -84,6 +84,8 @@ Start reserves a per-user lease even while waiting, and exits nonzero if readine
 The helper requires fresh Accessibility and Screen Recording flags, established unlock state, active displays, a known foreground PID and at least two seconds without observed HID input. It checks readiness at each action; the native subprocess checks permissions/unlock/display again and focus immediately before input. Supply `expect_pid` for every input, including `verify-fixture`. Unexpected foreground change, lock, activity or uncertain native failure pauses an active session. Resume explicitly accepts a newly observed foreground PID and activity baseline; it never repeats the previous action. Captures also require ownership and readiness.
 
 Human detection uses CoreGraphics `CGEventSource.secondsSinceLastEventType(.hidSystemState, kCGAnyInputEventType)`. The installed Apple SDK describes this as combined hardware-source state, separate from combined session state. This is a sampled advisory idle signal, not an exclusive OS input grab: remote/accessibility/synthetic events may be missed or conservatively trigger pauses, transient foreground changes between observations can be missed, and focus or a human can change between the last check and delivery. Native input may itself cause a conservative pause; inspect and resume deliberately. There is no continuous event tap, login unlock, desktop reservation against humans, or isolation from arbitrary full-access Bash/addon imports. Locking never restricts ordinary coding/shell tasks. Do not claim unattended ownership merely from an idle timer.
+
+If the broker crashes during a synchronous native hang, its outer subprocess watchdog is also gone. The orphaned native process retains the lock to prevent overlapping input. Inspect and terminate that specific orphan before starting another session; never delete the lock to force access. Normal broker expiry/crash with no in-flight operation releases the kernel lock automatically. The detached broker can survive cancellation of its originating task until its bounded expiry, so end the session in task cleanup when possible.
 
 Install by backing up the existing installed `citta-desktop` and `citta-delegate` directories, copying this revision's portable skill files into them, and replacing only the compiled context helper after compiling locally. Preserve local addon/fixture binaries and OS grants. Normal future `citta setup` embeds these portable files and makes its own backups; running setup is unnecessary for a live helper-only update. Do not restart or replace Citta for this installation. Verify with `python3 test-session.py`, `node test-control.cjs`, and fresh installed `status`. Run the owned-window delivery/capture test only when unlocked and the owner has made the desktop available.
 
