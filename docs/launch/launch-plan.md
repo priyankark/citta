@@ -1,0 +1,50 @@
+# Launch date and release gates
+
+**User-selected target: Saturday, November 14, 2026, at 12:01 AM Pacific (08:01 UTC).** The user chose a launch four days after November 10. This replaces the earlier December proposals. No date has been scheduled externally.
+
+Product Hunt advises choosing a day when the product is ready and the makers can participate. Scheduled launches begin at 12:01 AM Pacific. No weekday guarantees a ranking or homepage feature. [Official timing guidance](https://help.producthunt.com/en/articles/17734355-3-set-your-goals-and-pick-your-launch-date).
+
+Work toward November 14 while preserving the release checks below. Report any unresolved blocker before launch; do not silently move the date or claim an unqualified build passed.
+
+## What a useful launch looks like
+
+Proposed targets: 10 people report completing their first task across two devices, and 15 actionable pieces of setup feedback. These are planning targets, not forecasts. Count voluntary feedback and downloads; do not introduce silent telemetry or imply downloads are successful installations.
+
+## Before scheduling
+
+- [ ] A specific candidate commit and archive hashes are recorded.
+- [ ] Required CI checks run and pass. Billing or runner failures are resolved, not described as code passes.
+- [ ] All advertised platforms have usable packages and documented requirements.
+- [ ] A person without the maker's repository credentials can download, install, enroll two devices and complete a task using only the published guide.
+- [ ] The same candidate passes the physical-device acceptance checks, including restart, sleep/reconnect, denied permissions and failure reporting.
+- [ ] macOS signing, notarization and upgrade identity are qualified, or the actual early-release limitations are explicit and the installation path is tested. Do not advertise a signed/notarized build without evidence.
+- [ ] Desktop helpers in the release match the reviewed source; checks demonstrate the permissions advertised by onboarding.
+- [ ] The local-model example has a working setup recipe and lists model/runtime prerequisites.
+- [ ] Published source/history and archive contents are reviewed for private material; LICENSE, NOTICE and required dependency notices ship with downloads.
+- [ ] The public product link, download links, logo, four gallery images, final video link and captions work from a signed-out browser.
+- [ ] The video has the explicit adjacent license context in [the media brief](assets.md), or its “work trip” opening has been revised to personal travel. A revoice is optional.
+- [ ] Maker account/profile and launch-day availability are confirmed; actual available topic labels are selected.
+
+At the November 10 preparation snapshot, CI execution was blocked by GitHub account billing/spending limits and same-build release qualification was incomplete. Track current technical status in [release readiness](../release-readiness.md). A polished launch page does not clear these gates.
+
+## Workback schedule
+
+| Date (Pacific) | Deliverable |
+| --- | --- |
+| Tue Nov 10 | Finish README, package/installer, license notices, setup recipes, gallery and listing copy. Resolve CI billing and distribution signing access. |
+| Wed Nov 11 | Build the recorded candidate; run platform CI and clean-install checks. Complete two-device task, permission and local-model checks. |
+| Thu Nov 12 | Exercise reconnect/restart, cancellation, upgrade/rollback and soak. Fix failures and repeat affected checks; review exact public source and archives. |
+| Fri Nov 13, noon | Technical go/no-go against the evidence checklist. Report any unresolved blocker immediately. |
+| Fri Nov 13, afternoon | Final public download rehearsal, listing preview, video/license context and maker account checks. Schedule the complete listing for November 14. |
+| Sat Nov 14, 00:01 | Verify the live listing, maker comment, product link and downloads. |
+| Nov 14, 00:01–02:00 | Opening coverage; respond to setup questions and record failures. |
+| Nov 14, 07:00–10:00 and 16:00–19:00 | Proposed maker coverage windows; reply to feedback and publish verified updates. |
+| Nov 15–17 | Follow up on reproducible issues, ship tested fixes, and report outcomes. |
+
+No automatic fallback date is selected. If a launch gate remains blocked, present the concrete evidence and the smallest remaining action.
+
+## Submission mechanics
+
+Use the maker's personal Product Hunt account. Fill [listing.json](listing.json) and [product-hunt.md](product-hunt.md), then inspect the preview. The official editor distinguishes saving a draft from scheduling publication; keep the page as a draft while incomplete. Product Hunt accepts a direct usable/downloadable product URL, including a GitHub repository. [Submission guidance](https://help.producthunt.com/en/articles/17834537-4-build-your-product-page).
+
+Preparation here does not publish a repository, upload a public video, create a Product Hunt listing, send outreach or schedule a launch. The release and page must first be concrete and reviewable.

@@ -132,6 +132,8 @@ impl Outcome {
 #[serde(deny_unknown_fields)]
 pub struct ClaimRequest {
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub disk: Option<crate::resources::DiskReadiness>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub offer: Option<crate::resources::Offer>,
     #[serde(default, skip_serializing_if = "is_false")]
     pub agent_profile: bool,
@@ -228,6 +230,8 @@ impl SpawnAgent {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeInfo {
+    #[serde(default)]
+    pub disk: Option<crate::resources::DiskReadiness>,
     #[serde(default)]
     pub resource_admission_version: Option<u32>,
     #[serde(default)]

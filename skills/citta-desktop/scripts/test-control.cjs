@@ -4,7 +4,10 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const {spawnSync} = require('node:child_process');
-const {execute, withCaptureDeadline, loadNative} = require('./desktop-control.cjs');
+const {execute: rawExecute, withCaptureDeadline, loadNative} = require('./desktop-control.cjs');
+const readyContext = {screen_locked:false, frontmost_pid:23, display_error:0, displays:[{main:true}]};
+const permissions = () => ({accessibility:true,screenCapture:true});
+const execute = (request, deps) => rawExecute(request, {...deps, native:{getPermissions:permissions,...deps.native},getContext:()=>({...readyContext,...deps.getContext()})});
 (async () => {
   const calls = [];
   const native = {typeString: text => calls.push(['type', text]), moveMouse: (...v) => calls.push(['move', ...v]), mouseClick: b => calls.push(['click', b])};
@@ -74,8 +77,8 @@ const {execute, withCaptureDeadline, loadNative} = require('./desktop-control.cj
   const pending = spawnSync(process.execPath, ['-e', `
     const {execute,withCaptureDeadline}=require(${modulePath});
     const request={action:'capture',output:'/unused.png',timeout_ms:500};
-    const native={captureFrame:()=>{setInterval(()=>{},1000);return new Promise(()=>{});}};
-    withCaptureDeadline(request,()=>execute(request,{native,getContext:()=>({screen_locked:false})}));
+    const native={getPermissions:()=>({accessibility:true,screenCapture:true}),captureFrame:()=>{setInterval(()=>{},1000);return new Promise(()=>{});}};
+    withCaptureDeadline(request,()=>execute(request,{native,getContext:()=>({screen_locked:false,display_error:0,displays:[{}]})}));
   `], {encoding:'utf8',timeout:5000});
   assert.ifError(pending.error);
   assert.equal(pending.status,124);

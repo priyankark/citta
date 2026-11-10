@@ -35,7 +35,7 @@ For onboarding, start an owned fixture with a fresh private state path and uniqu
 ./owned-fixture /private/evidence/fixture.json UNIQUE-MARKER
 # From a separate Citta worker while this fixture remains alive:
 node desktop-control.cjs - <<'JSON'
-{"action":"verify-fixture","state":"/private/evidence/fixture.json","marker":"UNIQUE-MARKER"}
+{"action":"verify-fixture","expect_pid":1234,"state":"/private/evidence/fixture.json","marker":"UNIQUE-MARKER"}
 JSON
 ```
 
@@ -58,3 +58,35 @@ For subsequently authorized desktop work, `capture` defaults to Rusty Robot's ma
 Input rechecks the unlocked session and expected foreground application immediately before issuing the operation. This reduces stale-focus mistakes; it is not an atomic OS focus lock. Coordinates remain signed logical desktop coordinates. The caller must observe the relevant UI and confirm the intended application/field before input, and inspect the result afterward. Generic input returns `delivery_verified:false` until the caller verifies it. The helper does not establish account identity or authorize email sending. Preserve the user's specified account and existing unique action marker, and never replay an uncertain Send.
 
 Validation performed locally: Swift compilation, Node syntax, and isolated adapter contract tests (`node test-control.cjs`), including a never-resolving native-capture stand-in whose process is terminated at the deadline and success/error cases that clear the timer. These offline checks do not establish desktop readiness on an installed device; record its functional verification separately.
+
+
+## Guarded sessions
+
+Python 3.9+ and Unix `fcntl` are required. Setup installs all portable sources; compile `desktop-context.swift` again after this update to enable HID idle observations. Credentials stay in a task-private directory, never in prompts, logs, or command arguments. A credential is a bearer capability for this cooperative helper only. Use a different nonexistent credential filename for each session.
+
+```sh
+umask 077
+mkdir -p "$HOME/.local/state/citta/my-desktop-task"
+env -u CITTA_DESKTOP_SESSION python3 desktop-session.py status
+export CITTA_DESKTOP_SESSION="$HOME/.local/state/citta/my-desktop-task/session.json"
+python3 desktop-session.py start --session "$CITTA_DESKTOP_SESSION" --ttl 300
+python3 desktop-session.py wait --session "$CITTA_DESKTOP_SESSION" --timeout 30
+# Only state active permits the existing JSON capture/input commands.
+python3 desktop-session.py status --session "$CITTA_DESKTOP_SESSION"
+python3 desktop-session.py pause --session "$CITTA_DESKTOP_SESSION"
+# Reassess the owner's availability and intended foreground app before explicit resume.
+python3 desktop-session.py resume --session "$CITTA_DESKTOP_SESSION"
+python3 desktop-session.py end --session "$CITTA_DESKTOP_SESSION"
+```
+
+Start reserves a per-user lease even while waiting, and exits nonzero if readiness is waiting or paused. Its local credential still exists in that case; use wait/end rather than starting again. Wait emits its reason to stderr and exits nonzero on its bounded deadline or pause. Status without a credential is a read-only observation, not ownership. A lease lasts 1–3600 seconds (default 300); it does not renew automatically. The broker exits at expiry and `end` releases early. After expiry/crash, delete only your own stale credential file before starting a new session. Never unlink `lease.lock`: `flock` releases on process death, and retaining the inode prevents split ownership. The broker removes a stale socket only after owning the lock. A subprocess inherits the lock so broker death during an operation cannot admit a second controller while that operation remains alive. A native operation has a 20-second outer deadline; an operation already in flight may finish after the lease deadline, with exclusivity retained until it exits. The owner should set the caller deadline above 28 seconds. Waiting inside a Citta task consumes that task's worker slot; there is no scheduler integration.
+
+The helper requires fresh Accessibility and Screen Recording flags, established unlock state, active displays, a known foreground PID and at least two seconds without observed HID input. It checks readiness at each action; the native subprocess checks permissions/unlock/display again and focus immediately before input. Supply `expect_pid` for every input, including `verify-fixture`. Unexpected foreground change, lock, activity or uncertain native failure pauses an active session. Resume explicitly accepts a newly observed foreground PID and activity baseline; it never repeats the previous action. Captures also require ownership and readiness.
+
+Human detection uses CoreGraphics `CGEventSource.secondsSinceLastEventType(.hidSystemState, kCGAnyInputEventType)`. The installed Apple SDK describes this as combined hardware-source state, separate from combined session state. This is a sampled advisory idle signal, not an exclusive OS input grab: remote/accessibility/synthetic events may be missed or conservatively trigger pauses, transient foreground changes between observations can be missed, and focus or a human can change between the last check and delivery. Native input may itself cause a conservative pause; inspect and resume deliberately. There is no continuous event tap, login unlock, desktop reservation against humans, or isolation from arbitrary full-access Bash/addon imports. Locking never restricts ordinary coding/shell tasks. Do not claim unattended ownership merely from an idle timer.
+
+If the broker crashes during a synchronous native hang, its outer subprocess watchdog is also gone. The orphaned native process retains the lock to prevent overlapping input. Inspect and terminate that specific orphan before starting another session; never delete the lock to force access. Normal broker expiry/crash with no in-flight operation releases the kernel lock automatically. The detached broker can survive cancellation of its originating task until its bounded expiry, so end the session in task cleanup when possible.
+
+Install by backing up the existing installed `citta-desktop` and `citta-delegate` directories, copying this revision's portable skill files into them, and replacing only the compiled context helper after compiling locally. Preserve local addon/fixture binaries and OS grants. Normal future `citta setup` embeds these portable files and makes its own backups; running setup is unnecessary for a live helper-only update. Do not restart or replace Citta for this installation. Verify with `python3 test-session.py`, `node test-control.cjs`, and fresh installed `status`. Run the owned-window delivery/capture test only when unlocked and the owner has made the desktop available.
+
+Rollback: end your session (or wait for its bounded expiry), then restore the backed-up skill directories and context binary. Remove only newly added session source/test files if absent from the backup. Do not remove the lock file while any broker or operation is alive. Uninstall the guarded helper by the same procedure; this does not uninstall the independent keep-awake LaunchAgent or change power/lock/TCC settings. Full-tool agents discover the installed skill on their next skill read; an already-running agent must reread it. Parent-side skill routing remains a separate verification.

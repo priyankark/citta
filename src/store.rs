@@ -236,6 +236,13 @@ impl Store {
             valid_name(&request.worker_node) && valid_name(&request.capability),
             "invalid claim"
         );
+        if request
+            .disk
+            .as_ref()
+            .is_none_or(|disk| disk.fresh_reason(at).is_some())
+        {
+            return Ok(None);
+        }
         self.transaction(|tx| {
             let mut query = tx.prepare("SELECT payload FROM tasks WHERE status='queued' AND capability=?1 AND (target IS NULL OR target=?2) AND deadline>?3 AND (COALESCE(json_extract(payload, '$.request.agent_only'),0)=0 OR ?4) ORDER BY created_at, rowid")?;
             let rows = query.query_map(params![request.capability, request.worker_node, at, request.agent_profile], |r| r.get::<_, String>(0))?;

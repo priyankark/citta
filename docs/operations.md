@@ -124,6 +124,18 @@ Resource-qualified requests are durable task input. This build upgrades SQLite `
 
 The installed `citta-desktop` skill supplies a reusable native adapter at `<harness-dir>/skills/citta-desktop/scripts/desktop-control.cjs`; its [usage reference](../skills/citta-desktop/references/usage.md) covers the pinned addon, first-use helper compilation and JSON commands. Ordinary setup writes only source and instructions. Compile current helper sources on first desktop use and again after source updates; setup preserves locally compiled binaries and unrelated files. No additional model API, desktop server or app-hosted tool is required for this shell-and-image path.
 
+Use its [guarded session workflow](../skills/citta-desktop/references/usage.md#guarded-sessions) before input or capture. A per-user kernel lock admits one cooperating controller; the bounded session waits for desktop readiness and pauses on observed activity or unexpected foreground changes. Reassess before explicit resume. This is a helper workflow, not a durable scheduler or an OS sandbox: a waiting delegated task occupies a worker slot, and full-access tools remain available. Keep shell-only tasks independent of desktop readiness.
+
+### Keeping a Mac available
+
+For an owner-authorized always-on Mac, a separate user LaunchAgent can run `/usr/bin/caffeinate -s` with `RunAtLoad` and `KeepAlive` enabled. The `-s` system-sleep assertion applies on AC power; it does not require keeping the display on or disabling locking. Inspect existing assertions first, preserve unrelated power settings, and verify the new process with `launchctl print gui/$(id -u)/io.citta.keepawake` and `pmset -g assertions`. Keep a backup if replacing an existing plist. This job is independent of Citta and does not need a Citta restart.
+
+A user LaunchAgent needs the user's login session. After reboot/FileVault preboot authentication or logout, normal login may still be required. Manual sleep, shutdown, loss of power and network failures can still interrupt tasks. An awake locked Mac can run ordinary shell jobs; computer use still needs a usable unlocked desktop. Keep the coordinating device awake during cross-device work as well, because losing the origin's lease interrupts execution.
+
+To undo a separately installed `io.citta.keepawake` job, boot it out with `launchctl bootout gui/$(id -u) "$HOME/Library/LaunchAgents/io.citta.keepawake.plist"`, then restore its prior plist or remove only that newly created file. Do not alter the Citta daemon, Tailscale, display-sleep settings, lock policy or FileVault as part of this rollback.
+
+### Verify desktop input and capture
+
 Capture has a bounded CLI deadline and reports timeout separately from permission denial. Bound the caller’s subprocess too, since synchronous native code can block JavaScript timers. The Rust backend captures the main display; an explicit `system-window` backend can capture the owned fixture. Preserve backend errors and verify the returned image. Input results report issued actions until delivery is independently observed.
 
 Citta Allow all and a harness's full-access sandbox mode do not grant macOS desktop permissions. Check Accessibility and Screen Recording inside the actual service-launched worker; an interactive Terminal can be authorized while an otherwise identical Node process launched through Citta is denied. Identify the actual permission-responsible executable from the system prompt or scoped OS diagnostics, then use System Settings → Privacy & Security for the owner's requested grant. Do not infer that identity solely from the immediate child process, its framework or a missing app-hosted control tool. On the qualified Mini, Accessibility appears under Device Control Data Access, and screen access is a separate Screen & System Audio Recording entry. Follow the actual OS labels; do not edit the privacy database.
@@ -141,3 +153,22 @@ For a requested external action, discover the tools and signed-in account on the
 An email test should name its sender, recipient, unique subject marker and expected result. Verify the sender in the tool's account metadata or compose UI before sending; do not infer it from the default browser profile or an unrelated signed-in account. Keep unrelated accounts and mail out of the test. After sending, inspect the provider's sent record or returned message ID and retain the task ID, device and marker as evidence without copying inbox content. Provider acceptance or a Sent entry proves submission, not recipient delivery unless delivery is independently checked.
 
 Separate outcomes in the report: `blocked_before_send`, `draft_created`, `send_confirmed` or `send_uncertain`, with the observed reason/evidence. These are reporting conventions, not new Citta task states. If a send may have happened, search the same account's sent records for the marker before retrying. A successful agent process is not itself send confirmation; an interrupted process is not proof that nothing happened. Task idempotency deduplicates submission while retained, not provider actions within a task.
+
+## Free disk space before accepting work
+
+Citta checks the filesystems holding its configured `data_dir` and `data_dir/work` before advertising capacity, claiming any task, creating its workspace, and starting a process. This applies to ordinary command tasks as well as agent tasks, even when CPU/memory `guard_all` is false. Unknown disk availability blocks new claims. A work directory that does not exist yet is measured using its nearest existing parent directory.
+
+The default reserve is 64 MiB on each filesystem. Existing configurations receive this default automatically. Change it under the existing `[admission]` table, then restart an idle daemon to apply it:
+
+```toml
+[admission]
+disk_headroom_bytes = 67108864
+```
+
+Use a larger reserve for workloads that create substantial temporary files. The setting must be positive; it is a minimum free-space check, not a quota or a promise that an arbitrary task will fit. Another process can consume space after a check. It does not reserve storage for model downloads or measure every filesystem a tool might write to.
+
+`citta doctor`, device discovery and the panel report `disk_low` or `disk_unknown` with available bytes and the configured reserve. On older workers without disk telemetry, current placement reports `disk_unknown`; upgrade those workers before relying on disk-aware admission. An upgraded worker enforces the reserve itself; an older worker does not gain that behavior through pairing.
+
+Upgraded origins also require fresh disk readiness in **every claim**, including legacy command jobs. A worker without it receives HTTP 428 (`disk_readiness_required`) and does not consume queued work. Upgrade workers before relying on a newer origin; mixed installations can otherwise leave tasks queued until their deadline. An upgraded worker serving an older origin omits the new claim field (older origins reject unknown fields), while still enforcing the disk checks locally. This compatibility behavior does not qualify an older worker for a new origin.
+
+If disk capacity changes after a claim, the worker rechecks before creating a workspace and before starting a process. It records an interruption when the reserve is unavailable; it does not replay that task automatically. Free space through normal owner-directed cleanup, verify `citta doctor`, and inspect the original task before submitting new work. Citta never deletes personal files to make room. A failed workspace creation or full database can still prevent an older running daemon from helping remotely; recover that device locally rather than repeatedly delegating cleanup to a worker that cannot start.

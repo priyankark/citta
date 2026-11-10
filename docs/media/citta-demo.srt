@@ -1,0 +1,179 @@
+1
+00:00:00,110 --> 00:00:01,910
+You're back from a work trip. The
+
+2
+00:00:01,910 --> 00:00:03,990
+receipts are on your MacBook. You're
+
+3
+00:00:03,990 --> 00:00:05,990
+sitting at your desk on the Mini. Put
+
+4
+00:00:05,990 --> 00:00:07,790
+together my expenses from the Seattle
+
+5
+00:00:07,790 --> 00:00:10,350
+trip. The receipts are on my MacBook.
+
+6
+00:00:10,750 --> 00:00:13,390
+With Citta, your agent can send the work
+
+7
+00:00:13,390 --> 00:00:15,710
+to the computer that has the files. An
+
+8
+00:00:15,710 --> 00:00:17,950
+agent on the MacBook reads the receipts
+
+9
+00:00:18,110 --> 00:00:20,830
+and builds an expense report. It checks
+
+10
+00:00:20,830 --> 00:00:22,990
+the amounts, catches a duplicate, and
+
+11
+00:00:22,990 --> 00:00:25,700
+flags a missing receipt. The report comes
+
+12
+00:00:25,700 --> 00:00:28,500
+back to your Mini, ready to review. Now,
+
+13
+00:00:28,500 --> 00:00:30,460
+turn the handoff around. You're on the
+
+14
+00:00:30,460 --> 00:00:32,700
+MacBook, and your Mini has a small
+
+15
+00:00:32,700 --> 00:00:35,060
+language model installed. Use the Mini's
+
+16
+00:00:35,060 --> 00:00:37,540
+local model to categorize these expenses.
+
+17
+00:00:37,940 --> 00:00:40,100
+The MacBook sends that task to the Mini.
+
+18
+00:00:40,500 --> 00:00:42,740
+Gemma runs there through Ollama and
+
+19
+00:00:42,740 --> 00:00:45,180
+returns its answer. The laptop can use
+
+20
+00:00:45,180 --> 00:00:47,300
+the model without having it installed.
+
+21
+00:00:47,620 --> 00:00:50,100
+The totals come from code; the model adds
+
+22
+00:00:50,100 --> 00:00:53,000
+categories and short explanations. One
+
+23
+00:00:53,000 --> 00:00:55,960
+trip, two computers. Each contributes
+
+24
+00:00:55,960 --> 00:00:58,240
+something different. The MacBook has the
+
+25
+00:00:58,240 --> 00:01:01,200
+receipts, the Mini has the model. You get
+
+26
+00:01:01,200 --> 00:01:03,720
+an expense report you can check with each
+
+27
+00:01:03,720 --> 00:01:06,680
+category explained. And expenses are
+
+28
+00:01:06,680 --> 00:01:09,080
+just one example. Build the iPhone app on
+
+29
+00:01:09,080 --> 00:01:11,240
+my Mac and test it on the phone plugged
+
+30
+00:01:11,240 --> 00:01:14,200
+into it. That machine has Xcode and the
+
+31
+00:01:14,200 --> 00:01:16,450
+hardware. Transcribe these recordings on
+
+32
+00:01:16,450 --> 00:01:18,210
+the desktop while I keep working on my
+
+33
+00:01:18,210 --> 00:01:21,090
+laptop. That machine has the tools and
+
+34
+00:01:21,090 --> 00:01:23,650
+spare capacity. Use the camera connected
+
+35
+00:01:23,650 --> 00:01:24,970
+to the other computer to check the
+
+36
+00:01:24,970 --> 00:01:27,610
+prototype. That machine can see something
+
+37
+00:01:27,610 --> 00:01:30,050
+your laptop cannot. Private files.
+
+38
+00:01:30,370 --> 00:01:33,010
+Installed tools. Connected hardware.
+
+39
+00:01:33,330 --> 00:01:36,130
+More computing power. Four reasons to send
+
+40
+00:01:36,130 --> 00:01:38,450
+a task to another device. Connect your
+
+41
+00:01:38,450 --> 00:01:41,450
+devices with Tailscale, install Citta, and
+
+42
+00:01:41,450 --> 00:01:44,170
+run setup and doctor. Check access for
+
+43
+00:01:44,170 --> 00:01:46,410
+the work you want to do, then try a small
+
+44
+00:01:46,410 --> 00:01:49,370
+task. Citta, your agent, wherever
+
+45
+00:01:49,370 --> 00:01:50,170
+the work is.

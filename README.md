@@ -1,109 +1,136 @@
 # Citta
 
-**Let agents use capabilities and idle compute on your other devices.**
+**Your agent. All your devices.**
 
-Citta is a Rust daemon for a trusted, single-owner mesh of macOS and Linux devices. An agent discovers a remote capability through MCP, submits a task, continues its work, and retrieves the result. Devices pull work when they have capacity. Each originating device keeps its own durable task queue; there is no required cloud coordinator.
+Your laptop has the conversation. Your other computer has the files, the tools, or the power to do the work. Citta lets your agent ask that computer for help and bring the result back.
 
-Production is the delivery target. This is the first implementation undergoing qualification, with local fault tests and CI; physical device acceptance is tracked in [docs/acceptance.md](docs/acceptance.md). There is no production release tag yet.
+Connect your own devices through Tailscale, set up Citta once on each, then ask for what you need in plain language.
 
-```mermaid
-flowchart LR
-    A[Agent harness on laptop] -->|MCP stdio| L[Laptop Citta daemon]
-    L --- Q[(Durable local queue)]
-    D[Desktop Citta daemon] -->|Pull matching tasks over Tailscale HTTPS| L
-    D --> W[Local model / command / agent wrapper]
-    W -->|Bounded result| D
-    D -->|Lease renewal and completion| L
-    A -->|Inspect result| L
-```
+> **Release status:** Citta is preparing its first public release. Downloads and production qualification are pending. You can build from source with repository access today. See [installation](docs/install.md) and [release readiness](docs/release-readiness.md).
 
-## Included
+## Watch it work
 
-- Automatic same-owner Tailscale enrollment, hardware telemetry, live Codex session discovery, and visibility into recent work across peers.
-- Device-owned agent spawn profiles and a private browser panel with resource, agent, failure, and device permission views.
-- Restricted, allow-all, and paused execution modes; allowed-origin controls; automatic owner management pairing; durable policy audit history.
-- Per-device secrets, HTTPS for remote connections, loopback-only listeners, and private state directories.
-- SQLite WAL persistence, atomic claims, idempotent submission/completion, expiring leases, and replayable WebSocket events.
-- Global and per-capability concurrency limits, queue limits/deadlines, execution timeouts, and bounded input/output.
-- Private work directories, explicit environment allowlists, process-group cancellation, and a guardian that stops jobs when their daemon dies.
-- Harness-neutral execution and MCP tools using the official Rust MCP SDK; explicit harness/model capability metadata, CLI and HTTP APIs.
-- An agent setup skill, macOS/Linux service generator, offline upgrade helper with private backups, and model/harness adapter examples.
+[![Watch Citta move an expense task from Mini to MacBook, then run a local model in the other direction](docs/media/demo-thumbnail.png)](docs/media/citta-demo.mp4)
 
-## Build and run
+**[Watch or download the demo (1 minute 51 seconds)](docs/media/citta-demo.mp4)** · [Captions](docs/media/citta-demo.srt)
 
-Use Rust 1.99.1 (the CI toolchain), a C compiler for bundled SQLite/TLS, and Python 3 for helper scripts. The package declares a minimum Rust version of 1.89; that minimum is not yet a qualified toolchain.
+Two real handoffs: the MacBook reads synthetic receipts, then the Mini runs a local Gemma model. Waits are shortened; later hardware examples are illustrative. Codex orchestration is cloud-backed. The film uses a work-trip scenario to demonstrate the capability; commercial use is not licensed under Citta’s [PolyForm Noncommercial terms](LICENSE.md).
+
+## Why use it?
+
+| Your task | Why another device helps |
+| --- | --- |
+| “Put together my trip expenses. The receipts are on my MacBook.” | The files are already there. A worker can read them there and return a report. |
+| “Use the Mini’s local model to categorize these expenses.” | Your desktop has the model and enough memory to run it. |
+| “Build my hobby iPhone app on the Mac and test it on the phone plugged into it.” | That Mac has Xcode and the connected hardware. |
+| “Transcribe my recordings on the desktop while I keep using my laptop.” | The desktop has the tools and spare capacity. |
+
+The expense and local-model workflows have run between a Mac mini and MacBook Air using synthetic receipts. The hardware and transcription examples require the corresponding tools and access on the receiving device; Citta does not install them automatically.
+
+## Why “Citta”?
+
+**Citta** (चित्त, roughly pronounced **“chit-ta”**) is a Sanskrit word for **mind** or **thought**. The name reflects the idea behind the project: an agent can bring together the capabilities of your devices to carry out a task. The conversation stays with you while the work can happen where it makes sense.
+
+The meaning is documented in [Lanman’s Sanskrit lexicon](https://www.sanskrit-lexicon.uni-koeln.de/scans/LANScan/LANScanpdf/lan_188.pdf); the [pronunciation](https://www.rep.routledge.com/articles/overview/indian-and-tibetan-philosophy/v-1/sections/pronunciation-of-sanskrit-words) follows the Sanskrit *c* sound, like *ch* in “church.”
+
+## Get started
+
+### 1. Prepare your devices
+
+You need two of your own macOS or Linux computers, with Tailscale connected under the **same owner account**. Each computer needs Citta installed locally. Being on the network alone does not install Citta.
+
+For the simplest agent setup, install and sign in to Codex on the devices that will run agent tasks. Citta also supports other harnesses through [manual adapters](docs/capabilities.md#agent-harness). Local model tasks need a model runtime and model installed on the receiving device.
+
+**Know what you are enabling:** the default Codex worker can run shell commands, edit files, use the network, and use that device’s configured tools and skills, without asking for approval inside each task. It runs with your device account’s access. Set this up on computers and accounts you trust. An explicit read-only option is available in the [setup guide](docs/setup.md).
+
+### 2. Install Citta on each device
+
+Follow the [installation guide](docs/install.md) for the archive format, checksum verification, and source-build fallback. The planned binary install does not require Rust; it requires Python 3.11 or newer for the installer.
+
+Then run these commands **on each device**:
 
 ```sh
-gh repo clone priyankark/citta
-cd citta
-cargo build --release --locked
-cargo install --path . --locked
 citta setup
 citta doctor
 ```
 
-Run setup using the **installed binary** on each device, with Tailscale connected. It configures pairing, a background user service, Codex tools/skills, and a full-tool agent profile when a signed-in Codex CLI is available. Missing prerequisites are reported; rerun after fixing them. Existing installations use the [offline upgrade procedure](docs/operations.md) before setup. Commands default to `~/.config/citta/config.toml`.
+Setup connects the devices, starts the background service, and adds Citta’s tools and skills to Codex. Open a new Codex session afterward so it loads them. If setup reports a missing login or prerequisite, fix that item and run setup again.
 
-Tell the setup agent what you want to do on each device. Shell/code tasks use the installed harness and tools; desktop input, screen capture and connected apps need their own receiving-device checks. The [onboarding access guide](docs/setup.md#choose-what-this-device-should-do) explains which permissions to grant and how a real delegated task verifies them. Pairing alone does not verify desktop or email access.
+### 3. Ask for a small task
 
-In another terminal:
+Start with a simple check in your agent:
 
-```sh
-citta --config "$HOME/.config/citta/config.toml" discover
-printf '%s\n' '{"message":"hello"}' | citta --config "$HOME/.config/citta/config.toml" submit --capability echo --input - --key hello-1
-citta --config "$HOME/.config/citta/config.toml" tasks
-citta --config "$HOME/.config/citta/config.toml" inspect TASK_UUID
-```
+> “Use Citta to find my other computer. Run a small task there and tell me which device ran it.”
 
-## Connect actual devices
+Then try a task that needs the other device:
 
-Follow [device setup](docs/setup.md). The local setup agent runs `citta setup` on each installed device; daemons then discover and pair automatically using the existing Tailscale account. No human pairing steps or token copying. Peers become available to workers without restarting. Existing explicit peers remain supported for staged upgrades. Remote traffic uses verified HTTPS; only numeric loopback HTTP is allowed in local tests.
+> “Use Citta to read the receipts in my trip folder on the MacBook and return an expense summary. Flag duplicates and missing receipts.”
 
-A capability maps a name to a locally configured program and fixed argument vector; submitting a task does not replace that program or its arguments. JSON input arrives on stdin, and UTF-8 stdout/stderr become the result. An agent profile receives a prompt, and a full-tool agent can use shell commands, scripts and code edits to carry it out. See [capability adapters](docs/capabilities.md).
+Your agent needs the actual folder location and access on the receiving computer. Files and app logins are not automatically copied between devices.
 
-## Give an agent Citta tools
+For the reverse example, follow [use a local model on another computer](docs/local-model.md).
 
-Add a stdio MCP server to the harness's existing configuration, using its supported format. The generic JSON shape is:
-
-```json
-{
-  "mcpServers": {
-    "citta": {
-      "command": "/absolute/path/to/citta",
-      "args": ["--config", "/absolute/path/to/config.toml", "mcp"]
-    }
-  }
-}
-```
-
-Preserve other MCP servers. Citta reads its token from the private configuration; do not put tokens in MCP arguments or chat. MCP is local stdio. HTTP/WebSocket endpoints are Citta's peer protocol, not remote MCP endpoints.
-
-Tools: `citta_placement`, `citta_delegate`, `citta_lookup`, `citta_agents`, `citta_spawn_agent`, `citta_discover`, `citta_activity`, `citta_submit`, `citta_inspect`, `citta_tasks`, `citta_cancel`. Submission returns immediately. `citta_inspect` and cancellation address tasks owned by the local origin. `citta_activity` also shows recent tasks owned by other devices. Reuse a submission's idempotency key on transport retries. **An interrupted task may already have produced external side effects; inspect before resubmitting.**
-
-## Agents and human monitoring
-
-Use `citta --config <path> agents` to see device CPU/RAM, harness-reported busy/idle sessions, and available agent profiles. `spawn-agent` starts a new bounded run using a profile installed on the receiving device. `panel` prints a short-lived local browser login link. See [discovery, spawning, and monitoring](docs/discovery.md) for configuration, freshness, compatibility, and exact limits.
-
-## Agent setup skill
-
-The portable skill is [skills/citta-setup/SKILL.md](skills/citta-setup/SKILL.md). For Codex, copy its directory into `~/.codex/skills/` without overwriting a customized existing copy. Other harnesses can load the same instructions through their skill mechanism. Ask the agent: “Use the citta-setup skill to enroll this device and verify remote delegation.”
-
-## Verify
+### 4. See what is happening
 
 ```sh
-cargo fmt --check
-cargo clippy --locked --all-targets -- -D warnings
-cargo test --locked
-cargo build --locked
-python3 scripts/test_mesh.py
-python3 scripts/test_helpers.py
-python3 scripts/test_setup.py
-python3 scripts/test_ci_health.py
-cargo audit
+citta agents    # Devices, available resources, and agent profiles
+citta tasks     # Recent tasks submitted from this device
+citta panel     # A private browser link to the control panel
 ```
 
-The mesh suite uses two real daemon processes with separate secrets, databases, and capability sets. It exercises remote-only execution, MCP submission, capacity, cancellation, timeouts, queue expiry, restart, lease loss, and hard worker death. It needs no accounts or model downloads. CI runs on macOS and Linux and retains release binaries as test artifacts; these are not automatically published releases.
+Open the link printed by `citta panel`. Visiting `localhost:7331` directly is not the panel login flow. If something is missing, start with `citta doctor` and the [troubleshooting guide](docs/install.md#troubleshooting).
 
-Read [the plan](plan.md), [protocol](docs/protocol.md), [operations](docs/operations.md), and [release acceptance](docs/acceptance.md) for exact guarantees and remaining qualification.
+## What permissions do I need?
 
-Refresh and inspect CI history with `python3 scripts/ci_health.py`; see [build health](docs/build-health.md). Device permissions and allow-all are available in [the control panel](docs/permissions.md). Planned MXC sandboxing, approval holds, and the richer product failure inbox are described in [the plan](plan.md#device-owned-permissions-and-unattended-execution). Those additional hardening controls are not yet implemented.
+Permissions belong to **the computer doing the work**. Give it the access needed for your intended task during setup.
+
+| What you want to do | What the receiving computer needs |
+| --- | --- |
+| Run code, scripts, or tests | A signed-in agent harness, the required tools, and access to the project files |
+| Use an app or connected service | That app or tool configured with the intended account |
+| Click and type in Mac apps | An unlocked session and macOS Accessibility permission for the worker process |
+| Capture the Mac screen | macOS Screen Recording permission for the worker process |
+| Run a local model | The model runtime, downloaded model, and enough available resources |
+
+Coding tasks do not require screen permissions. Desktop setup may also need Node and Apple command-line tools for the native helpers. Citta explains the relevant grants; verify them with a real worker task. See the [onboarding access guide](docs/setup.md#choose-what-this-device-should-do).
+
+## How it works
+
+1. Your agent discovers the other devices and what they can do.
+2. It submits a task with the needed tools, device, or resource requirements.
+3. An eligible device starts the task when it has capacity.
+4. Your agent collects the result and checks it before using it.
+
+```mermaid
+flowchart LR
+    A[Your agent on the laptop] -->|Task over Tailscale| B[Citta on your other computer]
+    B --> C[Agent, local model, or installed tool]
+    C -->|Result| A
+```
+
+Citta uses a local background service on each device and MCP tools for agent access. There is no required Citta cloud coordinator. Automatic enrollment is for devices owned by the same Tailscale user; arbitrary devices on a shared network do not become workers.
+
+## A few things to know
+
+- **Private files can be read where they live, but results travel back.** Cloud-backed agents may send task content to their model provider. Using a local model for one step does not make the whole workflow offline.
+- **Citta delegates new tasks.** It does not pool RAM across computers or move a running conversation to another machine. Resource checks help choose a worker; they are not hard CPU or memory limits.
+- **Tools run with the receiving account’s permissions.** Citta is intended for your trusted devices, not untrusted tenants. Desktop helpers cooperate with human activity, but full-access shell tools are not an OS sandbox.
+- **An interrupted task may have already done something.** Check the result or app before repeating a send, payment, or other action. Nested tasks must be tracked and cancelled separately.
+- **The core runtime targets macOS and Linux.** The included native desktop helpers are for macOS. See [tested platforms and remaining qualification](docs/release-readiness.md) before choosing a build.
+
+## Go further
+
+- [Install, verify, and troubleshoot](docs/install.md)
+- [Setup and permissions](docs/setup.md)
+- [Use a local model remotely](docs/local-model.md)
+- [Connect another harness or tool](docs/capabilities.md)
+- [Discovery, task placement, and MCP configuration](docs/discovery.md)
+- [Upgrade, backup, and recovery](docs/operations.md)
+- [Build and contribute](docs/development.md)
+- [Release acceptance](docs/acceptance.md) · [Protocol](docs/protocol.md) · [Roadmap](plan.md)
+
+## License
+
+Citta is **source-available** under [PolyForm Noncommercial 1.0.0](LICENSE.md). Commercial use is not licensed. Personal noncommercial projects are permitted; the license also expressly permits use by charitable organizations, educational institutions, public research organizations, public safety or health organizations, environmental protection organizations, and government institutions.
+
+When sharing any part of Citta, include the license terms or their URL and preserve the required attribution in [NOTICE](NOTICE). Third-party components retain their own licenses. Because this license restricts commercial use, Citta is not OSI open source.

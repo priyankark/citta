@@ -939,6 +939,14 @@ pub async fn run(config_path: &Path, options: Options) -> Result<Value> {
             include_str!("../skills/citta-desktop/scripts/owned-fixture.swift"),
         ),
         (
+            "scripts/desktop-session.py",
+            include_str!("../skills/citta-desktop/scripts/desktop-session.py"),
+        ),
+        (
+            "scripts/test-session.py",
+            include_str!("../skills/citta-desktop/scripts/test-session.py"),
+        ),
+        (
             "scripts/test-control.cjs",
             include_str!("../skills/citta-desktop/scripts/test-control.cjs"),
         ),
@@ -1024,8 +1032,18 @@ fn summarize(node: &Value) -> Value {
                 .as_array()
                 .is_some_and(|allowed| allowed.contains(&c["name"]))
         });
+    let disk = serde_json::from_value::<crate::resources::DiskReadiness>(node["disk"].clone()).ok();
+    let disk_reason = disk.as_ref().map_or(Some("disk_unknown"), |d| {
+        d.fresh_reason(crate::model::now())
+    });
     let state = if node["resource_admission_version"] != 1 {
         "upgrade_required"
+    } else if let Some(reason) = disk_reason {
+        if reason == "disk_low" {
+            "disk_low"
+        } else {
+            "disk_unknown"
+        }
     } else if profiles.is_empty() {
         "agent_profile_missing"
     } else if policy["mode"] == "paused" {
@@ -1036,6 +1054,12 @@ fn summarize(node: &Value) -> Value {
         "agent_configured"
     };
     let action = match state {
+        "disk_low" => {
+            "Free space on this device’s Citta data/work filesystem or move its data using the offline procedure, then rerun doctor. No files are deleted automatically; interrupted tasks are not replayed."
+        }
+        "disk_unknown" => {
+            "Upgrade older workers if disk telemetry is missing; otherwise check access to this device’s Citta data/work filesystem, then rerun doctor."
+        }
         "agent_configured" => "inspect_placement_for_current_capacity_and_origin_permissions",
         "execution_paused" | "agent_permission_required" => {
             "review_existing_owner_policy; setup_preserves_it"
@@ -1043,7 +1067,7 @@ fn summarize(node: &Value) -> Value {
         "upgrade_required" => "upgrade_installed_binary_then_run_citta_setup_locally",
         _ => "run_citta_setup_on_that_device",
     };
-    json!({"node_id":node["node_id"],"state":state,"action":action,"execution_verified":false,"desktop_verified":false,"verification":"This checks configuration and policy only. Verify a real delegated task and any required desktop/account access on this device."})
+    json!({"node_id":node["node_id"],"state":state,"action":action,"disk":node["disk"],"execution_verified":false,"desktop_verified":false,"verification":"This checks configuration and policy only. Verify a real delegated task and any required desktop/account access on this device."})
 }
 
 pub async fn doctor(config: &Config, config_path: &Path) -> Result<Value> {
@@ -1101,6 +1125,22 @@ mod tests {
         let mut node = json!({"node_id":"a"});
         assert_eq!(summarize(&node)["state"], "upgrade_required");
         node["resource_admission_version"] = json!(1);
+        assert_eq!(summarize(&node)["state"], "disk_unknown");
+        node["disk"] = serde_json::to_value(crate::resources::DiskReadiness::from_available(
+            Some(0),
+            Some(100),
+            64,
+            crate::model::now(),
+        ))
+        .unwrap();
+        assert_eq!(summarize(&node)["state"], "disk_low");
+        node["disk"] = serde_json::to_value(crate::resources::DiskReadiness::from_available(
+            Some(100),
+            Some(100),
+            64,
+            crate::model::now(),
+        ))
+        .unwrap();
         assert_eq!(summarize(&node)["state"], "agent_profile_missing");
         node["capabilities"] = json!([{"kind":"agent","name":"analysis"}]);
         node["permissions"] =

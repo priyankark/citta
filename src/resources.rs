@@ -6,6 +6,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
+    path::Path,
     sync::{Arc, Mutex},
 };
 
@@ -90,6 +91,8 @@ pub struct Policy {
     /// Apply admission to legacy submissions too. Resource-qualified tasks always enforce it.
     pub guard_all: bool,
     pub memory_headroom_bytes: u64,
+    /// Minimum free space on both the data and work filesystems, for every task.
+    pub disk_headroom_bytes: u64,
     pub max_cpu_percent: f64,
 }
 impl Default for Policy {
@@ -97,6 +100,7 @@ impl Default for Policy {
         Self {
             guard_all: false,
             memory_headroom_bytes: 512 * 1024 * 1024,
+            disk_headroom_bytes: 64 * 1024 * 1024,
             max_cpu_percent: 90.0,
         }
     }
@@ -111,7 +115,92 @@ impl Policy {
             self.memory_headroom_bytes <= (1u64 << 50),
             "invalid memory headroom"
         );
+        ensure!(
+            (1..=(1u64 << 50)).contains(&self.disk_headroom_bytes),
+            "disk_headroom_bytes must be 1..1 PiB"
+        );
         Ok(())
+    }
+}
+
+/// Fresh filesystem observation; this is a reserve check, not a disk quota.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DiskReadiness {
+    pub observed_at: i64,
+    pub data_available_bytes: Option<u64>,
+    pub work_available_bytes: Option<u64>,
+    pub reserve_bytes: u64,
+    pub accepting: bool,
+    pub reason: Option<String>,
+}
+impl DiskReadiness {
+    pub fn from_available(data: Option<u64>, work: Option<u64>, reserve: u64, at: i64) -> Self {
+        let reason = match (data, work) {
+            (Some(data), Some(work)) if data >= reserve && work >= reserve => None,
+            (Some(_), Some(_)) => Some("disk_low".into()),
+            _ => Some("disk_unknown".into()),
+        };
+        Self {
+            observed_at: at,
+            data_available_bytes: data,
+            work_available_bytes: work,
+            reserve_bytes: reserve,
+            accepting: reason.is_none(),
+            reason,
+        }
+    }
+    pub fn probe(data_dir: &Path, policy: &Policy) -> Self {
+        Self::from_available(
+            available_space(data_dir),
+            available_space(&data_dir.join("work")),
+            policy.disk_headroom_bytes,
+            crate::model::now(),
+        )
+    }
+    pub fn fresh_reason(&self, at: i64) -> Option<&str> {
+        if self.reserve_bytes == 0
+            || !at
+                .checked_sub(self.observed_at)
+                .is_some_and(|age| (0..=MAX_AGE).contains(&age))
+        {
+            Some("disk_unknown")
+        } else if !self.accepting
+            || self.data_available_bytes.is_none()
+            || self.work_available_bytes.is_none()
+        {
+            Some(self.reason.as_deref().unwrap_or("disk_unknown"))
+        } else if self
+            .data_available_bytes
+            .is_some_and(|n| n < self.reserve_bytes)
+            || self
+                .work_available_bytes
+                .is_some_and(|n| n < self.reserve_bytes)
+        {
+            Some("disk_low")
+        } else {
+            None
+        }
+    }
+}
+
+fn available_space(path: &Path) -> Option<u64> {
+    // A new work directory inherits the filesystem of its nearest existing
+    // directory. Permission errors and non-directories remain unknown.
+    let mut current = path;
+    loop {
+        match std::fs::metadata(current) {
+            Ok(meta) if meta.is_dir() => return fs2::available_space(current).ok(),
+            Ok(_) => return None,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                // metadata follows symlinks: a dangling link is an existing,
+                // unusable work path, not an uncreated directory on its parent.
+                if std::fs::symlink_metadata(current).is_ok() {
+                    return None;
+                }
+                current = current.parent()?;
+            }
+            Err(_) => return None,
+        }
     }
 }
 
@@ -154,6 +243,16 @@ pub struct Readiness {
     pub accepting: bool,
     pub reason: Option<String>,
     pub offer: Option<Offer>,
+}
+impl Readiness {
+    pub fn with_disk(mut self, disk: &DiskReadiness, at: i64) -> Self {
+        if let Some(reason) = disk.fresh_reason(at) {
+            self.accepting = false;
+            self.reason = Some(reason.into());
+            self.offer = None;
+        }
+        self
+    }
 }
 #[derive(Default)]
 pub struct Admission {

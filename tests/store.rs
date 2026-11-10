@@ -16,6 +16,12 @@ fn request(key: &str) -> Submission {
 }
 fn claim() -> ClaimRequest {
     ClaimRequest {
+        disk: Some(citta::resources::DiskReadiness::from_available(
+            Some(1024),
+            Some(1024),
+            64,
+            100,
+        )),
         offer: None,
         agent_profile: false,
         worker_node: "worker".into(),
@@ -52,6 +58,12 @@ fn one_claim_under_contention_and_target_matching() {
         store
             .claim(
                 ClaimRequest {
+                    disk: Some(citta::resources::DiskReadiness::from_available(
+                        Some(1024),
+                        Some(1024),
+                        64,
+                        100
+                    )),
                     offer: None,
                     agent_profile: false,
                     worker_node: "wrong".into(),

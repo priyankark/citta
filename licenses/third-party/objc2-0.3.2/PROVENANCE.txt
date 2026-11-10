@@ -1,0 +1,22 @@
+License supplement for objc2-core-foundation 0.3.2 and objc2-io-kit 0.3.2
+
+These registry crates declare Zlib OR Apache-2.0 OR MIT, but their archives omit
+the referenced repository-level LICENSE.md. For distribution with Citta, the
+Apache-2.0 alternative is selected for these two exact crate versions.
+
+UPSTREAM-LICENSE.md is the unmodified repository license explanation at:
+https://github.com/madsmtm/objc2/blob/7b1abfd750a2cacaea71d6a56ecfb83cb7de560b/LICENSE.md
+
+The source commit is recorded in both published crates' .cargo_vcs_info.json.
+The workspace Cargo.toml at this commit declares version 0.3.2 and the three
+license alternatives for framework crates. The two crates inherit that license.
+The workspace author is Mads Marquart. No separate NOTICE file or copyright
+notice was found in these two registry crate archives. The full upstream
+explanation, including its Apple SDK discussion, is retained unchanged.
+
+LICENSE-APACHE-2.0.txt is the unmodified canonical Apache 2.0 license from:
+https://www.apache.org/licenses/LICENSE-2.0.txt
+
+Do not apply this supplement to other packages or versions without rechecking
+their license declarations and upstream provenance. Citta's own noncommercial
+license does not replace these third-party terms.

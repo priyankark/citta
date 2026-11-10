@@ -80,7 +80,8 @@ async fn worker_loop(
             None,
             now(),
         );
-        if app.config.admission.guard_all && !readiness.accepting {
+        let disk = app.disk_readiness();
+        if !disk.accepting || (app.config.admission.guard_all && !readiness.accepting) {
             drop(claim_gate);
             drop(permit);
             tokio::select! {_=app.shutdown.cancelled()=>return,_=tokio::time::sleep(Duration::from_millis(200))=>{}}
@@ -89,7 +90,7 @@ async fn worker_loop(
         let offer = readiness.offer.filter(|_| readiness.accepting);
         let claim = tokio::select! {
             _ = app.shutdown.cancelled() => return,
-            result = claim_from(origin, &app.config.node_id, &cap.name, cap.kind == CapabilityKind::Agent, offer) => result,
+            result = claim_from(origin, &app.config.node_id, &cap.name, cap.kind == CapabilityKind::Agent, offer, disk) => result,
         };
         let reservation = match &claim {
             Ok(Some(claim)) => Some(
@@ -176,6 +177,7 @@ async fn claim_from(
     capability: &str,
     agent_profile: bool,
     offer: Option<crate::resources::Offer>,
+    disk: crate::resources::DiskReadiness,
 ) -> Result<Option<Claim>> {
     let info: NodeInfo = origin.get("/v1/node").await?;
     if info.node_id != origin.node_id || info.protocol != 1 {
@@ -185,6 +187,9 @@ async fn claim_from(
         .post(
             "/v1/claim",
             &ClaimRequest {
+                // Old origins reject unknown claim fields. Upgraded workers
+                // still enforce disk locally while serving an old origin.
+                disk: info.disk.is_some().then_some(disk),
                 offer: if info.resource_admission_version == Some(1) {
                     offer
                 } else {
@@ -230,6 +235,14 @@ async fn execute(app: &App, cap: &Capability, origin: &Client, claim: &Claim) ->
         return Outcome::error(
             Status::Interrupted,
             "could not confirm lease before execution",
+        );
+    }
+    if let Some(reason) = app.disk_readiness().fresh_reason(now()) {
+        return Outcome::error(
+            Status::Interrupted,
+            format!(
+                "{reason}: data/work filesystem reserve unavailable before workspace creation; no process started"
+            ),
         );
     }
     let workspace = app
@@ -325,6 +338,14 @@ async fn run_command(
                 "resource capacity changed before execution; no process started",
             );
         }
+    }
+    if let Some(reason) = app.disk_readiness().fresh_reason(now()) {
+        return Outcome::error(
+            Status::Interrupted,
+            format!(
+                "{reason}: data/work filesystem reserve unavailable before execution; no process started"
+            ),
+        );
     }
     let identity = app
         .execution_identity(origin, &claim.task)

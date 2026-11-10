@@ -2,10 +2,48 @@
 name = "citta"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.89"
+rust-version = "1.99.1"
 description = "Cross-device capability sharing and task delegation for agents"
-license = "LicenseRef-Proprietary"
-publish = false
+license = "PolyForm-Noncommercial-1.0.0"
+repository = "https://github.com/priyankark/citta"
+documentation = "https://github.com/priyankark/citta/blob/main/README.md"
+readme = "README.md"
+keywords = ["agents", "mcp", "tailscale", "distributed", "automation"]
+categories = ["command-line-utilities", "development-tools"]
+publish = ["crates-io"]
+include = [
+    "/Cargo.toml",
+    "/Cargo.lock",
+    "/README.md",
+    "/LICENSE.md",
+    "/NOTICE",
+    "/src/**/*.rs",
+    "/ui/index.html",
+    "/ui/app.js",
+    "/ui/style.css",
+    "/skills/*/SKILL.md",
+    "/skills/*/agents/openai.yaml",
+    "/skills/citta-desktop/references/usage.md",
+    "/skills/citta-desktop/scripts/*.cjs",
+    "/skills/citta-desktop/scripts/*.swift",
+    "/skills/citta-desktop/scripts/*.py",
+    "/tests/**/*.rs",
+    "/tests/fixtures/README.md",
+    "/tests/fixtures/enrollment-test-*.der",
+    "/examples/*.py",
+    "/scripts/render_service.py",
+    "/scripts/upgrade_device.py",
+    "/docs/install.md",
+    "/docs/setup.md",
+    "/docs/capabilities.md",
+    "/docs/operations.md",
+    "/docs/discovery.md",
+    "/docs/permissions.md",
+    "/docs/local-model.md",
+    "/docs/acceptance.md",
+    "/docs/publishing.md",
+    "/licenses/third-party/**",
+]
 
 [dependencies]
 anyhow = "1"

@@ -263,7 +263,7 @@ async fn verified_https_handshake_pairs_without_admin_tokens_and_survives_restar
     let _: Value = client
         .post(
             "/v1/claim",
-            &json!({"worker_node":"alpha","capability":"echo"}),
+            &json!({"worker_node":"alpha","capability":"echo", "disk":crate::resources::DiskReadiness::from_available(Some(1024),Some(1024),64,crate::model::now())}),
         )
         .await
         .unwrap();

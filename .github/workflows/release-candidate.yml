@@ -1,0 +1,43 @@
+name: Release candidate
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: release-candidate-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-26
+            target: aarch64-apple-darwin
+          - os: macos-26-intel
+            target: x86_64-apple-darwin
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec
+        with:
+          toolchain: 1.99.1
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+      - name: Verify archive installer and packaging failure handling
+        run: python3 scripts/test_release.py
+      - name: Build native candidate with license notices and provenance
+        run: python3 scripts/package_release.py
+      - name: Verify packaged native install in an isolated home
+        run: python3 scripts/check_release_archive.py local/release-candidates/*.tar.gz --report local/release-candidates/install-check.json
+      - name: Upload unpublished candidate for device acceptance
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: citta-candidate-${{ matrix.target }}
+          path: local/release-candidates/*
+          if-no-files-found: error
+          retention-days: 30
