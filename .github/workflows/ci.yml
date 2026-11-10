@@ -45,6 +45,8 @@ jobs:
           node-version: '22'
       - name: Test desktop adapter without desktop access
         run: node skills/citta-desktop/scripts/test-control.cjs
+      - name: Test desktop session leases
+        run: python3 skills/citta-desktop/scripts/test-session.py
       - name: Compile desktop helpers on macOS
         if: runner.os == 'macOS'
         run: |

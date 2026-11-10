@@ -939,6 +939,14 @@ pub async fn run(config_path: &Path, options: Options) -> Result<Value> {
             include_str!("../skills/citta-desktop/scripts/owned-fixture.swift"),
         ),
         (
+            "scripts/desktop-session.py",
+            include_str!("../skills/citta-desktop/scripts/desktop-session.py"),
+        ),
+        (
+            "scripts/test-session.py",
+            include_str!("../skills/citta-desktop/scripts/test-session.py"),
+        ),
+        (
             "scripts/test-control.cjs",
             include_str!("../skills/citta-desktop/scripts/test-control.cjs"),
         ),

@@ -36,6 +36,11 @@ async function execute(request, deps) {
     try { result.cursor = native.getMousePos(); } catch (error) { result.cursor_error = error.message; }
     return result;
   }
+  const permissions = native.getPermissions();
+  const ready = getContext();
+  if (permissions.accessibility !== true || permissions.screenCapture !== true) throw Error('Desktop permission refused');
+  if (ready.screen_locked !== false) throw Error('Session unlock state is not established');
+  if (ready.display_error !== 0 || !ready.displays?.length) throw Error('No active display');
   if (request.action === 'capture') {
     if (typeof request.output !== 'string' || !path.isAbsolute(request.output)) throw Error('output must be an absolute PNG path');
     const current = getContext();
@@ -135,6 +140,22 @@ async function main() {
   const file = process.argv[2];
   if (!file) throw Error('usage: desktop-control.cjs REQUEST_JSON_OR_MINUS');
   const request = JSON.parse(fs.readFileSync(file === '-' ? 0 : file, 'utf8'));
+  if (request.action !== 'status') {
+    const permit = process.env.CITTA_DESKTOP_PERMIT_FD;
+    if (!permit) {
+      let result;
+      try { result = execFileSync('python3', [path.join(__dirname, 'desktop-session.py'), 'action', '--request', '-'],
+        {input: JSON.stringify(request), encoding: 'utf8', timeout: 28000});
+      } catch (error) {
+        if (error.stdout) { process.stdout.write(error.stdout); process.exitCode = 1; return; }
+        throw error;
+      }
+      process.stdout.write(result);
+      return;
+    }
+    if (fs.readFileSync(Number(permit), 'utf8') !== 'guarded-session\n') throw Error('Valid owning session required');
+    fs.closeSync(Number(permit));
+  }
   const result = await withCaptureDeadline(request, () => {
     const native = loadNative();
     return execute(request, {native, getContext: () => context(process.env.CITTA_DESKTOP_CONTEXT)});
