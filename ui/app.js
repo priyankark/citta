@@ -160,6 +160,18 @@ function renderDevices(list) {
           ),
         );
       }
+      if (n.reachable) {
+        const disk = n.disk;
+        const currentDisk = disk && fresh(disk);
+        const diskNote = !currentDisk
+          ? "Disk space is not verified. Run citta doctor on this device."
+          : disk.accepting
+            ? `Disk: ${bytes(Math.min(disk.data_available_bytes, disk.work_available_bytes))} available · ${bytes(disk.reserve_bytes)} minimum reserve`
+            : disk.reason === "disk_low"
+              ? `Low disk space — new work is blocked. Free space on this device; Citta needs at least ${bytes(disk.reserve_bytes)} available.`
+              : "Disk space could not be checked — new work is blocked. Run citta doctor on this device.";
+        card.append(h("div", `disk-note ${currentDisk && !disk.accepting ? "disk-blocked" : ""}`, diskNote));
+      }
       if (inv)
         card.append(
           h(
