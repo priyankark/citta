@@ -1,0 +1,31 @@
+{
+  "status": "prepared_not_scheduled",
+  "product_name": "Citta",
+  "tagline": "Let your AI agents use your other computers",
+  "description": "Your agent is on one computer. The files, tools, hardware or spare compute it needs may be on another. Citta connects your Macs and Linux machines over Tailscale so agents can discover capabilities, delegate tasks and bring results back. Built for personal projects and other uses permitted by its noncommercial license.",
+  "product_url": "https://github.com/priyankark/citta",
+  "product_url_status": "Blocked until repository is public and an installable release is available",
+  "proposed_topics": [
+    "Artificial Intelligence",
+    "Developer Tools",
+    "Productivity"
+  ],
+  "topics_status": "Select exact available tags in the live editor; maximum three",
+  "pricing": "Free",
+  "pricing_explanation": "No Citta license fee for permitted noncommercial uses; external model, API, hardware and network services may have their own costs.",
+  "open_source": false,
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "commercial_use": "not licensed; see express permitted organization uses in LICENSE.md",
+  "maker": "Priyankar Kumar",
+  "role": "maker",
+  "recommended_launch": "2026-11-14T00:01:00-08:00",
+  "timezone": "America/Los_Angeles",
+  "fallback_launch": null,
+  "externally_scheduled": false,
+  "video_url": null,
+  "logo_file": null,
+  "gallery_files": [],
+  "launch_date_basis": "User selected November 14, four days after preparation began",
+  "readme_video_file": "docs/media/citta-demo.mp4",
+  "readme_video_captions": "docs/media/citta-demo.srt"
+}

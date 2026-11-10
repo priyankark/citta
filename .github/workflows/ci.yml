@@ -45,6 +45,8 @@ jobs:
           node-version: '22'
       - name: Test desktop adapter without desktop access
         run: node skills/citta-desktop/scripts/test-control.cjs
+      - name: Test desktop session leases
+        run: python3 skills/citta-desktop/scripts/test-session.py
       - name: Compile desktop helpers on macOS
         if: runner.os == 'macOS'
         run: |
@@ -59,6 +61,7 @@ jobs:
       - run: python3 scripts/test_upgrade.py
       - run: python3 scripts/test_setup.py
       - run: python3 scripts/test_ci_health.py
+      - run: python3 scripts/test_release.py
       - run: cargo build --release --locked
       - name: Check ARM compilation on Intel macOS
         if: runner.os == 'macOS' && runner.arch == 'X64'

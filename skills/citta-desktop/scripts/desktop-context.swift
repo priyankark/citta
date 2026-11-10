@@ -17,4 +17,5 @@ let list: [[String: Any]] = displays.prefix(Int(count)).map { id in
 }
 emit(["frontmost_pid": front?.processIdentifier as Any? ?? NSNull(),
       "frontmost_bundle": front?.bundleIdentifier as Any? ?? NSNull(),
+      "hid_idle_seconds": CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: CGEventType(rawValue: ~UInt32(0))!),
       "displays": list, "display_error": status.rawValue])

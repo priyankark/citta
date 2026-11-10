@@ -865,6 +865,16 @@ progress.meter::-moz-progress-bar {
   margin-top: 12px;
 }
 
+.disk-note {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.disk-blocked {
+  color: #efc785;
+}
+
 .permission-intro {
   margin: 0 0 20px;
   font-size: 13px;

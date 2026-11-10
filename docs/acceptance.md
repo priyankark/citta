@@ -1,5 +1,25 @@
 # Production release acceptance
 
+## Release preparation — 2026-11-10
+
+The current [release-readiness record](release-readiness.md) lists publication gates and separates prior demonstrations from same-candidate acceptance. No production tag is qualified. Main CI is blocked before execution by GitHub account billing/spending limits; this is not a new runtime test failure.
+
+The portable desktop session implementation from guard branch `b324d5c` is reconciled into the release candidate, including setup embedding and CI tests. Nine isolated session tests, the Node desktop adapter suite, Swift context-helper compilation, five adapter/service helper tests, and six CI-history tests passed locally. Live binaries and compiled installed helpers were not replaced. The amended source passed 42 Rust tests, 25 mesh scenarios, 30 setup scenarios and browser regressions locally. Final clean artifact builds and physical receiving-device checks are separate requirements.
+
+Public release acceptance must record a source commit and per-device artifact checksum, not just version `0.1.0`. Existing physical demonstrations do not close the same-build, clean-install, signing, recovery or soak gates.
+
+## Disk admission regression — 2026-11-10
+
+An existing physical Air installation appeared eligible for agent work but failed before agent startup because workspace creation returned `ENOSPC`. That failed task is preserved in private evidence; it was not replayed or treated as a successful preflight. No automatic cleanup was performed.
+
+The candidate now measures available space on its data and work filesystems. Every worker checks a configurable positive reserve (64 MiB by default), regardless of CPU/memory `guard_all`, before claiming work and again before workspace creation and process launch. Unknown capacity fails closed. Node discovery, placement and doctor carry the disk reason and available bytes; older nodes without the field are reported as unknown by updated placement.
+
+Local validation passed 40 Rust tests, warning-free Clippy, a debug build and a real-process mesh regression. The regression sets an intentionally unattainable reserve rather than consuming host disk, verifies that ordinary tasks remain unclaimed until expiry, checks placement and doctor, and proves legacy work resumes with healthy disk even when optional memory admission would reject it. An owned fixture obstruction verifies unknown work-filesystem handling. Unit checks cover stale observations, default configuration compatibility, both filesystem thresholds, and probes that do not create directories.
+
+Independent review found and closed two additional paths: dangling work-directory symlinks now report unknown capacity, and new origins reject old/unready disk claims for every task at the HTTP endpoint and store. Protocol tests verify HTTP 428 leaves the queued task unclaimed, then a fresh ready claim receives that same task. Updated workers omit the new claim field when serving older origins while still enforcing their own disk gate; older workers must be upgraded to serve newer origins. See [protocol compatibility](protocol.md#disk-readiness-on-claims).
+
+This is prevention and diagnosis, not recovery of the already-full Air. Physical same-candidate acceptance remains pending. The reserve is not a disk quota and cannot prevent another process from consuming space after a check.
+
 ## Onboarding permissions and recovery — 2026-11-09
 
 Setup and doctor now distinguish configured profiles from verified execution,

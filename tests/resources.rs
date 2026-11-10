@@ -36,6 +36,12 @@ fn task(key: &str, requirements: Requirements) -> Submission {
 }
 fn claim() -> ClaimRequest {
     ClaimRequest {
+        disk: Some(citta::resources::DiskReadiness::from_available(
+            Some(1024),
+            Some(1024),
+            64,
+            100,
+        )),
         offer: Some(offer()),
         agent_profile: true,
         worker_node: "worker".into(),
@@ -209,4 +215,124 @@ async fn concurrent_admission_cannot_reserve_the_same_snapshot_twice() {
         retained.push(result.unwrap());
     }
     assert_eq!(retained.iter().filter(|v| v.is_some()).count(), 1);
+}
+
+#[test]
+fn disk_reserve_is_independent_fresh_and_fails_closed() {
+    let reserve = 64 * 1024 * 1024;
+    let good = DiskReadiness::from_available(Some(reserve), Some(reserve), reserve, 100);
+    assert_eq!(good.fresh_reason(100), None);
+    assert_eq!(good.fresh_reason(121), Some("disk_unknown"));
+    assert_eq!(good.fresh_reason(99), Some("disk_unknown"));
+    assert_eq!(
+        DiskReadiness {
+            observed_at: i64::MIN,
+            ..good.clone()
+        }
+        .fresh_reason(i64::MAX),
+        Some("disk_unknown")
+    );
+    assert_eq!(
+        DiskReadiness {
+            reserve_bytes: 0,
+            ..good.clone()
+        }
+        .fresh_reason(100),
+        Some("disk_unknown")
+    );
+    for (data, work, reason) in [
+        (Some(reserve - 1), Some(reserve), "disk_low"),
+        (Some(reserve), Some(0), "disk_low"),
+        (None, Some(reserve), "disk_unknown"),
+        (Some(reserve), None, "disk_unknown"),
+    ] {
+        let disk = DiskReadiness::from_available(data, work, reserve, 100);
+        assert!(!disk.accepting);
+        let readiness = Readiness {
+            accepting: true,
+            reason: None,
+            offer: Some(offer()),
+        }
+        .with_disk(&disk, 100);
+        assert!(!readiness.accepting);
+        assert_eq!(readiness.reason.as_deref(), Some(reason));
+        assert!(readiness.offer.is_none());
+    }
+    let old: Policy = serde_json::from_str("{}").unwrap();
+    assert_eq!(old.disk_headroom_bytes, reserve);
+    assert!(!old.guard_all);
+    assert!(
+        Policy {
+            disk_headroom_bytes: 0,
+            ..old.clone()
+        }
+        .validate()
+        .is_err()
+    );
+    assert!(
+        Policy {
+            disk_headroom_bytes: 1u64 << 50,
+            ..old
+        }
+        .validate()
+        .is_ok()
+    );
+}
+
+#[test]
+fn disk_probe_uses_work_filesystem_and_never_creates_directories() {
+    let root = tempfile::tempdir().unwrap();
+    let data = root.path().join("data");
+    let disk = DiskReadiness::probe(&data, &Policy::default());
+    assert!(disk.data_available_bytes.is_some());
+    assert!(disk.work_available_bytes.is_some());
+    assert!(!data.exists());
+    std::fs::create_dir(&data).unwrap();
+    std::fs::write(data.join("work"), "not a directory").unwrap();
+    let disk = DiskReadiness::probe(&data, &Policy::default());
+    assert!(disk.data_available_bytes.is_some());
+    assert!(disk.work_available_bytes.is_none());
+    assert_eq!(disk.fresh_reason(citta::model::now()), Some("disk_unknown"));
+    assert_eq!(
+        std::fs::read_to_string(data.join("work")).unwrap(),
+        "not a directory"
+    );
+}
+
+#[test]
+fn dangling_work_link_is_unknown_not_a_healthy_parent_filesystem() {
+    let root = tempfile::tempdir().unwrap();
+    let data = root.path().join("data");
+    std::fs::create_dir(&data).unwrap();
+    std::os::unix::fs::symlink(root.path().join("missing-volume"), data.join("work")).unwrap();
+    let disk = DiskReadiness::probe(&data, &Policy::default());
+    assert!(disk.data_available_bytes.is_some());
+    assert_eq!(disk.work_available_bytes, None);
+    assert_eq!(disk.fresh_reason(citta::model::now()), Some("disk_unknown"));
+    assert!(
+        std::fs::symlink_metadata(data.join("work"))
+            .unwrap()
+            .file_type()
+            .is_symlink()
+    );
+}
+
+#[test]
+fn store_refuses_old_worker_disk_claim_even_for_legacy_task() {
+    let root = tempfile::tempdir().unwrap();
+    let store = Store::open(root.path(), "origin", 10, 100, 100).unwrap();
+    let mut submission = task("legacy-disk", Requirements::default());
+    submission.requirements = None;
+    let queued = store.submit(submission, 100).unwrap();
+    let mut old = claim();
+    old.disk = None;
+    let serialized = serde_json::to_value(&old).unwrap();
+    assert!(serialized.get("disk").is_none()); // Compatible outgoing payload for old origins.
+    let old: ClaimRequest = serde_json::from_value(serialized).unwrap();
+    assert!(store.claim(old, 101).unwrap().is_none());
+    assert_eq!(store.get(&queued.id).unwrap().status, Status::Queued);
+    assert_eq!(
+        store.claim(claim(), 101).unwrap().unwrap().task.id,
+        queued.id
+    );
 }

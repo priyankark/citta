@@ -101,9 +101,14 @@ impl App {
         let store = self.store.clone();
         tokio::task::spawn_blocking(move || f(&store)).await?
     }
+    pub fn disk_readiness(&self) -> crate::resources::DiskReadiness {
+        crate::resources::DiskReadiness::probe(&self.config.data_dir, &self.config.admission)
+    }
     pub fn node_info(&self) -> NodeInfo {
+        let disk = self.disk_readiness();
         let active = self.activity.lock().unwrap_or_else(|e| e.into_inner());
         NodeInfo {
+            disk: Some(disk.clone()),
             resource_admission_version: Some(1),
             permissions: Some(self.permissions.snapshot()),
             protocol: 1,
@@ -119,16 +124,18 @@ impl App {
                 .iter()
                 .map(|c| CapabilityInfo {
                     admission: Some(
-                        self.admission.readiness(
-                            &self.config.admission,
-                            self.inventory
-                                .lock()
-                                .unwrap_or_else(|e| e.into_inner())
-                                .as_ref(),
-                            c,
-                            None,
-                            now(),
-                        ),
+                        self.admission
+                            .readiness(
+                                &self.config.admission,
+                                self.inventory
+                                    .lock()
+                                    .unwrap_or_else(|e| e.into_inner())
+                                    .as_ref(),
+                                c,
+                                None,
+                                now(),
+                            )
+                            .with_disk(&disk, now()),
                     ),
                     harness: c.harness.clone(),
                     model: c.model.clone(),
@@ -397,6 +404,10 @@ fn placement_candidate(value: &Value, request: &PlacementRequest, origin: &str) 
         Some("different_target")
     } else if node.resource_admission_version != Some(1) {
         Some("resource_admission_unsupported")
+    } else if node.disk.is_none() {
+        Some("disk_unknown")
+    } else if let Some(reason) = node.disk.as_ref().and_then(|disk| disk.fresh_reason(now())) {
+        Some(reason)
     } else if let Some(cap) = node
         .capabilities
         .iter()
@@ -505,6 +516,13 @@ async fn claim(
             .any(|p| p.node_id == request.worker_node)
     {
         return Ok(StatusCode::FORBIDDEN.into_response());
+    }
+    let disk_reason = request
+        .disk
+        .as_ref()
+        .map_or(Some("disk_readiness_required"), |d| d.fresh_reason(now()));
+    if let Some(reason) = disk_reason {
+        return Ok((StatusCode::PRECONDITION_REQUIRED, Json(json!({"error":reason,"action":"Upgrade the worker if disk telemetry is missing; otherwise restore its disk reserve before claiming new work."}))).into_response());
     }
     Ok(Json(app.db(move |s| s.claim(request, now())).await?).into_response())
 }

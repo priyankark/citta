@@ -477,11 +477,11 @@ max_timeout_secs = 30
 
     def test_08_lost_lease_is_terminal_without_replay(self):
         task = self.submit(capability='manual')
-        claim = self.api('alpha', '/v1/claim', {'worker_node':'beta', 'capability':'manual'})
+        claim = self.api('alpha', '/v1/claim', {'worker_node':'beta', 'capability':'manual', 'disk':self.api('beta', '/v1/node')['disk']})
         self.assertEqual(claim['task']['id'], task['id'])
         result = self.terminal(task)
         self.assertEqual(result['status'], 'interrupted')
-        self.assertIsNone(self.api('alpha', '/v1/claim', {'worker_node':'beta', 'capability':'manual'}))
+        self.assertIsNone(self.api('alpha', '/v1/claim', {'worker_node':'beta', 'capability':'manual', 'disk':self.api('beta', '/v1/node')['disk']}))
         with self.assertRaises(urllib.error.HTTPError) as error:
             self.api('alpha', f'/v1/tasks/{task["id"]}/renew', {'lease_token':claim['lease_token']})
         self.assertEqual(error.exception.code, 409)
@@ -667,6 +667,80 @@ max_timeout_secs = 30
             if 'initial' in locals():
                 current=self.control('alpha')['snapshot']
                 self.control('alpha', {'expected_revision':current['revision'],'policy':initial['policy']})
+
+    def test_23_disk_pressure_blocks_legacy_claims_and_reports_recovery(self):
+        path = self.nodes['beta']['dir'] / 'config.toml'
+        original = path.read_text()
+        work = self.nodes['beta']['dir'] / 'data/work'
+        saved_work = work.with_name('work-disk-test-backup')
+        try:
+            self.stop('beta')
+            # A policy reserve above host capacity simulates pressure without filling disk.
+            path.write_text(original.split('[[capabilities]]', 1)[0] +
+                            '\n[admission]\nguard_all = false\ndisk_headroom_bytes = 1125899906842624\n' +
+                            '[[capabilities]]' + original.split('[[capabilities]]', 1)[1])
+            self.start('beta')
+            node = self.api('beta', '/v1/node')
+            self.assertEqual(node['disk']['reason'], 'disk_low')
+            self.assertFalse(node['disk']['accepting'])
+            self.assertGreater(node['disk']['data_available_bytes'], 0)
+            for cap in node['capabilities']:
+                self.assertFalse(cap['admission']['accepting'])
+                self.assertIsNone(cap['admission']['offer'])
+            placement = self.api('alpha', '/v1/placement', {'profile':'agent-test', 'requirements':{}})
+            candidate = next(c for c in placement['candidates'] if c['node_id'] == 'beta')
+            self.assertEqual(candidate['reason'], 'disk_low')
+            doctor = subprocess.run([str(BINARY), '--config', str(path), 'doctor'], check=True, capture_output=True, text=True)
+            self.assertEqual(json.loads(doctor.stdout)['local']['state'], 'disk_low')
+            task = self.submit(queue_ttl_secs=1)
+            result = self.terminal(task)
+            self.assertEqual(result['status'], 'interrupted')
+            self.assertIsNone(result['worker_node'])  # No legacy claim, despite guard_all=false.
+            self.stop('beta')
+            # CPU/memory guards remain optional for legacy work after disk recovers.
+            path.write_text(original.split('[[capabilities]]', 1)[0] +
+                            '\n[admission]\nguard_all = false\nmemory_headroom_bytes = 1125899906842624\n' +
+                            '[[capabilities]]' + original.split('[[capabilities]]', 1)[1])
+            self.start('beta')
+            self.assertTrue(self.api('beta', '/v1/node')['disk']['accepting'])
+            self.assertEqual(self.terminal(self.submit())['status'], 'succeeded')
+            # A non-directory work path makes its filesystem unknown, independent
+            # of valid data-disk telemetry. Only manipulate this fixture's paths.
+            wait_for(lambda: self.api('beta', '/v1/node')['active'] == 0)
+            work.rename(saved_work)
+            work.write_text('owned fixture obstruction')
+            self.assertEqual(self.api('beta', '/v1/node')['disk']['reason'], 'disk_unknown')
+            result = self.terminal(self.submit(queue_ttl_secs=1))
+            self.assertIsNone(result['worker_node'])
+            self.assertEqual(result['status'], 'interrupted')
+        finally:
+            if self.nodes['beta']['process'] is not None:
+                self.stop('beta')
+            if saved_work.exists():
+                work.unlink()
+                saved_work.rename(work)
+            path.write_text(original)
+            self.start('beta')
+
+    def test_24_origin_rejects_old_and_unready_disk_claims_without_consuming_task(self):
+        # No fixture worker exposes 'manual', so only these protocol requests
+        # can claim the queued task. Verify the actual origin endpoint, not UI.
+        task = self.submit(capability='manual')
+        legacy = {'worker_node':'beta', 'capability':'manual'}
+        good = self.api('beta', '/v1/node')['disk']
+        for disk, reason in [(None, 'disk_readiness_required'),
+                             ({**good, 'observed_at':0}, 'disk_unknown'),
+                             ({**good, 'data_available_bytes':0, 'accepting':False, 'reason':'disk_low'}, 'disk_low'),
+                             ({**good, 'work_available_bytes':None, 'accepting':False, 'reason':'disk_unknown'}, 'disk_unknown')]:
+            with self.assertRaises(urllib.error.HTTPError) as error:
+                self.api('alpha', '/v1/claim', legacy if disk is None else {**legacy, 'disk':disk})
+            self.assertEqual(error.exception.code, 428, reason)
+            stored = self.api('alpha', '/v1/tasks/' + task['id'])
+            self.assertEqual(stored['status'], 'queued')
+            self.assertIsNone(stored['worker_node'])
+        accepted = self.api('alpha', '/v1/claim', {**legacy, 'disk':self.api('beta', '/v1/node')['disk']})
+        self.assertEqual(accepted['task']['id'], task['id'])
+        self.api('alpha', '/v1/tasks/' + task['id'] + '/cancel', {})
 
     def test_10_unreachable_peer_is_reported(self):
         self.stop('beta')

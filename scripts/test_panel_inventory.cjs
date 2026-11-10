@@ -68,6 +68,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   node.inventory.codex_status = "connected";
   const air = JSON.parse(JSON.stringify(node));
   air.node_id = "macbook-air";
+  air.disk = {
+    observed_at: now(),
+    data_available_bytes: 0,
+    work_available_bytes: 0,
+    reserve_bytes: 67108864,
+    accepting: false,
+    reason: "disk_low",
+  };
   air.inventory.agents = [];
   air.inventory.runtimes = [1, 2, 3, 4].map((pid) => ({
     pid,
@@ -102,6 +110,20 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await p.waitForFunction(() => !document.querySelector("#refresh").disabled);
   };
   await refresh();
+  const diskCard = p.locator(".device").filter({ hasText: "macbook-air" });
+  if (!(await diskCard.locator(".disk-note").innerText()).includes("Low disk space"))
+    throw Error("full disk is not explained before submission");
+  air.disk.observed_at = now() - 120;
+  await refresh();
+  if (!(await diskCard.locator(".disk-note").innerText()).includes("not verified"))
+    throw Error("stale disk readiness presented as current");
+  air.disk.observed_at = now();
+  air.disk.accepting = true;
+  air.disk.reason = null;
+  air.disk.data_available_bytes = air.disk.work_available_bytes = 1073741824;
+  await refresh();
+  if (!(await diskCard.locator(".disk-note").innerText()).includes("1.0 GB available"))
+    throw Error("disk recovery is not shown");
   await p.locator("[data-view=agents]").click();
   if ((await p.locator(".coverage-card").count()) !== 5)
     throw Error("not every device has coverage");
@@ -209,6 +231,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       permissionGuidance: true,
       stalledRequestRecovery: true,
       stalledLoginRecovery: true,
+      diskReadinessAndRecovery: true,
     }),
   );
 })()

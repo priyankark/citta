@@ -79,3 +79,11 @@ The management API accepts `data/control.token` locally or a current management 
 Management enrollment mirrors the verified task handshake at `/v1/control/enroll/start` and `/v1/control/enroll/confirm`, with independent state and credentials. A task-channel challenge cannot authenticate a management callback. A management peer cannot mint a browser session on another device. Both credential channels require fresh same-owner identity.
 
 Node manifests expose the current permission revision/policy as discovery metadata. Task `requester` is assigned by the server from authentication, never accepted from a submitted payload. It prevents remote submission into a local queue from inheriting local-device work permissions. Older tasks without requester attribution remain compatible; an explicitly scoped local policy does not treat them as attributed local work. See [permissions](permissions.md) for queue, revocation, trust, and browser behavior.
+
+## Disk readiness on claims
+
+Nodes with disk admission expose optional `disk` metadata: `observed_at`, `data_available_bytes`, `work_available_bytes`, `reserve_bytes`, `accepting`, and `reason`. Missing measurements, a zero reserve, observations older than 20 seconds or from the future, and capacity below the worker's configured positive reserve are not eligible. Reported values are available bytes on the configured data/work filesystems, not a storage quota.
+
+`POST /v1/claim` adds an optional `disk` object with that shape. New origins require a fresh accepting value for **all** tasks and reply HTTP 428 without claiming a task when it is missing, stale, unknown or low. The store repeats the admission check before selecting work. Missing readiness returns `disk_readiness_required`; other failures carry the disk reason. This check enforces the trusted worker's reported readiness, not attestation against a malicious peer.
+
+A new worker includes `disk` only when the origin's node manifest exposes that field. It omits the field for an older origin to preserve the older strict request schema, and still checks its own disk before claiming and launching. Old workers cannot consume work from new origins until upgraded. API protocol version and resource offer version remain 1; field presence negotiates this additional claim requirement. All devices must use the qualified candidate for release acceptance.
