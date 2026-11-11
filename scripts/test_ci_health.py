@@ -22,6 +22,20 @@ class BuildHistory(unittest.TestCase):
         self.assertEqual(classify_job({'status':'completed','conclusion':'timed_out'}),'timeout')
         self.assertEqual(classify_job({'status':'queued','conclusion':None}),'pending')
 
+    def test_github_billing_block_is_infrastructure_without_guessing_usage(self):
+        annotation = ('The job was not started because recent account payments have failed '
+                      'or your spending limit needs to be increased. Please check the '
+                      "'Billing & plans' section in your settings")
+        job = {'status':'completed', 'conclusion':'failure', 'failed_steps':[],
+               'annotations':[{'message':annotation}]}
+        self.assertEqual(classify_job(job), 'infrastructure')
+        history = merge({}, [{**record(1, 'failure'), 'jobs':[
+            {**job, 'name':'verify', 'category':classify_job(job)}]}], 'now')
+        self.assertEqual(summarize(history)['failure_history'][0]['jobs'][0]['category'], 'infrastructure')
+        # An application billing-test failure is not a GitHub account diagnosis.
+        job['annotations'] = [{'message':'Billing test failed: spending limit should be increased'}]
+        self.assertEqual(classify_job(job), 'check_failure')
+
     def test_successful_rerun_preserves_failure_and_links_recovery(self):
         history = merge({},[record(1,'failure')],'first')
         history = merge(history,[record(2,'success')],'second')
