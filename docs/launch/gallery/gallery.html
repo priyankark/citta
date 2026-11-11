@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Citta · Product Hunt gallery</title>
+  <link rel="stylesheet" href="gallery.css">
+</head>
+<body>
+  <section class="slide" id="01-your-devices">
+    <header><div class="brand"><img src="logo.svg" alt="">citta<span>.</span></div><span class="eyebrow">YOUR AGENT. ALL YOUR DEVICES.</span></header>
+    <div class="hero"><h1>The right computer<br>for the task.</h1><p>Your agent can ask your other devices<br>for help — and bring the result back.</p></div>
+    <div class="mesh" aria-label="Explanatory diagram: your laptop sends a task to your desktop and receives the result">
+      <div class="device laptop"><div class="display"><span class="tiny">YOUR LAPTOP</span><strong>“Use my<br>other computer.”</strong><i></i></div><div class="base"></div></div>
+      <div class="connection"><span>SEND A TASK</span><b>→</b><b>←</b><span>GET THE RESULT</span></div>
+      <div class="device desktop"><div class="display"><span class="tiny">YOUR OTHER DEVICE</span><strong>Files.<br>Tools. Power.</strong><i></i></div><div class="stand"></div></div>
+    </div>
+    <div class="reasons"><div><b>01</b><strong>Private files</strong><span>Already on that device</span></div><div><b>02</b><strong>Installed tools</strong><span>Ready to do the work</span></div><div><b>03</b><strong>Connected hardware</strong><span>A camera, phone or more</span></div><div><b>04</b><strong>Spare compute</strong><span>A model or room to run</span></div></div>
+    <footer><span>macOS + Linux · Connected through Tailscale</span><span>01 / 04</span></footer>
+  </section>
+
+  <section class="slide" id="02-the-files">
+    <header><div class="brand"><img src="logo.svg" alt="">citta<span>.</span></div><span class="eyebrow">THE OTHER COMPUTER HAS THE FILES</span></header>
+    <h1>The receipts are on my MacBook.</h1>
+    <p class="lead">Ask from your Mini. The MacBook reads them there.<br>The report comes back for you to review.</p>
+    <div class="route"><span>Mac mini <small>Your request</small></span><b>→</b><span>MacBook Air <small>The receipt files</small></span><b>→</b><span>Back to you <small>An expense report</small></span></div>
+    <div class="evidence"><div class="evidence-label"><span>FROM THE ACTUAL DEMO REPORT</span><span>SYNTHETIC TEXT RECEIPTS</span></div><img src="receipt-result.png" alt="Actual report: $860.95 unique transactions, $833.95 with receipts, $27 missing receipt and $58.40 duplicate excluded."></div>
+    <div class="takeaways"><span><i>−</i> Duplicate found and excluded</span><span><i>!</i> Missing receipt flagged for review</span></div>
+    <footer><span>Real execution · Synthetic data · Report returned to the Mini</span><span>02 / 04</span></footer>
+  </section>
+
+  <section class="slide" id="03-the-model">
+    <header><div class="brand"><img src="logo.svg" alt="">citta<span>.</span></div><span class="eyebrow">NOW SEND THE WORK THE OTHER WAY</span></header>
+    <h1>“Use the Mini’s local model.”</h1>
+    <p class="lead">Your MacBook can use a model installed on your desktop.</p>
+    <div class="model-layout"><div class="model-story"><span class="pill">MacBook Air → Mac mini</span><h2>Six expenses.<br>Categories<br>from Gemma.</h2><p>Gemma 3 4B via Ollama<br>runs on the Mini.</p><div class="model-return">← Categories come back</div></div><div class="evidence model"><div class="evidence-label"><span>ACTUAL MODEL-RESULT TABLE</span></div><img src="model-result.png" alt="Actual model categories: hotel as lodging, rail and cab as transport, dinner and coffee as meals, and parking as other."></div></div>
+    <footer><span>Local inference · Cloud-backed Codex orchestration · Synthetic data</span><span>03 / 04</span></footer>
+  </section>
+
+  <section class="slide" id="04-get-started">
+    <header><div class="brand"><img src="logo.svg" alt="">citta<span>.</span></div><span class="eyebrow">START WITH TWO COMPUTERS</span></header>
+    <h1>Connect them.<br>Let your agent get to work.</h1>
+    <div class="steps"><div><span class="number">1</span><h2>Connect Tailscale</h2><p>Your own computers.<br>The same owner account.</p><div class="step-bottom">macOS + Linux</div></div><div><span class="number">2</span><h2>Set up Citta</h2><p>Install it on each device.<br>Run setup and check access.</p><div class="commands"><code>citta setup</code><code>citta doctor</code></div></div><div><span class="number">3</span><h2>Try one task</h2><p>“Find my other computer.<br>Run a small task there.”</p><div class="step-bottom">See which device did the work</div></div></div>
+    <div class="setup-note">Each device needs the tools, accounts and permissions for its part.</div>
+    <footer><span>Free for permitted noncommercial use · PolyForm Noncommercial 1.0.0</span><span>04 / 04</span></footer>
+  </section>
+</body>
+</html>

@@ -23,8 +23,15 @@
   "fallback_launch": null,
   "externally_scheduled": false,
   "video_url": null,
-  "logo_file": null,
-  "gallery_files": [],
+  "logo_file": "docs/launch/gallery/logo.png",
+  "gallery_files": [
+    "docs/launch/gallery/01-your-devices.png",
+    "docs/launch/gallery/02-the-files.png",
+    "docs/launch/gallery/03-the-model.png",
+    "docs/launch/gallery/04-get-started.png"
+  ],
+  "gallery_manifest": "docs/launch/gallery/manifest.json",
+  "gallery_status": "Prepared and visually reviewed locally; not uploaded",
   "launch_date_basis": "User selected November 14, four days after preparation began",
   "readme_video_file": "docs/media/citta-demo.mp4",
   "readme_video_captions": "docs/media/citta-demo.srt"

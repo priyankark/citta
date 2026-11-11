@@ -1,0 +1,114 @@
+{
+  "status": "prepared_locally_not_uploaded",
+  "created": "2026-11-11",
+  "logo_file": "logo.png",
+  "gallery_files": [
+    "01-your-devices.png",
+    "02-the-files.png",
+    "03-the-model.png",
+    "04-get-started.png"
+  ],
+  "assets": [
+    {
+      "file": "01-your-devices.png",
+      "width": 1270,
+      "height": 760,
+      "bytes": 237802,
+      "sha256": "f21bc1c2678a3aee3fc5f086221f71b00f045fc5c1b85d6f2e3bd282f33c9e14",
+      "alt_text": "Citta connects your laptop and another device for task handoff. Four reasons: private files, installed tools, connected hardware and spare compute."
+    },
+    {
+      "file": "02-the-files.png",
+      "width": 1270,
+      "height": 760,
+      "bytes": 197817,
+      "sha256": "7e7818c4ddb672d31420cd17ec344f9c75b6da1b2f30a66911b644998e1a7d3f",
+      "alt_text": "Ask from a Mac mini; the MacBook Air reads its synthetic receipts and returns an expense report. The real report identifies a duplicate and a missing receipt."
+    },
+    {
+      "file": "03-the-model.png",
+      "width": 1270,
+      "height": 760,
+      "bytes": 208476,
+      "sha256": "f93838f49bb61229b849c47c5565099c942e38d83e0b9238eec9210575cef90e",
+      "alt_text": "Reverse handoff: the MacBook Air uses Gemma 3 4B through Ollama on the Mini to categorize six synthetic expenses. Inference is local; Codex orchestration is cloud-backed."
+    },
+    {
+      "file": "04-get-started.png",
+      "width": 1270,
+      "height": 760,
+      "bytes": 221484,
+      "sha256": "05be8b07ea9ba303c6a6c1675c8ea2e14ba62dcb6a82cceb2f9f76f1dedef0db",
+      "alt_text": "Start with two computers: connect Tailscale under the same owner, install Citta on each and run setup and doctor, then ask for a small remote task. Each device needs the tools, accounts and permissions for its part."
+    },
+    {
+      "file": "logo.png",
+      "width": 240,
+      "height": 240,
+      "bytes": 4857,
+      "sha256": "d68d97b1d019871907fec388402952ca195020f7c53dc6842c268b2083de9de1",
+      "alt_text": "Citta mark: two open concentric arcs in green on a charcoal square."
+    },
+    {
+      "file": "model-result.png",
+      "width": 1130,
+      "height": 421,
+      "bytes": 62238,
+      "sha256": "0da5770bb777d73e2d2836be3930878f237db6f2f8a148b12d357af12cc77a03"
+    },
+    {
+      "file": "receipt-result.png",
+      "width": 1174,
+      "height": 126,
+      "bytes": 19663,
+      "sha256": "bfd69721587990a31e57bb231ff8ed8753f708f7f129e93a3dd508801f310fea"
+    }
+  ],
+  "official_media_guidance": "https://help.producthunt.com/en/articles/17834537-4-build-your-product-page",
+  "logo_origin": "Existing Citta panel SVG path from ui/index.html; existing green/charcoal palette.",
+  "crop_provenance": [
+    {
+      "crop": "receipt-result.png",
+      "source_document": "expense-report-view.html",
+      "source_sha256": "87f40c23a449070653e613e07a5cf8d1e479c089396b75d84253ea4e9265b7d8",
+      "selector": ".cards",
+      "capture_viewport": [
+        1270,
+        900
+      ],
+      "device_scale_factor": 1,
+      "content": "Actual returned demonstration result, rendered for viewing; synthetic data only."
+    },
+    {
+      "crop": "model-result.png",
+      "source_document": "model-output-view.html",
+      "source_sha256": "60e3df302ba521bffe3f6616dcfac98d69cf39760eb79ef4f3dae13298cb333d",
+      "selector": "table",
+      "capture_viewport": [
+        1270,
+        900
+      ],
+      "device_scale_factor": 1,
+      "content": "Actual returned demonstration result, rendered for viewing; synthetic data only."
+    }
+  ],
+  "captions": {
+    "gallery": "Real cross-device demonstration with synthetic data. Citta is available under PolyForm Noncommercial 1.0.0; commercial use is not licensed.",
+    "files": "Receipts were read on the Air and the report returned to the Mini. Results can include file contents; cloud-backed agent harnesses may send content to their model provider.",
+    "model": "Gemma generated categories and per-expense notes on the Mini. Python supplied amounts and receipt checks. Local inference does not make the whole workflow cloud-free."
+  },
+  "evidence_boundaries": [
+    "Slide 1 is an explanatory diagram, not a product screenshot. Hardware examples are illustrative.",
+    "Slides 2 and 3 crop actual demo results. No OCR, reimbursement approval or email sending is represented.",
+    "The Air could not save the forward report locally because its disk was full; returned output was saved on the Mini. The gallery does not claim a successful Air-local save.",
+    "No device addresses, usernames, personal paths, tokens, task identifiers or browser tabs appear in the prepared images.",
+    "No assets have been uploaded or a Product Hunt listing scheduled."
+  ],
+  "render": {
+    "source": "gallery.html + gallery.css + logo.svg + two result crops",
+    "command": "node docs/launch/gallery/render.cjs",
+    "requirements": "Node.js, Playwright and Chromium in the tooling environment. Optional PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH selects a local browser. Uses a separate headless browser, no signed-in profile.",
+    "visual_review": "All four images reviewed at final 1270\u00d7760 size; logo reviewed separately.",
+    "platform": "Rendered using Chromium on macOS; system Arial font may vary on other platforms."
+  }
+}
