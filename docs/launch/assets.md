@@ -1,15 +1,17 @@
 # Launch media
 
-Prepare a square **240 × 240 PNG logo** under 2 MB and **four 1270 × 760 gallery PNGs**. Keep the text legible on a phone. Show the actual product and a clear task handoff. These dimensions follow [Product Hunt's media guidance](https://help.producthunt.com/en/articles/17834537-4-build-your-product-page).
+Prepared locally on November 11: a **240 × 240 PNG logo** and **four 1270 × 760 gallery PNGs**, all visually reviewed. The logo is 4.9 KB; each gallery image is under 240 KB. These dimensions follow [Product Hunt's media guidance](https://help.producthunt.com/en/articles/17834537-4-build-your-product-page). Nothing has been uploaded or scheduled.
+
+Use [the logo](gallery/logo.png) and the four images below. [The asset manifest](gallery/manifest.json) includes dimensions, checksums, alt text, captions and result-crop provenance. Editable sources are [HTML](gallery/gallery.html), [CSS](gallery/gallery.css), and [SVG](gallery/logo.svg); the logo reuses Citta's existing panel mark. Render them with `node docs/launch/gallery/render.cjs` from an environment with Playwright and Chromium. This uses a separate headless browser, with no signed-in profile.
 
 ## Gallery sequence
 
 | Image | Headline | Content |
 | --- | --- | --- |
-| 1 | Your agent. All your devices. | A simple laptop ↔ desktop diagram with four reasons: files, tools, hardware, compute. Supporting text: “Send a task to the computer that has what it needs.” |
-| 2 | The receipts are on the other Mac. | Real expense report crop with a clear Mini → Air → report flow. Call out duplicate found and missing receipt flagged. Label “Real execution · synthetic text receipts.” |
-| 3 | Now use the Mini's local model. | Real model-result crop with Air → Mini → categories flow. Label “Gemma 3 4B via Ollama.” Mention that Codex orchestration used a cloud service, so the image does not imply the full workflow was local. |
-| 4 | Start with two computers. | “Connect Tailscale. Set up Citta. Try one task.” Explain that each device needs the tools and permissions for its part. Include “Free for permitted noncommercial use.” |
+| [1](gallery/01-your-devices.png) | The right computer for the task. | Laptop ↔ desktop diagram with four reasons: private files, installed tools, connected hardware, spare compute. |
+| [2](gallery/02-the-files.png) | The receipts are on my MacBook. | Actual expense-report totals with a Mini → Air → report flow. Duplicate excluded; missing receipt flagged. Labeled real execution with synthetic data. |
+| [3](gallery/03-the-model.png) | “Use the Mini’s local model.” | Actual model-result table with Air → Mini → categories flow. Gemma 3 4B via Ollama; cloud-backed Codex orchestration disclosed. |
+| [4](gallery/04-get-started.png) | Connect them. Let your agent get to work. | Connect Tailscale, install/setup/check Citta on each device, then try one task. Tools, accounts and permissions remain device-specific. Free for permitted noncommercial use. |
 
 Avoid exposing device addresses, usernames, personal paths, tokens or browser tabs. Do not draw invented successful UI states. Any diagram is explanatory artwork and should remain distinguishable from the actual UI.
 
@@ -25,11 +27,11 @@ Release-media source: `local/product-video/edit-v3/final/citta-expenses-and-loca
 
 ## Before uploading
 
-- [ ] Approved logo and rendered gallery files exist and have been visually reviewed at their final sizes.
-- [ ] Actual UI crops contain only intended public demo data.
+- [x] Logo and rendered gallery files exist and have been visually reviewed at their final sizes.
+- [x] Actual result crops contain only intended public synthetic demo data; no device addresses, usernames, personal paths, tokens, task IDs or browser tabs.
 - [ ] The video has the adjacent noncommercial license caption above, or its narration and captions have been revised to personal travel.
 - [ ] Upload the final video only after the public media destination is chosen; put its viewer link in `listing.json`.
 - [ ] Inspect the video from a signed-out browser with audio and captions enabled.
 - [ ] Add concise alt text/captions where the launch editor supports them.
 
-This folder contains the media brief; it does not imply assets were uploaded or a launch scheduled.
+This folder contains the prepared media and its brief; it does not imply assets were uploaded or a launch scheduled. The original video and its detailed truth boundaries above are unchanged.
