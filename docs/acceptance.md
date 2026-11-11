@@ -1,8 +1,16 @@
 # Production release acceptance
 
+## Current candidate evidence — 2026-11-11
+
+Current qualification is pinned to `f6fd91fa7978e16b5aca6dec227c1e303de0daea`. The [native packaging workflow](https://github.com/priyankark/citta/actions/runs/42974812756) passed all three platform jobs and native installer checks; all downloaded manifest hashes were verified. The source crate passed packaging, publish dry-run and isolated installation without upload. The [main CI retry](https://github.com/priyankark/citta/actions/runs/42974236178/attempts/2) completed successfully: Linux, Intel macOS (including ARM compilation) and audit all passed. Its original pre-start billing failure is retained and linked to recovery. This validation belongs to the pinned `f6fd91f` source, even if this evidence is later merged in a documentation-only commit.
+
+The exact CI Apple Silicon artifact ran on both physical Macs in fresh isolated installations and temporary daemons. Checks passed for automatic private pairing, bidirectional shell proof, fresh resource/disk admission, idempotency and incorrect-token rejection. A real receiving Codex agent used Bash, wrote/tested Python and read an installed skill. An actual Air-origin task used the Mini's Gemma 3:4b through the candidate adapter. Twenty lightweight remote tasks completed over 197.38 seconds; this is short batch coverage, not long-soak qualification. Daemon-restart interruption and a separate successful post-restart task verified that the original was not replayed.
+
+Independent cleanup confirmed all owned processes/listeners stopped, exact prior Serve configurations were restored and live executable/configuration/service-plist hashes stayed unchanged. Detailed [artifact and physical evidence](release-readiness.md#current-candidate-artifacts-and-native-checks) preserves the earlier candidate and failure records. No production tag is qualified: live upgrade/rollback, clean-user provider/model provisioning, desktop access, sleep/reboot/network-loss recovery, representative long soak and signed/notarized public distribution remain open. The broader production checklist below is not completed by isolated candidate tests.
+
 ## Release preparation — 2026-11-10
 
-The current [release-readiness record](release-readiness.md) lists publication gates and separates prior demonstrations from same-candidate acceptance. No production tag is qualified. Main CI is blocked before execution by GitHub account billing/spending limits; this is not a new runtime test failure.
+The current [release-readiness record](release-readiness.md) lists publication gates and separates prior demonstrations from same-candidate acceptance. No production tag was qualified at this preparation stage. Main CI was blocked before execution by GitHub account billing/spending limits; this was not a new runtime test failure. Later evidence is recorded above.
 
 The portable desktop session implementation from guard branch `b324d5c` is reconciled into the release candidate, including setup embedding and CI tests. Nine isolated session tests, the Node desktop adapter suite, Swift context-helper compilation, five adapter/service helper tests, and six CI-history tests passed locally. Live binaries and compiled installed helpers were not replaced. The amended source passed 42 Rust tests, 25 mesh scenarios, 30 setup scenarios and browser regressions locally. Final clean artifact builds and physical receiving-device checks are separate requirements.
 
@@ -18,7 +26,7 @@ Local validation passed 40 Rust tests, warning-free Clippy, a debug build and a 
 
 Independent review found and closed two additional paths: dangling work-directory symlinks now report unknown capacity, and new origins reject old/unready disk claims for every task at the HTTP endpoint and store. Protocol tests verify HTTP 428 leaves the queued task unclaimed, then a fresh ready claim receives that same task. Updated workers omit the new claim field when serving older origins while still enforcing their own disk gate; older workers must be upgraded to serve newer origins. See [protocol compatibility](protocol.md#disk-readiness-on-claims).
 
-This is prevention and diagnosis, not recovery of the already-full Air. Physical same-candidate acceptance remains pending. The reserve is not a disk quota and cannot prevent another process from consuming space after a check.
+This is prevention and diagnosis, not automatic recovery of the already-full Air. Physical same-candidate acceptance was still pending at this regression stage; later scoped cleanup and candidate checks are recorded above. The reserve is not a disk quota and cannot prevent another process from consuming space after a check.
 
 ## Onboarding permissions and recovery — 2026-11-09
 
