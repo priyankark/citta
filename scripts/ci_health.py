@@ -12,6 +12,7 @@ import tempfile
 INFRA_MARKERS = (
     'not acquired by runner', 'lost communication with the server',
     'runner has received a shutdown signal', 'runner failed to start',
+    'the job was not started because recent account payments have failed or your spending limit needs to be increased',
 )
 TERMINAL_BAD = {'failure', 'cancelled', 'timed_out', 'action_required', 'startup_failure'}
 
