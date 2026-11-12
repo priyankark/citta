@@ -49,7 +49,7 @@ No automatic fallback date is selected. If a launch gate remains blocked, presen
 
 ## Reddit follow-through
 
-The [Reddit plan and tailored drafts](reddit.md) cover a SideProject post, the AI_Agents project thread, and conditional selfhosted/coding threads. Start only when the product is ready and the maker can respond, then stagger posts to incorporate feedback. Community rules, account eligibility and the current thread must be checked before submission. This is preparation only; nothing has been posted or scheduled on Reddit.
+The [Reddit plan and tailored drafts](reddit.md) cover a SideProject post, the AI_Agents project thread, and conditional selfhosted/coding threads. Start only when the product is ready and the maker can respond, then stagger posts to incorporate feedback. Community rules, account eligibility and the current thread must be checked before submission. The SideProject post was published November 12. A local posting run for the AI_Agents project thread is scheduled for November 13 at 09:00 Pacific; see the Reddit plan for execution requirements.
 
 ## Submission mechanics
 
@@ -57,9 +57,9 @@ Use the maker's personal Product Hunt account. Fill [listing.json](listing.json)
 
 The network tagline and description are saved in Product Hunt. The unlisted YouTube video plays signed-out and all 45 manual-caption cues match the source SRT; its attachment is visible in the saved Product Hunt editor. The shortened maker comment, final gallery order and YouTube title, description and thumbnail have been independently verified. Product Hunt confirms the November 14 schedule.
 
-The user has authorized public source, release distribution and Product Hunt scheduling for the selected date. The repository is now public after an independent history and artifact review. Product Hunt is scheduled for November 14 at 12:01 AM Pacific. Downloads are published. Reddit posts are prepared separately; nothing has been posted or scheduled there.
+The user has authorized public source, release distribution and Product Hunt scheduling for the selected date. The repository is now public after an independent history and artifact review. Product Hunt is scheduled for November 14 at 12:01 AM Pacific. Downloads are published. Reddit publication began November 12; the next local run is scheduled for November 13.
 
 
 ## November 12 scheduling update
 
-The user authorized scheduling all prepared posts. Product Hunt confirms November 14, 2026 at 12:01 AM PST. Revised gallery and video media are visible on its independently reloaded page. The maker comment and YouTube description were shortened at the user's request. The personal Reddit account is signed in; its SideProject composer offers Post and Save Draft, with no scheduling control. No Reddit post was published or scheduled, and no posting automation was installed. The weekly-thread comments still require a current eligible destination.
+The user authorized scheduling all prepared posts. Product Hunt confirms November 14, 2026 at 12:01 AM PST. Revised gallery and video media are visible on its independently reloaded page. The maker comment and YouTube description were shortened at the user's request. The personal Reddit account is signed in; its SideProject composer offers Post and Save Draft, with no scheduling control. That initial native scheduling check did not publish or schedule a Reddit post. The later user instruction moved Reddit publication forward: the SideProject post was published November 12 and a local one-time agent run is armed for the AI_Agents project thread on November 13 at 09:00 Pacific. The Mini must remain powered on and unlocked; the timer does not survive reboot. The worker checks the current thread and account eligibility and records the actual outcome without automatically replaying uncertain submissions.
