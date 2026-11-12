@@ -47,6 +47,10 @@ At the November 10 preparation snapshot, CI execution was blocked by GitHub acco
 
 No automatic fallback date is selected. If a launch gate remains blocked, present the concrete evidence and the smallest remaining action.
 
+## Reddit follow-through
+
+The [Reddit plan and tailored drafts](reddit.md) cover a SideProject post, the AI_Agents project thread, and conditional selfhosted/coding threads. Start only when the product is ready and the maker can respond, then stagger posts to incorporate feedback. Community rules, account eligibility and the current thread must be checked before submission. This is preparation only; nothing has been posted or scheduled on Reddit.
+
 ## Submission mechanics
 
 Use the maker's personal Product Hunt account. Fill [listing.json](listing.json) and [product-hunt.md](product-hunt.md), then inspect the preview. The official editor distinguishes saving a draft from scheduling publication; keep the page as a draft while incomplete. Product Hunt accepts a direct usable/downloadable product URL, including a GitHub repository. [Submission guidance](https://help.producthunt.com/en/articles/17834537-4-build-your-product-page).
