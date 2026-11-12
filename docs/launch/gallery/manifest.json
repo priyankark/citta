@@ -1,5 +1,5 @@
 {
-  "status": "network_gallery_prepared_locally_not_uploaded",
+  "status": "network_gallery_uploaded_and_verified",
   "created": "2026-11-11",
   "logo_file": "logo.png",
   "gallery_files": [
@@ -110,7 +110,7 @@
     "Slides 2 and 3 crop actual demo results. No OCR, reimbursement approval or email sending is represented.",
     "The Air could not save the forward report locally because its disk was full; returned output was saved on the Mini. The gallery does not claim a successful Air-local save.",
     "No device addresses, usernames, personal paths, tokens, task identifiers or browser tabs appear in the prepared images.",
-    "These revised gallery images and demo thumbnail have not yet been uploaded to Product Hunt or YouTube; listing state is tracked separately."
+    "Four revised gallery images were visually verified in a freshly opened Product Hunt preview on November 12, in overview, files, model and setup order. The network thumbnail was independently verified from YouTube public viewer data. The original video and captions are unchanged."
   ],
   "render": {
     "source": "gallery.html + gallery.css + logo.svg + two result crops",
@@ -130,6 +130,6 @@
     ],
     "device_scale_factor": 1,
     "render": "Open demo-thumbnail.html in a fresh headless Chromium page with the specified viewport, await document.fonts.ready, then save a viewport screenshot to docs/media/demo-thumbnail.png.",
-    "external_upload_verified": false
+    "external_upload_verified": true
   }
 }

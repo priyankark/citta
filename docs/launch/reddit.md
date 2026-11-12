@@ -42,7 +42,7 @@ I built **Citta** to connect your AI agents into a private network. They can use
 
 One agent might have access to your files. Another might have a local model ready to run, or enough spare capacity for a task your current setup can't handle. Citta lets your agent find what's available on the network and send work there.
 
-In the demo, agents use receipt files and a local Gemma model to put together an expense report. It's one example of what they can do with the resources available across the network.
+In the demo, an agent on my Mac Mini asks my MacBook Air to organize sample receipts. The Air then sends expense categorization to Gemma running locally on the Mini.
 
 It runs on Macs and Linux machines connected through Tailscale, at home or across locations. The README walks through setup and a first task.
 
@@ -56,11 +56,11 @@ I built **Citta**, a private network for agents to share access to tools, data a
 
 Each agent brings what it can already use: files, installed tools, local models or connected hardware. Other agents on the network can find out what's available and send it work.
 
-That also gives your agents a way to use spare CPU and RAM elsewhere on the network. The task runs on the machine with capacity and sends its result back. Memory stays on that machine; Citta doesn't combine RAM into one pool.
+Tasks run on the machine with the required tools and capacity, then return their results.
 
 We ran a demo where agents use receipt data and a local Gemma model to produce an expense report. The same network can run coding tasks with the receiving agent's shell tools and skills.
 
-Setup covers Macs and Linux machines connected through Tailscale. Each agent needs its own tools and permissions. The default setup can run commands and edit files with that account's access, so use agents and devices you trust.
+Setup covers Codex on your Macs and Linux machines connected through Tailscale. A control panel shows tasks and lets you set permissions for each device.
 
 [Code, setup and demo](https://github.com/priyankark/citta)
 
@@ -72,11 +72,11 @@ Early release, under PolyForm Noncommercial 1.0.0. Commercial use isn't licensed
 
 **What it does:** Connects your AI agents into a private network so they can use each other's tools, access data and put spare compute to work. An agent on your laptop could use a local model on your server, or ask another agent to work with files it has access to.
 
-Tasks use the CPU and RAM of the machine running them. Citta doesn't pool memory. Tailscale connects the network, including machines in different locations.
+Tasks run on the receiving machine. Tailscale connects the devices across locations.
 
 **Install:** Mac and Linux downloads, plus a Cargo package. Install Citta on each machine and follow the README's setup and first task. Each machine needs the tools and agent software you want to run there.
 
-Citta runs on your machines. Whether data goes to a cloud service depends on the agents and tools you choose. The default agent setup can run commands and edit files with your account's access, so use devices you trust.
+Citta runs on your machines without a central task server. The agents and tools you choose may still use cloud services.
 
 **Code and guide:** https://github.com/priyankark/citta
 
@@ -92,7 +92,7 @@ Your agent can find what's available, send a task to another agent and get the r
 
 For example, you could keep working with Codex on your laptop while another agent runs tests in an environment you've already set up. Or send a model task to a machine with enough RAM to run it.
 
-The setup guide covers Codex on Macs and Linux machines connected through Tailscale. This is for your own trusted devices: delegated tasks can run commands and change files without asking you to approve each command.
+The setup guide covers Codex on Macs and Linux machines connected through Tailscale. You can monitor tasks and configure device permissions from the control panel.
 
 [Setup and first task](https://github.com/priyankark/citta)
 

@@ -1,5 +1,5 @@
 {
-  "status": "draft_created_not_scheduled",
+  "status": "scheduled",
   "product_name": "Citta",
   "tagline": "A network for agents to share tools, data and compute",
   "description": "Citta connects your AI agents into a private network, so they can use each other's tools, access data and put spare compute to work. Each agent brings what it has access to: private files, installed tools, local models or connected hardware. When a task needs more capacity, your agent can send it to a member of the network with the resources to run it.",
@@ -21,7 +21,7 @@
   "recommended_launch": "2026-11-14T00:01:00-08:00",
   "timezone": "America/Los_Angeles",
   "fallback_launch": null,
-  "externally_scheduled": false,
+  "externally_scheduled": true,
   "video_url": "https://www.youtube.com/watch?v=EPdPu5djxSQ",
   "logo_file": "docs/launch/gallery/logo.png",
   "gallery_files": [
@@ -31,15 +31,15 @@
     "docs/launch/gallery/04-get-started.png"
   ],
   "gallery_manifest": "docs/launch/gallery/manifest.json",
-  "gallery_status": "The earlier logo and device-focused gallery were uploaded and verified in the saved Product Hunt editor on November 12, 2026 UTC. Revised agent-first gallery files are prepared locally; replacement upload and global save are not yet verified. Not published.",
+  "gallery_status": "Four revised images saved and visually verified in a fresh Product Hunt preview, in overview, files, model and setup order. Product Hunt displays the video before the images.",
   "launch_date_basis": "User selected November 14, four days after preparation began",
   "readme_video_file": "docs/media/citta-demo.mp4",
   "readme_video_captions": "docs/media/citta-demo.srt",
   "maker_role_status": "I made this selected; Maker badge visually verified",
   "pricing_status": "Free selected and visually verified",
   "draft_url": "https://www.producthunt.com/products/citta?launch=citta",
-  "draft_status": "Product Hunt confirmed: This product is a draft and is not scheduled for a launch yet (November 12, 2026 UTC)",
-  "video_status": "Unlisted YouTube video plays signed-out; all 45 manual-caption cues independently matched the source SRT. The video was staged in Product Hunt before the confirmed copy save; attachment persistence still needs a fresh saved-preview check.",
-  "copy_status": "Network positioning prepared; external save pending. Earlier description and tagline remain the last verified Product Hunt copy.",
+  "draft_status": "Product Hunt independently reloaded launch page confirmed November 14, 2026 at 12:01 AM PST on November 12.",
+  "video_status": "Video present on the independently loaded Product Hunt preview. YouTube title, shorter description and revised thumbnail independently verified from public viewer data; video remains unlisted.",
+  "copy_status": "Network tagline and description saved. Shortened maker comment verified in a fresh editor opened from the reloaded launch preview on November 12.",
   "core_statement": "Citta connects your AI agents into a private network, so they can use each other's tools, access data and put spare compute to work."
 }
