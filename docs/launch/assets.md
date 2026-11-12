@@ -1,6 +1,6 @@
 # Launch media
 
-Prepared locally on November 11: a **240 × 240 PNG logo** and **four 1270 × 760 gallery PNGs**, all visually reviewed. The logo is 4.9 KB; each gallery image is under 240 KB. These dimensions follow [Product Hunt's media guidance](https://help.producthunt.com/en/articles/17834537-4-build-your-product-page). Nothing has been uploaded or scheduled.
+Prepared locally on November 11: a **240 × 240 PNG logo** and **four 1270 × 760 gallery PNGs**, all visually reviewed. The logo is 4.9 KB; each gallery image is under 240 KB. These dimensions follow [Product Hunt's media guidance](https://help.producthunt.com/en/articles/17834537-4-build-your-product-page). The logo and four gallery images were uploaded in order to the Product Hunt editor on November 12 (UTC); the saved result was visually verified. The launch has not been scheduled or published.
 
 Use [the logo](gallery/logo.png) and the four images below. [The asset manifest](gallery/manifest.json) includes dimensions, checksums, alt text, captions and result-crop provenance. Editable sources are [HTML](gallery/gallery.html), [CSS](gallery/gallery.css), and [SVG](gallery/logo.svg); the logo reuses Citta's existing panel mark. Render them with `node docs/launch/gallery/render.cjs` from an environment with Playwright and Chromium. This uses a separate headless browser, with no signed-in profile.
 
@@ -34,4 +34,4 @@ Release-media source: `local/product-video/edit-v3/final/citta-expenses-and-loca
 - [ ] Inspect the video from a signed-out browser with audio and captions enabled.
 - [ ] Add concise alt text/captions where the launch editor supports them.
 
-This folder contains the prepared media and its brief; it does not imply assets were uploaded or a launch scheduled. The original video and its detailed truth boundaries above are unchanged.
+This folder contains the media and its brief. The logo and gallery are saved in the external editor; the video remains unhosted and the launch is not scheduled. The original video and its detailed truth boundaries above are unchanged.

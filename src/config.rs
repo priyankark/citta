@@ -240,6 +240,32 @@ pub fn write_new_private(path: &Path, bytes: &[u8]) -> Result<()> {
     Ok(())
 }
 pub fn init(dir: &Path, node_id: String, port: u16) -> Result<PathBuf> {
+    init_with_defaults(dir, node_id, port, Default::default(), Default::default())
+}
+
+pub(crate) fn init_for_setup(dir: &Path, node_id: String, port: u16) -> Result<PathBuf> {
+    init_with_defaults(
+        dir,
+        node_id,
+        port,
+        crate::resources::Policy {
+            guard_all: true,
+            ..Default::default()
+        },
+        crate::resources::Estimate {
+            memory_bytes: 16 * 1024 * 1024,
+            cpu_cores: 0.05,
+        },
+    )
+}
+
+fn init_with_defaults(
+    dir: &Path,
+    node_id: String,
+    port: u16,
+    admission: crate::resources::Policy,
+    echo_resources: crate::resources::Estimate,
+) -> Result<PathBuf> {
     ensure!(valid_name(&node_id), "invalid node id");
     ensure!(port != 0, "port must be nonzero");
     private_dir(dir)?;
@@ -249,7 +275,7 @@ pub fn init(dir: &Path, node_id: String, port: u16) -> Result<PathBuf> {
         bail!("configuration or token already exists; refusing to overwrite");
     }
     let config = Config {
-        admission: Default::default(),
+        admission,
         node_id,
         listen: ([127, 0, 0, 1], port).into(),
         data_dir: dir.join("data"),
@@ -262,7 +288,7 @@ pub fn init(dir: &Path, node_id: String, port: u16) -> Result<PathBuf> {
         enrollment: None,
         inventory: Default::default(),
         capabilities: vec![Capability {
-            resources: Default::default(),
+            resources: echo_resources,
             harness: Some("builtin".into()),
             model: None,
             name: "echo".into(),
@@ -285,4 +311,34 @@ pub fn init(dir: &Path, node_id: String, port: u16) -> Result<PathBuf> {
     write_new_private(&config.token_file, token.as_bytes())?;
     write_new_private(&config_path, toml::to_string_pretty(&config)?.as_bytes())?;
     Ok(config_path)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn setup_initial_publication_has_admission_defaults_but_plain_init_stays_compatible() {
+        let setup_dir = tempfile::tempdir().unwrap();
+        let path = init_for_setup(setup_dir.path(), "setup".into(), 7331).unwrap();
+        let config = Config::load(&path).unwrap();
+        assert!(config.admission.guard_all);
+        assert_eq!(
+            config.capabilities[0].resources.memory_bytes,
+            16 * 1024 * 1024
+        );
+        assert_eq!(config.capabilities[0].resources.cpu_cores, 0.05);
+        let initial = fs::read(&path).unwrap();
+        let token = fs::read(&config.token_file).unwrap();
+        assert!(init_for_setup(setup_dir.path(), "other".into(), 7332).is_err());
+        assert_eq!(fs::read(path).unwrap(), initial);
+        assert_eq!(fs::read(&config.token_file).unwrap(), token);
+
+        let plain_dir = tempfile::tempdir().unwrap();
+        let path = init(plain_dir.path(), "plain".into(), 7331).unwrap();
+        let config = Config::load(&path).unwrap();
+        assert!(!config.admission.guard_all);
+        assert_eq!(config.capabilities[0].resources.memory_bytes, 0);
+        assert_eq!(config.capabilities[0].resources.cpu_cores, 0.0);
+    }
 }

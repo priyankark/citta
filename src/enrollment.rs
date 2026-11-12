@@ -845,8 +845,11 @@ pub async fn enable(path: &Path, bin: PathBuf, port: u16) -> Result<Value> {
         );
     }
     let local = candidate(&state.this, &state.current_tailnet.suffix, &settings)?;
-    let current: Value =
-        serde_json::from_slice(&tailscale(&bin, &["serve", "status", "--json"]).await?)?;
+    let current: Value = serde_json::from_slice(
+        &tailscale(&bin, &["serve", "status", "--json"])
+            .await
+            .context("Could not inspect Tailscale Serve. Check that the local Tailscale service is running and this user can manage Serve (Linux may require a Tailscale operator grant). Keep existing routes; do not run Citta as root. See https://github.com/priyankark/citta/blob/main/docs/setup.md#tailscale-https-and-local-permissions")?,
+    )?;
     ensure_serve(&current, &local.url, &config.local_url(), port)?;
     // Reuse a matching route, otherwise add just this unused port. Never enable Funnel.
     if current
@@ -863,7 +866,8 @@ pub async fn enable(path: &Path, bin: PathBuf, port: u16) -> Result<Value> {
                 &config.local_url(),
             ],
         )
-        .await?;
+        .await
+        .with_context(|| format!("Could not configure private Tailscale Serve HTTPS on port {port}. Check MagicDNS and HTTPS enablement in the Tailscale admin console and this user's local Serve permissions (Linux operator grant). Inspect tailscale serve status before retrying; a timeout may have applied the route. Do not reset routes, enable Funnel or run Citta as root. See https://github.com/priyankark/citta/blob/main/docs/setup.md#tailscale-https-and-local-permissions"))?;
     }
     config.enrollment = Some(settings);
     config.validate()?;

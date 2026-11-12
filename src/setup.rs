@@ -784,7 +784,9 @@ pub async fn run(config_path: &Path, options: Options) -> Result<Value> {
             config_path.file_name().is_some_and(|v| v == "config.toml"),
             "new setup uses config.toml inside its private directory"
         );
-        config::init(dir, options.node.unwrap_or(discovered_node), options.port)?;
+        // Publish setup's admission defaults in the initial configuration, so
+        // interruption or failed enrollment cannot leave legacy init defaults.
+        config::init_for_setup(dir, options.node.unwrap_or(discovered_node), options.port)?;
     }
     let mut config = Config::load(config_path)?;
     let backup = dir
@@ -810,14 +812,6 @@ pub async fn run(config_path: &Path, options: Options) -> Result<Value> {
             pending.profiles.push(profile.clone());
         }
         config.capabilities.push(profile);
-    }
-    // New installations opt in; existing operator-selected admission policy is preserved.
-    if existing.is_none() {
-        config.admission.guard_all = true;
-        config.capabilities[0].resources = Estimate {
-            memory_bytes: 16 * 1024 * 1024,
-            cpu_cores: 0.05,
-        };
     }
     config.validate()?;
     for profile in &pending.profiles {

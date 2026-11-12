@@ -24,9 +24,29 @@ Pruning removes associated events and idempotency keys. Old retries can then cre
 
 For a consistent backup, stop the daemon and copy the entire data directory, config, and required token files to protected storage. Avoid copying only `citta.db` while it is running. Restore to the same node identity; never start two copies simultaneously. Token copies remain secrets in backups.
 
+## Restart after a configuration change
+
+Use these commands for a service installed by `citta setup`. Run them locally on the device being restarted, from a terminal outside its Citta worker. A service restart interrupts any work still running through it.
+
+Stop submitting new work and let pending/running tasks finish. Check the panel's activity on every originating device and the receiving device's agents before continuing. Validate the edited configuration with `citta check`.
+
+On macOS:
+
+```sh
+launchctl kickstart -k "gui/$(id -u)/io.citta.daemon"
+```
+
+On Linux:
+
+```sh
+systemctl --user restart citta.service
+```
+
+Then run `citta doctor` and verify a small remote task. These commands restart the existing service; they do not replace the binary, initialize a new identity or restore an older database. If you manage Citta with a different supervisor, use that supervisor's restart procedure.
+
 ## Upgrade and rollback
 
-Use the same reviewed commit on all participating devices. Stop new submissions, allow active tasks to finish or cancel them deliberately, stop the service, back up state, replace the binary, run `check`, and restart. Confirm discovery and a targeted remote task. The initial schema is version 1; newer schema versions are rejected rather than opened unsafely. Roll back the binary with its compatible backup if a future migration is irreversible. Keep prior binaries until the device acceptance checks pass.
+Use the same reviewed commit on all participating devices. Stop new submissions, allow active tasks to finish or cancel them deliberately, stop the service, back up current state, replace the binary, run `check`, and restart. Confirm discovery and a targeted remote task. The current database schema is version 4; unsupported newer versions are rejected. A rollback replaces only the binary after verifying compatibility with the current schema and configuration, and preserves current task history, identity and permissions. If a migration prevents that, keep current state and diagnose it; do not overwrite newer history with an older backup. Retain prior binaries until device acceptance passes.
 
 ### Build and artifact preflight
 
@@ -58,19 +78,21 @@ Before rollback, run the prior verified executable's `--config <current-config> 
 
 `scripts/upgrade_device.py` (Python 3.11+) performs the offline backup and binary replacement on macOS/Linux. Run it as the existing service user through a device-local agent or established management access. Automatic pairing does not provide remote software installation. Build the candidate separately with `cargo build --release --locked`, or obtain the matching OS/architecture artifact from a verified successful CI run. Record the source commit, run, and SHA-256; a checksum alone does not authenticate a downloaded binary.
 
-Before stopping the service, run the candidate's `--config <existing-config> check`, inspect local/remote active work, and stop new submissions. Stop the existing user service and wait for it to exit. For launchd, wait until `launchctl print gui/UID/io.citta.daemon` no longer finds the old job; for systemd, use `systemctl --user stop citta.service`. Do not delete the lock file. If shutdown interrupts a racing task, retain and inspect that outcome rather than replaying it.
+Before stopping the service, run the candidate's `--config <existing-config> check`, inspect local/remote active work, and stop new submissions. Run maintenance from a local terminal outside a Citta worker. On macOS, stop the setup-installed service with `launchctl bootout "gui/$(id -u)/io.citta.daemon"` and confirm `launchctl print "gui/$(id -u)/io.citta.daemon"` no longer finds it. On Linux, use `systemctl --user stop citta.service`. Do not delete the lock file. If shutdown interrupts a racing task, retain and inspect that outcome rather than replaying it.
+
+For a default archive installation, use the installed helper below. Replace the candidate path and digest with the verified executable and its SHA-256, not the archive's digest. For a Cargo/source installation, use the helper from the matching source checkout and change `--installed` to the actual binary path (normally `~/.cargo/bin/citta`).
 
 ```sh
-python3 scripts/upgrade_device.py \
+python3 "$HOME/.local/share/citta/0.1.0/scripts/upgrade_device.py" \
   --config "$HOME/.config/citta/config.toml" \
-  --installed "$HOME/.cargo/bin/citta" \
+  --installed "$HOME/.local/bin/citta" \
   --candidate /absolute/path/to/reviewed/citta \
   --sha256 REVIEWED_BINARY_SHA256 --apply
 ```
 
 Without `--apply`, the helper validates without replacing or creating backups; the service must still be stopped. It holds the daemon's exclusive data-directory lock, refuses queued/running work and unknown storage versions, checks the candidate's digest and config, and saves the old executable, config, data, and referenced peer/node credentials under a private `upgrade-backups/` directory beside the config. The SQLite snapshot is consistent and integrity-checked. Data symlinks or nonregular files cause failure before replacement. The service definition is unchanged; back it up separately if changing it. Declared capability metadata, policy, identity, and task history are unchanged. No database migration runs until the new daemon starts.
 
-The helper flushes backups before atomically replacing the executable and records its phase in `manifest.json`. It leaves the service stopped. Restart the same service (`launchctl bootstrap gui/UID <existing-plist>` or `systemctl --user start citta.service`), verify health, automatic enrollment, permission state, and a targeted task. An error leaves evidence in place: inspect the manifest and installed digest before recovery. There is no automatic rollback or task replay, especially after a new daemon might have migrated storage or accepted work. Do not blindly rerun the installer after an uncertain failure.
+The helper flushes backups before atomically replacing the executable and records its phase in `manifest.json`. It leaves the service stopped. Start the same setup-installed service with `launchctl bootstrap "gui/$(id -u)" "$HOME/Library/LaunchAgents/io.citta.daemon.plist"` on macOS or `systemctl --user start citta.service` on Linux. Verify health, automatic enrollment, permission state, and a targeted task. An error leaves evidence in place: inspect the manifest and installed digest before recovery. There is no automatic rollback or task replay, especially after a new daemon might have migrated storage or accepted work. Do not blindly rerun the installer after an uncertain failure.
 
 ## Automatic enrollment
 

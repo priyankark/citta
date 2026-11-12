@@ -11,6 +11,20 @@ citta doctor
 
 `setup` configures private Tailscale Serve and automatic enrollment, starts a user service, merges Codex MCP settings, installs the setup, delegation and desktop skills, and adds a full-tool Codex profile when a signed-in local CLI is available. It needs no SSH, pairing code or copied token. New harness sessions load the tools and skills. Other harnesses can use the same MCP server but require their own config wiring.
 
+### Tailscale HTTPS and local permissions
+
+Before the first setup, connect Tailscale on both computers under the same owner and make sure the tailnet permits HTTPS certificates. In the Tailscale admin console's **DNS** page, enable **MagicDNS** and **HTTPS Certificates** if needed. HTTPS certificates publish the device's DNS name in the public certificate-transparency ledger; access to Citta remains private to the tailnet. Review the names and Tailscale's confirmation before enabling it. See [Tailscale's HTTPS instructions](https://tailscale.com/docs/how-to/set-up-https-certificates). Citta manages its private Serve route; you do not need to create or copy certificate files.
+
+The account running Citta must also be able to manage local Tailscale Serve. On Linux, if Tailscale reports permission denied, an administrator can grant the intended account operator access with `sudo tailscale set --operator=USERNAME`, replacing `USERNAME` with that account's actual name. This allows the account to manage Tailscale; it is a separate administrator decision, not a reason to run Citta with `sudo`. See [Tailscale's operator-permission guidance](https://tailscale.com/docs/reference/troubleshooting/linux/linux-operator-permission).
+
+If setup reports a Tailscale Serve failure or timeout:
+
+1. Inspect `tailscale status` and `tailscale serve status` locally. On a Mac without `tailscale` on PATH, use `/Applications/Tailscale.app/Contents/MacOS/Tailscale` in those commands. Keep their output private; Citta suppresses raw subprocess output because it can contain sensitive information.
+2. Check the HTTPS settings above and the local user's Serve permissions. A timeout can occur after a route was created, so inspect the actual state before retrying. Keep unrelated routes; do not use `tailscale serve reset` or enable public Funnel. A conflict on Citta's port needs deliberate resolution; use the same unused `--https-port` on both devices if configuring a new installation on another port.
+3. Rerun `citta setup` as the same normal user with the same config path and options, then run `citta doctor`. Setup can reuse a matching route. A failed first setup may already have created its private identity/config; retain it rather than running `init` or reinstalling. Fresh setup's resource-admission defaults survive this retry; an existing operator's choices remain unchanged.
+
+Signing in to Tailscale alone does not establish these HTTPS or local-management permissions. Successful setup still needs the real cross-device task check below.
+
 ### Choose what this device should do
 
 Give the setup agent the intended use, such as “coding and tests” or “use my browser to send email from my personal account.” It can check existing access and explain any remaining step before the first real task. Permissions belong to the device doing the work; granting access on your laptop does not grant it on another computer.
