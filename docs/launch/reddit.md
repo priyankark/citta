@@ -1,6 +1,6 @@
 # Reddit launch plan
 
-Prepared November 12, 2026. **Drafts only: no Reddit posts, comments, messages or scheduled jobs have been created.** The target launch is November 14, but posting depends on readiness and time to answer people. This plan does not change the Product Hunt date.
+Updated November 12, 2026. The user authorized publication starting today, ahead of the November 14 Product Hunt launch. The [SideProject post](https://www.reddit.com/r/SideProject/comments/1xulw8z/i_built_a_network_for_ai_agents_to_share_tools/) was published and its author, complete text and permalink were verified in the signed-in browser. A local run for the AI_Agents project thread is scheduled for November 13 at 09:00 Pacific. Scheduled runs remain subject to account eligibility, community rules and desktop availability. This does not change the Product Hunt date.
 
 ## What readers should understand
 
@@ -10,7 +10,7 @@ Link directly to the [repository and setup guide](https://github.com/priyankark/
 
 ## Communities and posting order
 
-These are editorial choices, not predictions about reach. Rules were researched November 12; recheck the live sidebar, pinned threads and submission form immediately before posting. Account eligibility and posting history have not been inspected.
+These are editorial choices, not predictions about reach. Rules were researched November 12; recheck the live sidebar, pinned threads and submission form immediately before posting. The personal account and recent history were checked for the SideProject post. Eligibility must still be checked for each later destination.
 
 | Priority | Community | Format and angle | Current rule evidence / remaining check |
 | --- | --- | --- | --- |
@@ -22,17 +22,17 @@ These are editorial choices, not predictions about reach. Rules were researched 
 
 ## Timing and readiness
 
-Use Pacific time. These are proposed response windows, not automated appointments or claims about the best algorithmic posting time.
+Use Pacific time. The first two entries are authorized publication runs, not claims about the best algorithmic posting time. Later communities remain conditional.
 
 | Window | Action |
 | --- | --- |
 | Before launch | Complete the outstanding [launch checks](launch-plan.md), verify public install/demo links, review the drafts against actual release behavior, and identify the personal Reddit account. Check each community's rules and account eligibility. |
-| Launch day, proposed Nov 14 at 08:30 | Publish the SideProject post if ready and the maker can answer questions for the next hour. If unavailable, use the next suitable response window. |
-| Following day, proposed Nov 15 at 09:00 | Review the first post's feedback, fix confusing instructions, then share the AI_Agents comment in its current project thread if eligible. |
+| Nov 12, 11:18 | [SideProject post published](https://www.reddit.com/r/SideProject/comments/1xulw8z/i_built_a_network_for_ai_agents_to_share_tools/); text, author and permalink verified. |
+| Nov 13 at 09:00, local timer | Review the first post's feedback, fix confusing instructions, then share the AI_Agents comment in its current project thread if eligible. |
 | Nov 16–17, after feedback | Consider the selfhosted megathread only after resolving its readiness requirement. Use ChatGPTCoding as a focused alternative if coding delegation is the clearest fit; do not fill every channel just because a draft exists. |
 | After useful fixes or results | Reply to the original threads with the specific change. Make a new post only when there is substantial new material and the community allows it. |
 
-If readiness slips, shift the Reddit sequence. No post should say the Product Hunt launch is live until it actually is. Confirm publication intent and the personal Reddit account when moving from this requested plan to posting; no account access is needed to finish preparation.
+If readiness slips, shift the Reddit sequence. No post should say the Product Hunt launch is live until it actually is. The user has authorized posting from the personal account; verify its identity again at execution. The local timer needs the Mini powered on and unlocked with Reddit signed in. It does not survive reboot. An interrupted or uncertain submission is not automatically retried.
 
 ## Draft 1: r/SideProject
 
