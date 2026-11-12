@@ -1,0 +1,6 @@
+*
+!website
+!website/**
+website/.vercel
+website/.env*
+website/README.md

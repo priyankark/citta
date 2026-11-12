@@ -1,0 +1,5 @@
+.vercel
+README.md
+node_modules
+.env*
+.gitignore

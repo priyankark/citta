@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://citta-kappa.vercel.app/sitemap.xml

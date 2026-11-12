@@ -7,3 +7,6 @@
 .env
 /local/
 __pycache__/
+
+/.vercel/
+/.env.local
