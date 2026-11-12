@@ -18,7 +18,7 @@ Prepared November 10 and updated November 12, 2026 (UTC). The benefit-led descri
 
 ## Video caption
 
-[Watch the demonstration](https://www.youtube.com/watch?v=EPdPu5djxSQ). The unlisted video plays while signed out, and all 45 manual-caption cues match the source SRT. Its Product Hunt attachment and adjacent description still require a verified global save.
+[Watch the demonstration](https://www.youtube.com/watch?v=EPdPu5djxSQ). The unlisted video plays while signed out, and all 45 manual-caption cues match the source SRT. Its Product Hunt attachment still needs a fresh saved-preview check. Keep demo context with the video or maker comment, rather than in the short product description.
 
 Demonstration with synthetic data. Citta is available under PolyForm Noncommercial 1.0.0; commercial use is not licensed. See the license for permitted uses.
 
