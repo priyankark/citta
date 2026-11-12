@@ -4,7 +4,7 @@
   "tagline": "An agent mesh for tools, data and compute",
   "description": "Let your agents discover capabilities, delegate work and bring results back. Citta connects them to workers with access to private data, installed tools, hardware or compute—from coding tasks to local-model inference. Runs on your own Macs and Linux machines over Tailscale. Source-available for permitted noncommercial use. Demo uses synthetic data.",
   "product_url": "https://github.com/priyankark/citta",
-  "product_url_status": "Repository is public and verified signed-out; installable release publication is pending final artifact checks",
+  "product_url_status": "Repository and v0.1.0 release are public; all nine assets verified anonymously, fresh registry install and public Chrome ARM installation passed",
   "proposed_topics": [
     "Artificial Intelligence",
     "Developer Tools",

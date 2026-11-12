@@ -14,18 +14,20 @@ Proposed targets: 10 people report completing their first task across two device
 
 ## Before scheduling
 
-- [ ] A specific candidate commit and archive hashes are recorded.
-- [ ] Required CI checks run and pass. Billing or runner failures are resolved, not described as code passes.
-- [ ] All advertised platforms have usable packages and documented requirements.
+- [x] A specific candidate commit and archive hashes are recorded.
+- [x] Required CI checks run and pass. Billing or runner failures are resolved, not described as code passes.
+- [x] All advertised platforms have usable packages and documented requirements.
 - [ ] A person without the maker's repository credentials can download, install, enroll two devices and complete a task using only the published guide.
-- [ ] The same candidate passes physical coding/model acceptance, restart/reconnect of an owned test endpoint, denied permissions and failure reporting. Whole-device sleep/network loss is an explicit early-release limitation until a safe independent recovery path is available; do not claim it passed.
-- [ ] macOS signing, notarization and upgrade identity are qualified, or the actual early-release limitations are explicit and the installation path is tested. Do not advertise a signed/notarized build without evidence.
-- [ ] Desktop helpers in the release match the reviewed source. Onboarding explains receiving-worker grants, and unverified signed-worker desktop continuity is explicitly labeled experimental. A permission flag alone is not desktop acceptance.
-- [ ] The local-model example has a working setup recipe and lists model/runtime prerequisites.
-- [ ] Published source/history and archive contents are reviewed for private material; LICENSE, NOTICE and required dependency notices ship with downloads.
+- [x] The same candidate passes physical coding/model acceptance, restart/reconnect of an owned test endpoint, incorrect-token rejection and expected cancellation/interruption reporting. Whole-device sleep/network loss is an explicit early-release limitation until a safe independent recovery path is available; do not claim it passed.
+- [x] macOS signing, notarization and upgrade identity are qualified, or the actual early-release limitations are explicit and the installation path is tested. Do not advertise a signed/notarized build without evidence.
+- [x] Desktop helpers in the release match the reviewed source. Onboarding explains receiving-worker grants, and unverified signed-worker desktop continuity is explicitly labeled experimental. A permission flag alone is not desktop acceptance.
+- [x] The local-model example has a working setup recipe and lists model/runtime prerequisites.
+- [x] Published source/history and archive contents are reviewed for private material; LICENSE, NOTICE and required dependency notices ship with downloads.
 - [ ] The public product link, download links, logo, four gallery images, final video link and captions work from a signed-out browser.
-- [ ] The video has the explicit adjacent license context in [the media brief](assets.md), or its “work trip” opening has been revised to personal travel. A revoice is optional.
+- [ ] The video has the explicit adjacent license context in [the media brief](assets.md), or its “work trip” opening has been revised to personal travel. A revoice is optional. README/video-host context is verified; the Product Hunt editor still needs its global save.
 - [ ] Maker account/profile and launch-day availability are confirmed; actual available topic labels are selected.
+
+The November 12 early release is public: native builds/signing/notarization, final signed two-device coding/model/recovery checks, anonymous downloads, registry installation and public Chrome ARM installation passed. Product Hunt still requires saving the revised copy/gallery and verifying the scheduled date. The full clean-OS-account onboarding rehearsal remains unverified; existing-account isolation and explicit prerequisite instructions are the tested boundary.
 
 At the November 10 preparation snapshot, CI execution was blocked by GitHub account billing/spending limits and same-build release qualification was incomplete. Track current technical status in [release readiness](../release-readiness.md). A polished launch page does not clear these gates.
 
@@ -51,4 +53,4 @@ Use the maker's personal Product Hunt account. Fill [listing.json](listing.json)
 
 The agent-first listing revision is prepared in the local copy files. The unlisted YouTube video plays signed-out and all 45 manual-caption cues match the source SRT. The video and its adjacent synthetic-data/license description are staged in Product Hunt, with the global save still unverified. Verify the final copy, gallery and media again after **Save changes**, then inspect the preview.
 
-The user has authorized public source, release distribution and Product Hunt scheduling for the selected date. The repository is now public after an independent history and artifact review. Product Hunt has a saved draft; it is not scheduled. Publish the qualified downloads and verify the video and listing before scheduling. No outreach is planned.
+The user has authorized public source, release distribution and Product Hunt scheduling for the selected date. The repository is now public after an independent history and artifact review. Product Hunt has a saved draft; it is not scheduled. Downloads are published; verify the saved video and listing before scheduling. No outreach is planned.
