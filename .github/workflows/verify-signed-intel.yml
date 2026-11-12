@@ -8,6 +8,10 @@ concurrency:
   cancel-in-progress: false
 jobs:
   verify:
+    permissions:
+      # GitHub requires push access to read draft releases. Download uses GET only.
+      # https://docs.github.com/en/rest/releases/releases#list-releases
+      contents: write
     if: github.event.repository.private && github.repository == 'priyankark/citta'
     runs-on: macos-26-intel
     timeout-minutes: 8
