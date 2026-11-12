@@ -1,0 +1,41 @@
+name: Setup problem
+description: Get help connecting devices or running your first task.
+title: "Setup: "
+body:
+  - type: markdown
+    attributes:
+      value: "Thanks for trying Citta. This report is public. Share only the relevant error; omit tokens, private paths and task contents."
+  - type: input
+    id: version
+    attributes:
+      label: Citta version and installation method
+      placeholder: "0.1.0, Mac archive"
+    validations:
+      required: true
+  - type: input
+    id: devices
+    attributes:
+      label: Devices and operating systems
+      placeholder: "Apple Silicon Mac on macOS 15 → Ubuntu 24.04 x86-64"
+    validations:
+      required: true
+  - type: dropdown
+    id: stage
+    attributes:
+      label: Where did you get stuck?
+      options:
+        - Installing
+        - Running setup
+        - Finding the other device
+        - Running the echo check
+        - Running an agent task
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What happened?
+      description: What did you try, what did you expect, and what error appeared? Include only relevant, redacted doctor or task output.
+    validations:
+      required: true

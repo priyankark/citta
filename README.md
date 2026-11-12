@@ -8,7 +8,7 @@ Each agent brings what it has access to: private files, installed tools, local m
 
 The network runs on your own Macs and Linux machines connected through Tailscale. They can be on the same local network or in different locations. Install Citta on each, set up the tools and access you want to use, then ask your agent for what you need.
 
-> **0.1.0 is available:** [Mac and Linux installers](https://github.com/priyankark/citta/releases/tag/v0.1.0) · [Cargo crate](https://crates.io/crates/citta/0.1.0) · [Installation guide](docs/install.md). This is an early release for your own trusted devices; see [tested behavior and remaining limitations](docs/release-readiness.md) before relying on it for unattended work.
+> **0.1.0 is available:** [Mac and Linux installers](https://github.com/priyankark/citta/releases/tag/v0.1.0) · [Cargo crate](https://crates.io/crates/citta/0.1.0) · [Installation guide](docs/install.md) · [Run your first task](docs/first-task.md). This is an early release for your own trusted devices; see [tested behavior and remaining limitations](docs/release-readiness.md) before relying on it for unattended work.
 
 ## Watch it work
 
@@ -120,6 +120,10 @@ Citta uses a local background service on each device and MCP tools for agent acc
 - **Tools run with the receiving account’s permissions.** Citta is intended for your trusted devices, not untrusted tenants. Desktop helpers cooperate with human activity, but full-access shell tools are not an OS sandbox.
 - **An interrupted task may have already done something.** Check the result or app before repeating a send, payment, or other action. Nested tasks must be tracked and cancelled separately.
 - **The core runtime targets macOS and Linux.** The included native desktop helpers are for macOS. See [tested platforms and remaining qualification](docs/release-readiness.md) before choosing a build.
+
+## Tried it?
+
+[Get setup help](https://github.com/priyankark/citta/issues/new?template=setup.yml) or [tell us how your first task went](https://github.com/priyankark/citta/issues/new?template=first-task.yml). A short report about what worked or where you got stuck helps us improve Citta.
 
 ## Go further
 
