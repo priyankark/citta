@@ -8,7 +8,7 @@ Prepared November 10 and updated November 12, 2026 (UTC). Product Hunt has an ol
 
 **Tagline:** An agent mesh for tools, data and compute
 
-**Description:** Let your agents discover capabilities, delegate work and bring results back. Citta connects them to workers with access to private data, installed tools, hardware or compute—from coding tasks to local-model inference. Runs on your own Macs and Linux machines over Tailscale. Source-available for permitted noncommercial use. Demo uses synthetic data.
+**Description:** Your agent shouldn’t get stuck because the file, tool or model it needs is somewhere else. Citta connects your agents so they can find each other, delegate work and bring back results. Put private data, specialized tools, spare compute and connected hardware within reach of the agent you already use.
 
 **Product link:** `https://github.com/priyankark/citta` — the repository is public; verify the published installation path without the maker's account before scheduling.
 

@@ -2,7 +2,7 @@
   "status": "draft_created_not_scheduled",
   "product_name": "Citta",
   "tagline": "An agent mesh for tools, data and compute",
-  "description": "Let your agents discover capabilities, delegate work and bring results back. Citta connects them to workers with access to private data, installed tools, hardware or compute—from coding tasks to local-model inference. Runs on your own Macs and Linux machines over Tailscale. Source-available for permitted noncommercial use. Demo uses synthetic data.",
+  "description": "Your agent shouldn’t get stuck because the file, tool or model it needs is somewhere else. Citta connects your agents so they can find each other, delegate work and bring back results. Put private data, specialized tools, spare compute and connected hardware within reach of the agent you already use.",
   "product_url": "https://github.com/priyankark/citta",
   "product_url_status": "Repository and v0.1.0 release are public; all nine assets verified anonymously, fresh registry install and public Chrome ARM installation passed",
   "proposed_topics": [
@@ -40,5 +40,5 @@
   "draft_url": "https://www.producthunt.com/products/citta?launch=citta",
   "draft_status": "Product Hunt confirmed: This product is a draft and is not scheduled for a launch yet (November 12, 2026 UTC)",
   "video_status": "Unlisted YouTube video plays signed-out; all 45 manual-caption cues independently matched the source SRT. Video and synthetic-data/license description are staged in Product Hunt; global Save changes has not yet been verified.",
-  "copy_status": "Agent-first copy prepared locally; saving this revision in the Product Hunt editor has not been verified"
+  "copy_status": "Benefit-led description revised locally; external save pending verification"
 }
