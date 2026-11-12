@@ -1,8 +1,10 @@
-# Citta: cross-device agent cooperation
+# Citta: a network for agents
+
+Citta connects agents into a private network to share access to tools, data and compute. Tasks use CPU and memory on the machine that runs them.
 
 ## Product
 
-Citta pools capabilities and spare compute across a person's trusted devices. Agents independently discover what other devices can do, submit bounded work, inspect progress, and consume results. The owner selects the trust boundary and budgets once; agents handle installation, enrollment and task routing without ongoing human involvement. Rust is the implementation language. The first supported platforms are macOS and Linux.
+Citta connects agents so they can use tools, data and available compute across the owner's trusted devices. Agents discover what is available, submit bounded work, inspect progress and collect results. The owner configures access and budgets; setup installs the local service and connects eligible devices. Each receiving device still needs its tools, accounts and permissions. Rust is the implementation language, with macOS and Linux as the first supported platforms.
 
 The acceptance scenario is an agent on device A discovering a capability installed only on device B, submitting work through MCP, continuing its own work, and retrieving B's result. B must respect its configured capacity. Work and results must survive an origin restart. Disconnects must never silently replay potentially side-effecting work.
 

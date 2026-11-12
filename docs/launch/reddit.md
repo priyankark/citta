@@ -4,7 +4,7 @@ Prepared November 12, 2026. **Drafts only: no Reddit posts, comments, messages o
 
 ## What readers should understand
 
-An agent can get stuck because the file, tool or model it needs is somewhere else. Citta lets it find another worker, send that worker a task and get the result back. Lead with that problem and a concrete example. Explain what the user can get done before naming the architecture. Use plain language, concrete examples and short paragraphs. Avoid em dashes, unexplained terms such as worker or harness, and generic feedback questions.
+Citta is a private network for agents to share access to tools, data and compute. Lead with the network, then show what members can do together. Each agent brings its own tools and access. Spare CPU and RAM are used by running a task on the machine with capacity; memory is not pooled. Keep the language plain, use concrete examples and avoid em dashes or generic feedback questions.
 
 Link directly to the [repository and setup guide](https://github.com/priyankark/citta). Use the [demo](https://youtu.be/EPdPu5djxSQ) when it helps explain the handoff. The purpose is to help people try Citta and learn where setup fails; Product Hunt votes are not the call to action.
 
@@ -14,8 +14,8 @@ These are editorial choices, not predictions about reach. Rules were researched 
 
 | Priority | Community | Format and angle | Current rule evidence / remaining check |
 | --- | --- | --- | --- |
-| 1 | r/SideProject | One maker post: an agent can get help from another agent with the files or tools it needs. | The [community](https://www.reddit.com/r/SideProject/) is oriented around side projects, but the accessible rules page did not expose detailed rules. Check the signed-in composer, pins and flair before posting; absence of visible rules is not clearance. |
-| 2 | r/AI_Agents | Comment in the current weekly Project Display thread: discovery, delegation and returned results. | [Rule 3](https://www.reddit.com/r/AI_Agents/) directs project links to that thread; rules also limit self-promotion and require context. Find the current thread and check account history. |
+| 1 | r/SideProject | One maker post: connect agents into a network to use tools, data and spare compute. | The [community](https://www.reddit.com/r/SideProject/) is oriented around side projects, but the accessible rules page did not expose detailed rules. Check the signed-in composer, pins and flair before posting; absence of visible rules is not clearance. |
+| 2 | r/AI_Agents | Comment in the current weekly Project Display thread: what agents bring to the network and how they share work. | [Rule 3](https://www.reddit.com/r/AI_Agents/) directs project links to that thread; rules also limit self-promotion and require context. Find the current thread and check account history. |
 | 3 | r/selfhosted | Comment in the current New Project Megathread: running the mesh yourself, installation and dependencies. | [Rule 6](https://www.reddit.com/r/selfhosted/) routes projects younger than three months to the megathread. The [November 5 thread](https://www.reddit.com/r/selfhosted/comments/1xox23i/new_project_megathread_week_of_05_nov_2026/) asks for deployment details and AI involvement. Use the current thread, not that historical URL. Rule 2 also asks for production-ready apps with docs: Citta is an early release, so resolve whether its documented limits fit the current thread before posting. Do not relabel it production-ready. |
 | Reserve | r/ChatGPTCoding | Current weekly self-promotion thread: delegating coding work with the receiving agent's tools and skills. | The [November 2 thread](https://www.reddit.com/r/ChatGPTCoding/comments/1xlra2u/weekly_self_promotion_thread/) requires context and affiliation, and discourages repeated weekly promotion without meaningful changes. Recheck the current thread. |
 | Hold | r/LocalLLaMA | Potential future technical discussion about the local-model handoff. | [Rules 3 and 4](https://old.reddit.com/r/LocalLLaMA/about/rules/) restrict primarily LLM-generated copy/code and self-promotion. Citta's AI-assisted development and these AI-prepared drafts make this unsuitable for the initial campaign. No ready-to-post draft is supplied. A paraphrase is not a workaround. |
@@ -36,15 +36,15 @@ If readiness slips, shift the Reddit sequence. No post should say the Product Hu
 
 ## Draft 1: r/SideProject
 
-**Title:** I built Citta so your AI agent can ask other agents for help
+**Title:** I built a network for AI agents to share tools, data and compute
 
-Say you ask your agent to sort out some receipts, but it can't access the files. Another agent can. Citta lets the first agent ask the second one to read them and send back the results.
+I built **Citta** to connect your AI agents into a private network. They can use each other's tools, access data and put spare compute to work.
 
-It works the same way with tools and local AI models. An agent that has what you need can do that part of the job, and you can carry on with the agent you were already talking to.
+One agent might have access to your files. Another might have a local model ready to run, or enough spare capacity for a task your current setup can't handle. Citta lets your agent find what's available on the network and send work there.
 
-I built Citta to make this possible. In the demo, one agent gets help reading receipts, then another uses a local Gemma model to categorize the expenses.
+In the demo, agents use receipt files and a local Gemma model to put together an expense report. It's one example of what they can do with the resources available across the network.
 
-It runs on Macs and Linux machines connected through Tailscale. There's a setup guide and a first task to try in the README.
+It runs on Macs and Linux machines connected through Tailscale, at home or across locations. The README walks through setup and a first task.
 
 [Try it](https://github.com/priyankark/citta) · [Watch the demo](https://youtu.be/EPdPu5djxSQ)
 
@@ -52,41 +52,45 @@ It's an early release. The code is available under PolyForm Noncommercial 1.0.0;
 
 ## Draft 2: r/AI_Agents Project Display comment
 
-I built **Citta** to let agents ask each other for help when they have access to different things.
+I built **Citta**, a private network for agents to share access to tools, data and compute.
 
-One might have the files you need. Another might have a tool installed, or a local model ready to run. With Citta, your agent can find out what's available, send a task over and get the result back.
+Each agent brings what it can already use: files, installed tools, local models or connected hardware. Other agents on the network can find out what's available and send it work.
 
-We tried this with receipt analysis. One agent asked another to read the files. Then we sent the categorization step to a local Gemma model. The agents could use what was already available where each task ran.
+That also gives your agents a way to use spare CPU and RAM elsewhere on the network. The task runs on the machine with capacity and sends its result back. Memory stays on that machine; Citta doesn't combine RAM into one pool.
 
-You set it up on your own Macs or Linux machines with Tailscale. Each agent still needs its tools and permissions. In the default setup, it can run commands and edit files with that account's access, so this is for agents and devices you trust.
+We ran a demo where agents use receipt data and a local Gemma model to produce an expense report. The same network can run coding tasks with the receiving agent's shell tools and skills.
+
+Setup covers Macs and Linux machines connected through Tailscale. Each agent needs its own tools and permissions. The default setup can run commands and edit files with that account's access, so use agents and devices you trust.
 
 [Code, setup and demo](https://github.com/priyankark/citta)
 
-It's an early release, under PolyForm Noncommercial 1.0.0. Commercial use isn't licensed.
+Early release, under PolyForm Noncommercial 1.0.0. Commercial use isn't licensed.
 
 ## Draft 3: r/selfhosted New Project Megathread comment
 
 **Project:** Citta. I'm the maker.
 
-**What it does:** Lets your AI agent get help from another agent that has the files, tools or local model it needs. For example, you can ask an agent on your laptop to send a task to a local model running on your server and bring back the answer.
+**What it does:** Connects your AI agents into a private network so they can use each other's tools, access data and put spare compute to work. An agent on your laptop could use a local model on your server, or ask another agent to work with files it has access to.
 
-**Install:** Mac and Linux downloads are available, along with a Cargo package. Install Citta on each machine and connect them with Tailscale. The README covers setup and a first task. You'll also need the tools and agent software you want to run on each machine.
+Tasks use the CPU and RAM of the machine running them. Citta doesn't pool memory. Tailscale connects the network, including machines in different locations.
 
-Citta runs on your machines. Whether data goes to a cloud service depends on the agents and tools you use. The default agent setup can run commands and edit files with your account's access, so use devices you trust.
+**Install:** Mac and Linux downloads, plus a Cargo package. Install Citta on each machine and follow the README's setup and first task. Each machine needs the tools and agent software you want to run there.
+
+Citta runs on your machines. Whether data goes to a cloud service depends on the agents and tools you choose. The default agent setup can run commands and edit files with your account's access, so use devices you trust.
 
 **Code and guide:** https://github.com/priyankark/citta
 
-**License:** PolyForm Noncommercial 1.0.0. The source is available; commercial use isn't licensed. This is an early release, with known limitations listed in the repo.
+**License:** PolyForm Noncommercial 1.0.0. Source is available; commercial use isn't licensed. This is an early release, with known limitations in the repo.
 
 **AI involvement:** Built with AI coding agents, including Codex. The demo uses Codex and a local Gemma model. AI also helped draft this post.
 
 ## Reserve draft: r/ChatGPTCoding weekly thread
 
-Your coding agent has the code, but the tool it needs is set up somewhere else. You could switch over and do that step yourself, or ask an agent there to handle it.
+I built **Citta** to connect coding agents into a network where they can share access to tools, project files and spare compute.
 
-I built **Citta** for the second option. Your agent can find another agent, send it a task and get the results back. That agent can run commands, write code, run tests and use its installed tools and skills.
+Your agent can find what's available, send a task to another agent and get the result back. Each agent can run commands, write code, run tests and use the tools and skills installed where it runs.
 
-For example, you could keep working with Codex on your laptop while asking another agent to run tests in an environment you've already set up. Each agent uses the tools and access available where it runs.
+For example, you could keep working with Codex on your laptop while another agent runs tests in an environment you've already set up. Or send a model task to a machine with enough RAM to run it.
 
 The setup guide covers Codex on Macs and Linux machines connected through Tailscale. This is for your own trusted devices: delegated tasks can run commands and change files without asking you to approve each command.
 

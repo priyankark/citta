@@ -1,5 +1,5 @@
 {
-  "status": "revised_gallery_prepared_locally_not_uploaded",
+  "status": "network_gallery_prepared_locally_not_uploaded",
   "created": "2026-11-11",
   "logo_file": "logo.png",
   "gallery_files": [
@@ -13,33 +13,33 @@
       "file": "01-your-devices.png",
       "width": 1270,
       "height": 760,
-      "bytes": 283863,
-      "sha256": "17ff0b386dacf92f54bc7d3fb86f27b4e520fc41d08df29ef4c408c35ee52f48",
-      "alt_text": "Citta helps an agent discover capabilities, delegate a task to an available worker, and collect the result. Reasons include private data, installed tools, connected hardware and available compute."
+      "bytes": 257934,
+      "sha256": "62c47dc56d47f3e0f47db12f6b2410e2c627b4a19e9c5fc353bb53cfab62665f",
+      "alt_text": "Citta connects three agents into a network. Each brings access to private data, installed tools or spare compute. The network can also reach connected hardware through an agent with the required tools and access."
     },
     {
       "file": "02-the-files.png",
       "width": 1270,
       "height": 760,
-      "bytes": 207713,
-      "sha256": "4b561bf465a93d85192fb9b7ccc1e2fb76516be38eaf7dd43d9f624bfcce9f24",
-      "alt_text": "An agent on the Mini asks a worker on the Air to read synthetic receipts. The actual returned expense report identifies a duplicate and a missing receipt."
+      "bytes": 205085,
+      "sha256": "2dd7331ba8e9952b4f9af5a44a7ff9edb5325f87660e221fc9b2352a29efbd6c",
+      "alt_text": "An agent on the Mini asks the Air’s agent to read synthetic receipts across the network. The actual returned expense report identifies a duplicate and a missing receipt."
     },
     {
       "file": "03-the-model.png",
       "width": 1270,
       "height": 760,
-      "bytes": 212641,
-      "sha256": "fd92e6e094223ec99f0d0e44da46780504874b465038bb41ca68ffc523fd0452",
-      "alt_text": "An agent delegates expense categorization to Gemma 3 4B through Ollama on the Mini. The actual model-result table is shown; inference is local and Codex orchestration is cloud-backed."
+      "bytes": 213829,
+      "sha256": "03ef2564100396d5a9a58e7dff9d4fa44b56228046eecce606966700112bb987",
+      "alt_text": "An agent on the Air sends expense categorization to Gemma 3 4B through Ollama on the Mini. The actual model-result table is shown; inference is local and Codex orchestration is cloud-backed."
     },
     {
       "file": "04-get-started.png",
       "width": 1270,
       "height": 760,
-      "bytes": 222488,
-      "sha256": "330d9dda2f235763308513588eedf37f1353ede3b946f8df7f993d614bd810e4",
-      "alt_text": "Give your agent more capabilities: connect your own computers through Tailscale under the same owner, install Citta and check setup, then ask an available worker to run a small task. Each receiving device needs the required tools, accounts and permissions."
+      "bytes": 215113,
+      "sha256": "778fd9068c5d2d0b529227f99afc44ea7e02bc3494be34f622c658c1e04ed387",
+      "alt_text": "Build your agent network: connect your own computers through Tailscale under the same owner, install Citta and check setup, then ask another agent to run a small task. Each agent needs the tools, accounts and permissions for its part."
     },
     {
       "file": "logo.png",
@@ -62,6 +62,14 @@
       "height": 126,
       "bytes": 19663,
       "sha256": "bfd69721587990a31e57bb231ff8ed8753f708f7f129e93a3dd508801f310fea"
+    },
+    {
+      "file": "../../media/demo-thumbnail.png",
+      "width": 1280,
+      "height": 720,
+      "bytes": 254643,
+      "sha256": "8c0923ac71326670321a0072e25af218df79df86038392c73262d5363f76bfd8",
+      "alt_text": "Citta: a network for your AI agents. Three connected agents bring private data, installed tools and spare compute. Watch the demo."
     }
   ],
   "official_media_guidance": "https://help.producthunt.com/en/articles/17834537-4-build-your-product-page",
@@ -98,18 +106,30 @@
     "model": "Gemma generated categories and per-expense notes on the Mini. Python supplied amounts and receipt checks. Local inference does not make the whole workflow cloud-free."
   },
   "evidence_boundaries": [
-    "Slide 1 is an explanatory diagram, not a product screenshot. Hardware examples are illustrative.",
+    "Slide 1 and the demo thumbnail are explanatory agent-network diagrams, not product screenshots or evidence of a three-agent test. Hardware examples are illustrative.",
     "Slides 2 and 3 crop actual demo results. No OCR, reimbursement approval or email sending is represented.",
     "The Air could not save the forward report locally because its disk was full; returned output was saved on the Mini. The gallery does not claim a successful Air-local save.",
     "No device addresses, usernames, personal paths, tokens, task identifiers or browser tabs appear in the prepared images.",
-    "These revised gallery images have not yet been uploaded; listing state is tracked separately."
+    "These revised gallery images and demo thumbnail have not yet been uploaded to Product Hunt or YouTube; listing state is tracked separately."
   ],
   "render": {
     "source": "gallery.html + gallery.css + logo.svg + two result crops",
     "command": "node docs/launch/gallery/render.cjs",
     "requirements": "Node.js, Playwright and Chromium in the tooling environment. Optional PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH selects a local browser. Uses a separate headless browser, no signed-in profile.",
-    "visual_review": "All four revised images inspected at final 1270×760 size. Existing logo and result crops preserved byte-for-byte.",
+    "visual_review": "All four network-first gallery images inspected at final 1270×760 size, plus the 1280×720 demo thumbnail. No text clipping or overlap found. Existing logo and result crops preserved byte-for-byte.",
     "platform": "Rendered using Chromium on macOS; system Arial font may vary on other platforms.",
-    "revision_method": "Existing render.cjs executed in a private fresh headless browser with only the logo-render step omitted in memory; renderer source and logo assets unchanged."
+    "revision_method": "Rendered the four slide selectors in a fresh headless Chrome page using Playwright; omitted the logo render. Rendered demo-thumbnail.html separately at 1280×720. No signed-in browser profile used.",
+    "tooling": "Playwright 1.58.2 in an isolated temporary tooling directory; installed Google Chrome executable."
+  },
+  "thumbnail": {
+    "file": "../../media/demo-thumbnail.png",
+    "source": "demo-thumbnail.html + gallery.css + logo.svg",
+    "viewport": [
+      1280,
+      720
+    ],
+    "device_scale_factor": 1,
+    "render": "Open demo-thumbnail.html in a fresh headless Chromium page with the specified viewport, await document.fonts.ready, then save a viewport screenshot to docs/media/demo-thumbnail.png.",
+    "external_upload_verified": false
   }
 }

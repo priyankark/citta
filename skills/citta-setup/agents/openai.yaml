@@ -1,4 +1,4 @@
 interface:
-  display_name: "Citta Device Setup"
-  short_description: "Pair devices for cross-device agent delegation"
+  display_name: "Citta Network Setup"
+  short_description: "Connect this device to your private agent network"
   default_prompt: "Use $citta-setup to enroll this device and verify a task runs on another paired device."

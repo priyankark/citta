@@ -1,5 +1,7 @@
 # Use a local model on another computer
 
+Use a model available on your agent network. The task runs where the model is installed, using that machine's compute and memory, and returns the result to your agent.
+
 Keep using your laptop while a model on your desktop handles a task. Citta sends the prompt to that computer, calls its local model, and returns the answer. Your laptop does not need the model installed.
 
 The demonstrated workflow used Gemma 3 4B through Ollama to categorize six synthetic trip expenses. Choose a model that fits your own computer; that example is not a minimum hardware guarantee.

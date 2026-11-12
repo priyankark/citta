@@ -1,8 +1,8 @@
 {
   "status": "draft_created_not_scheduled",
   "product_name": "Citta",
-  "tagline": "An agent mesh for tools, data and compute",
-  "description": "Your agent shouldn’t get stuck because the file, tool or model it needs is somewhere else. Citta connects your agents so they can find each other, delegate work and bring back results. Put private data, specialized tools, spare compute and connected hardware within reach of the agent you already use.",
+  "tagline": "A network for agents to share tools, data and compute",
+  "description": "Citta connects your AI agents into a private network, so they can use each other's tools, access data and put spare compute to work. Each agent brings what it has access to: private files, installed tools, local models or connected hardware. When a task needs more capacity, your agent can send it to a member of the network with the resources to run it.",
   "product_url": "https://github.com/priyankark/citta",
   "product_url_status": "Repository and v0.1.0 release are public; all nine assets verified anonymously, fresh registry install and public Chrome ARM installation passed",
   "proposed_topics": [
@@ -40,5 +40,6 @@
   "draft_url": "https://www.producthunt.com/products/citta?launch=citta",
   "draft_status": "Product Hunt confirmed: This product is a draft and is not scheduled for a launch yet (November 12, 2026 UTC)",
   "video_status": "Unlisted YouTube video plays signed-out; all 45 manual-caption cues independently matched the source SRT. The video was staged in Product Hunt before the confirmed copy save; attachment persistence still needs a fresh saved-preview check.",
-  "copy_status": "Benefit-led description and agent-first tagline saved in Product Hunt; Changes saved confirmation visually verified November 12, 2026 UTC. Revised maker comment remains pending."
+  "copy_status": "Network positioning prepared; external save pending. Earlier description and tagline remain the last verified Product Hunt copy.",
+  "core_statement": "Citta connects your AI agents into a private network, so they can use each other's tools, access data and put spare compute to work."
 }

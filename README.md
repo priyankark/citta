@@ -1,35 +1,37 @@
 # Citta
 
-**An agent mesh for tools, data and compute.**
+**A network for agents to share tools, data and compute.**
 
-Let your agents work together—and reach the capabilities each has access to. Citta lets an agent discover available workers, delegate a task, and bring the result back. A worker can use private files, installed tools, connected hardware or a local model to do its part.
+Citta connects your AI agents into a private network, so they can use each other's tools, access data and put spare compute to work.
 
-The mesh runs across your own Macs and Linux machines connected through Tailscale. Set up Citta on each, then ask your agent for what you need in plain language.
+Each agent brings what it has access to: private files, installed tools, local models or connected hardware. An agent can find what is available on the network, send work to a suitable member and get the result back.
+
+The network runs on your own Macs and Linux machines connected through Tailscale. They can be on the same local network or in different locations. Install Citta on each, set up the tools and access you want to use, then ask your agent for what you need.
 
 > **0.1.0 is available:** [Mac and Linux installers](https://github.com/priyankark/citta/releases/tag/v0.1.0) · [Cargo crate](https://crates.io/crates/citta/0.1.0) · [Installation guide](docs/install.md). This is an early release for your own trusted devices; see [tested behavior and remaining limitations](docs/release-readiness.md) before relying on it for unattended work.
 
 ## Watch it work
 
-[![Watch Citta move an expense task from Mini to MacBook, then run a local model in the other direction](docs/media/demo-thumbnail.png)](https://youtu.be/EPdPu5djxSQ)
+[![Watch agents on the Citta network use receipt data and a local model](docs/media/demo-thumbnail.png)](https://youtu.be/EPdPu5djxSQ)
 
 **[Watch the demo (1 minute 51 seconds)](https://youtu.be/EPdPu5djxSQ)** · [Download MP4](https://raw.githubusercontent.com/priyankark/citta/main/docs/media/citta-demo.mp4) · [Captions](docs/media/citta-demo.srt)
 
-Two real handoffs: an agent delegates receipt analysis to a worker with access to the files, then sends categorization to a local Gemma model. The demo runs between a MacBook Air and Mac mini using synthetic receipts. Waits are shortened; later hardware examples are illustrative. Codex orchestration is cloud-backed. The film uses a work-trip scenario to demonstrate the capability; commercial use is not licensed under Citta’s [PolyForm Noncommercial terms](LICENSE.md).
+The network in action: one agent reads receipt files for another, then a local Gemma model supplies expense categories. The demo runs between a MacBook Air and Mac mini using synthetic receipts. Waits are shortened; later hardware examples are illustrative. Codex orchestration is cloud-backed. The film uses a work-trip scenario to demonstrate the capability; commercial use is not licensed under Citta’s [PolyForm Noncommercial terms](LICENSE.md).
 
 ## Why use it?
 
-| Your task | What the mesh makes available |
+| Your task | What the agent network makes available |
 | --- | --- |
-| “Put together my trip expenses from the receipts folder.” | A worker with access to the receipts can read them and return a report. |
-| “Use a local model to categorize these expenses.” | A configured model worker can run inference and return the categories. |
+| “Put together my trip expenses from the receipts folder.” | An agent with access to the receipts can read them and return a report. |
+| “Use a local model to categorize these expenses.” | A member of the network with the model installed can run it and return the categories. |
 | “Build my hobby iPhone app and test it on my phone.” | An agent on your Mac can use its Xcode installation and connected phone. |
-| “Find a worker with capacity to transcribe these recordings.” | Your agent can delegate to a worker with the transcription tools and available resources. |
+| “Find somewhere on the network to transcribe these recordings.” | An agent with the transcription tools and enough available compute can take the task. |
 
 The expense and local-model workflows have run between a Mac mini and MacBook Air using synthetic receipts. The hardware and transcription examples require the corresponding tools and access on the receiving device; Citta does not install them automatically.
 
 ## Why “Citta”?
 
-**Citta** (चित्त, roughly pronounced **“chit-ta”**) is a Sanskrit word for **mind** or **thought**. The name reflects the idea behind the project: agents can bring together their available capabilities to carry out a task. The conversation stays with you while the work can happen where it makes sense.
+**Citta** (चित्त, roughly pronounced **“chit-ta”**) is a Sanskrit word for **mind** or **thought**. The name reflects the idea behind the project: a network of agents can bring their tools, data and compute together to get work done.
 
 The meaning is documented in [Lanman’s Sanskrit lexicon](https://www.sanskrit-lexicon.uni-koeln.de/scans/LANScan/LANScanpdf/lan_188.pdf); the [pronunciation](https://www.rep.routledge.com/articles/overview/indian-and-tibetan-philosophy/v-1/sections/pronunciation-of-sanskrit-words) follows the Sanskrit *c* sound, like *ch* in “church.”
 
@@ -60,7 +62,7 @@ Setup connects the devices, starts the background service, and adds Citta’s to
 
 Start with a simple check in your agent:
 
-> “Use Citta to find my other computer. Run a small task there and tell me which device ran it.”
+> “Use Citta to find what is available on my agent network. Send a small task to another member and tell me where it ran.”
 
 Then try a task that needs the other device:
 
@@ -96,16 +98,17 @@ Coding tasks do not require screen permissions. Desktop setup may also need Node
 
 ## How it works
 
-1. Your agent discovers the other devices and what they can do.
+1. Your agent discovers the members of the network and what each can do.
 2. It submits a task with the needed tools, device, or resource requirements.
 3. An eligible device starts the task when it has capacity.
 4. Your agent collects the result and checks it before using it.
 
 ```mermaid
 flowchart LR
-    A[Your agent on the laptop] -->|Task over Tailscale| B[Citta on your other computer]
-    B --> C[Agent, local model, or installed tool]
-    C -->|Result| A
+    A[Your agent] <-->|Tasks and results| B[Agent with data access]
+    A <-->|Tasks and results| C[Agent with installed tools]
+    B <-->|Tasks and results| C
+    A <-->|Model tasks and results| D[Local model and spare compute]
 ```
 
 Citta uses a local background service on each device and MCP tools for agent access. There is no required Citta cloud coordinator. Automatic enrollment is for devices owned by the same Tailscale user; arbitrary devices on a shared network do not become workers.
@@ -113,7 +116,7 @@ Citta uses a local background service on each device and MCP tools for agent acc
 ## A few things to know
 
 - **Private files can be read where they live, but results travel back.** Cloud-backed agents may send task content to their model provider. Using a local model for one step does not make the whole workflow offline.
-- **Citta delegates new tasks.** It does not pool RAM across computers or move a running conversation to another machine. Resource checks help choose a worker; they are not hard CPU or memory limits.
+- **Compute and memory are used where the task runs.** An agent can send a new task to a network member with enough CPU and RAM. Citta does not combine RAM into one pool or move a running conversation. Resource checks help choose where a task runs; they are not hard CPU or memory limits.
 - **Tools run with the receiving account’s permissions.** Citta is intended for your trusted devices, not untrusted tenants. Desktop helpers cooperate with human activity, but full-access shell tools are not an OS sandbox.
 - **An interrupted task may have already done something.** Check the result or app before repeating a send, payment, or other action. Nested tasks must be tracked and cancelled separately.
 - **The core runtime targets macOS and Linux.** The included native desktop helpers are for macOS. See [tested platforms and remaining qualification](docs/release-readiness.md) before choosing a build.

@@ -1,6 +1,6 @@
 # Build and contribute
 
-Citta is a Rust runtime for task delegation across trusted devices. Start with the [README](../README.md) for the product and [protocol](protocol.md) for the implementation contract. Read [AGENTS.md](../AGENTS.md) before changing the code.
+Citta is a Rust runtime for a private network where agents share access to tools, data and compute. Start with the [README](../README.md) for the product and [protocol](protocol.md) for the implementation contract. Read [AGENTS.md](../AGENTS.md) before changing the code.
 
 ## Build
 
@@ -12,7 +12,7 @@ cd citta
 cargo build --release --locked
 ```
 
-Repository access is currently required while the public release is being prepared. For a new installation from this checkout:
+The repository and 0.1.0 release are public. For a new installation from this checkout:
 
 ```sh
 cargo install --path . --locked

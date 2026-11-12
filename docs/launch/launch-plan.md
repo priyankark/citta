@@ -8,7 +8,7 @@ Work toward November 14 while preserving the release checks below. Report any un
 
 ## What a useful launch looks like
 
-Lead with **“An agent mesh for tools, data and compute.”** Show an agent discovering a capability, delegating a task and collecting a result. Explain why that worker is useful: it has access to the data, tool, local model or hardware the task needs. Then explain the supported computers, Tailscale connection and receiving-side accounts and permissions. Do not suggest pooled memory, migration of a running agent or unrestricted automatic routing.
+Lead with **“A network for agents to share tools, data and compute.”** Citta connects your AI agents into a private network, so they can use each other's tools, access data and put spare compute to work. Show how agents use the data, tools, local models or hardware available to members of the network. Explain that spare CPU and RAM are used by running a task on the machine with capacity. Tailscale connects the network across supported Macs and Linux machines, locally or across locations. Do not suggest pooled memory, migration of a running agent, automatic access to every file or unrestricted automatic routing.
 
 Proposed targets: 10 people report completing their first task across two devices, and 15 actionable pieces of setup feedback. These are planning targets, not forecasts. Count voluntary feedback and downloads; do not introduce silent telemetry or imply downloads are successful installations.
 
@@ -57,4 +57,4 @@ Use the maker's personal Product Hunt account. Fill [listing.json](listing.json)
 
 The agent-first listing revision is prepared in the local copy files. The unlisted YouTube video plays signed-out and all 45 manual-caption cues match the source SRT. The video and its adjacent synthetic-data/license description are staged in Product Hunt, with the global save still unverified. Verify the final copy, gallery and media again after **Save changes**, then inspect the preview.
 
-The user has authorized public source, release distribution and Product Hunt scheduling for the selected date. The repository is now public after an independent history and artifact review. Product Hunt has a saved draft; it is not scheduled. Downloads are published; verify the saved video and listing before scheduling. No outreach is planned.
+The user has authorized public source, release distribution and Product Hunt scheduling for the selected date. The repository is now public after an independent history and artifact review. Product Hunt has a saved draft; it is not scheduled. Downloads are published; verify the saved video and listing before scheduling. Reddit posts are prepared separately; nothing has been posted or scheduled there.

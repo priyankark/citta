@@ -1,6 +1,6 @@
 interface:
   display_name: "Citta Delegation"
-  short_description: "Delegate work using trusted devices and spare capacity"
+  short_description: "Use tools, data and compute on your agent network"
   default_prompt: "Use $citta-delegate to place a bounded subtask on a suitable trusted device and retrieve its result."
 policy:
   allow_implicit_invocation: true
