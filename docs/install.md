@@ -62,6 +62,8 @@ Start a new agent session after setup so it loads the new tools. Ask:
 
 > Use Citta to find my other computer and run a small test there. Show me which computer ran it and the result.
 
+For a command you can copy and an explicit success check, follow [run your first task](first-task.md).
+
 A successful task whose worker is the other device proves the connection. A device appearing in discovery alone does not prove execution. See [device setup](setup.md) for desktop permissions, connected apps, custom harnesses and troubleshooting.
 
 ## Build from source

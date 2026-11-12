@@ -1,0 +1,44 @@
+name: First task feedback
+description: Tell us whether you got a task running across two devices.
+title: "First task: "
+body:
+  - type: markdown
+    attributes:
+      value: "A short report helps us improve setup. This is public; omit credentials and private task data."
+  - type: dropdown
+    id: outcome
+    attributes:
+      label: What worked?
+      options:
+        - I completed an agent or model task on another device
+        - I completed the echo check on another device
+        - I connected the devices but did not complete a task
+        - I could not finish setup
+    validations:
+      required: true
+  - type: input
+    id: devices
+    attributes:
+      label: Devices, OS versions and agent harness
+    validations:
+      required: true
+  - type: textarea
+    id: experience
+    attributes:
+      label: What did you try, and where was setup confusing?
+      description: Include roughly how long it took if you remember. No logs are required.
+    validations:
+      required: true
+  - type: dropdown
+    id: repeat
+    attributes:
+      label: Have you used it again for another task?
+      options:
+        - Not yet
+        - Yes
+        - I could not get the first task working
+  - type: input
+    id: source
+    attributes:
+      label: Where did you find Citta? (optional)
+      placeholder: "Product Hunt, Reddit, GitHub, a friend…"
