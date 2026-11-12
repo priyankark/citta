@@ -46,7 +46,7 @@ cpu_cores = 2.0
 
 For resource checks on ordinary capability submissions, set `guard_all = true` in the existing top-level `[admission]` table before restarting. Preserve its other settings. If that table is absent, add it before the `[[capabilities]]` sections. Resource checks estimate available CPU and memory; they do not enforce GPU memory limits or stop an already-running model from consuming resources.
 
-Validate the file with `citta check`. Wait for active work to finish, then restart the existing Citta service using the [service instructions](operations.md#device-local-upgrade-helper). Do not initialize a new identity. Keep Ollama running separately.
+Validate the file with `citta check`. Wait for active work to finish, then [restart the existing Citta service](operations.md#restart-after-a-configuration-change). Do not initialize a new identity. Keep Ollama running separately.
 
 Open `citta panel`, select the desktop under **Permissions**, and allow `local-reasoning` for the intended originating device. A newly added capability needs an explicit grant when the device is in Restricted mode. It does not require enabling Allow all.
 

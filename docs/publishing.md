@@ -4,7 +4,7 @@ Citta has two distribution paths: a Rust source crate for `cargo install`, and n
 
 ## Install from crates.io
 
-**The first crate has not been published yet.** After version 0.1.0 is available, a fresh installation can use:
+For version 0.1.0 listed on [crates.io](https://crates.io/crates/citta), a fresh installation uses:
 
 ```sh
 cargo install citta --version 0.1.0 --locked

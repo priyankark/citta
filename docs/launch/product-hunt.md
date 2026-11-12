@@ -1,12 +1,12 @@
 # Product Hunt launch copy
 
-Prepared November 10, 2026. This is submission copy, not a published or scheduled launch. Use it after the [release gates](launch-plan.md) pass. Machine-readable fields are in [listing.json](listing.json).
+Prepared November 10 and updated November 12, 2026 (UTC). The name, tagline, description, logo, gallery, pricing, categories and maker comment are saved in an external draft; Product Hunt confirms it is not scheduled. [Open the draft](https://www.producthunt.com/products/citta?launch=citta) while signed in as its maker. Publish only after the [release gates](launch-plan.md) pass. Machine-readable fields are in [listing.json](listing.json).
 
 ## Listing
 
 **Name:** Citta
 
-**Tagline:** Let your AI agents use your other computers
+**Tagline:** An agent mesh network across your devices
 
 **Description:** Your agent is on one computer. The files, tools, hardware or spare compute it needs may be on another. Citta connects your Macs and Linux machines over Tailscale so agents can discover capabilities, delegate tasks and bring results back. Built for personal projects and other uses permitted by its noncommercial license.
 

@@ -2,20 +2,20 @@
 
 Install Citta once on **each computer you want your agent to use**. Your computers should be signed in to Tailscale with the same owner account. You do not need SSH, copied tokens, or a new Citta account.
 
-**Release status:** a public binary release has not been published yet. The archive instructions below describe the prepared release path; use the source instructions today if you have repository access. Candidate artifacts are for testing and are not signed or notarized macOS distributions.
+Choose a native archive from [Citta releases](https://github.com/priyankark/citta/releases), or use the [source installation](#build-from-source) below. Each release records its tested platforms and limitations. Development workflow artifacts are separate from published releases.
 
 ## What you need
 
 - A Mac with Apple Silicon or Intel, or Linux x86-64. macOS archives target macOS 14 or later; that deployment target is not yet a verified minimum OS support claim. The prepared Linux CI archive is built on Ubuntu 24.04 and requires its glibc 2.39 baseline or newer; other distributions need compatibility testing or a source build.
 - [Tailscale](https://tailscale.com/download), connected on each device. Use the same owner account; tagged or other users' devices are excluded from automatic enrollment.
-- Python 3.11 or later for the archive installer and example adapters.
-- For delegated agent work: a supported agent harness installed and signed in on the receiving computer. Setup currently configures Codex automatically. The receiving agent uses the tools and app connections installed there.
+- [Python 3.11 or later](https://www.python.org/downloads/) for the archive installer and example adapters. Check with `python3 --version` in the terminal you will use for installation.
+- For delegated agent work: a supported agent harness installed and signed in on the receiving computer. Setup currently configures the [Codex CLI](https://learn.chatgpt.com/docs/codex/cli) automatically. Check `codex --version`, run `codex` once and finish sign-in before running Citta setup. The receiving agent uses the tools and app connections installed there.
 
 An installed archive needs no Rust compiler. macOS desktop control additionally needs the developer tools used by the desktop helper; see the [access guide](setup.md#choose-what-this-device-should-do). You can use Citta for command and model tasks without desktop control.
 
 ## Install a published archive
 
-When a release is available, open [Citta releases](https://github.com/priyankark/citta/releases). Choose the archive and the adjacent `.sha256` file for your device:
+Open [Citta releases](https://github.com/priyankark/citta/releases). Choose the archive and the adjacent `.sha256` file for your device:
 
 | Computer | Archive suffix |
 | --- | --- |
@@ -45,7 +45,7 @@ citta --version
 
 To keep that PATH setting in new terminals, add the export line once to your shell configuration (`~/.zshrc` on a typical Mac, or `~/.bashrc` for Bash).
 
-If macOS blocks an unsigned candidate, record the warning and follow the OS's per-app approval flow only after verifying its origin. Candidate testing is not evidence of a signed, notarized release. Do not disable Gatekeeper globally. Stable signing identity and notarization remain release requirements; maintainers should follow [macOS signing and notarization](signing.md).
+The release notes identify the signing and notarization checks for each Mac archive. If macOS blocks a downloaded executable, keep the warning and verify that you downloaded the correct release; see [macOS signing and notarization](signing.md). Do not remove quarantine attributes or disable Gatekeeper to force it to run. A source build or development workflow artifact does not inherit a published binary's signing identity.
 
 ## Connect your computers
 
@@ -56,7 +56,7 @@ citta setup
 citta doctor
 ```
 
-Setup creates a background service, configures private Tailscale HTTPS, installs Citta's skills, and connects the local Codex CLI when available. With a signed-in Codex CLI, it creates a full-tool profile: delegated work can run shell commands, edit files, and use the network as your user account. Read the setup permission summary. Use `citta setup --agent-access read-only` if you deliberately want a restricted worker instead.
+Setup creates a background service, configures private Tailscale HTTPS, installs Citta's skills, and connects the local Codex CLI when available. With a signed-in Codex CLI, it creates a full-tool profile: delegated work can run shell commands, edit files, and use the network as your user account. Read the setup permission summary. On a fresh installation, choose `citta setup --agent-access read-only` for a restricted worker. On an existing installation, this adds a read-only profile while preserving existing grants; use the panel's **Permissions** view to disable a previously allowed full-tool profile.
 
 Start a new agent session after setup so it loads the new tools. Ask:
 
@@ -64,9 +64,9 @@ Start a new agent session after setup so it loads the new tools. Ask:
 
 A successful task whose worker is the other device proves the connection. A device appearing in discovery alone does not prove execution. See [device setup](setup.md) for desktop permissions, connected apps, custom harnesses and troubleshooting.
 
-## Build from source today
+## Build from source
 
-Once the first crate is published, a fresh installation can use `cargo install citta --version 0.1.0 --locked` instead of cloning the repository. This path requires Rust 1.99.1 or later and a C compiler/linker. The crate is not available yet; see [crate installation and publication](publishing.md) for its status and the checks required before release. Cargo installs the binary and its embedded UI/skills; download the matching source archive if you need the example adapters or maintenance scripts.
+For a version listed on [crates.io](https://crates.io/crates/citta), a fresh installation can use `cargo install citta --version 0.1.0 --locked` instead of cloning the repository. This path requires Rust 1.99.1 or later and a C compiler/linker. Cargo installs the binary and its embedded UI/skills; download the matching source archive if you need the example adapters or maintenance scripts. See [crate installation and publication](publishing.md).
 
 For development, install Rust 1.99.1, a C compiler, and Python 3.11+. On macOS, Xcode Command Line Tools provide the C compiler. On Linux, install your distribution's C compiler and linker. Check free disk space before compiling.
 
@@ -78,7 +78,23 @@ citta setup
 citta doctor
 ```
 
-The repository currently requires authorized access. A public launch must remove that prerequisite. Cargo normally installs to `~/.cargo/bin`; follow its PATH guidance if `citta` is not found. Keep the checkout for examples and operations scripts. For an existing installation, use the upgrade procedure below instead of replacing a running binary with `cargo install --force`.
+Cargo normally installs to `~/.cargo/bin`; follow its PATH guidance if `citta` is not found. Keep the checkout for examples and operations scripts. For an existing installation, use the upgrade procedure below instead of replacing a running binary with `cargo install --force`.
+
+## Troubleshooting
+
+Run `citta doctor` on both devices first.
+
+| What you see | Next step |
+| --- | --- |
+| `citta` or `python3` not found | Check the Python prerequisite and PATH instructions above. |
+| Tailscale HTTPS fails during setup | Follow the [Tailscale HTTPS prerequisite and recovery steps](setup.md). Enable the required tailnet settings, then rerun setup with the same config. |
+| No agent profile or sign-in required | Confirm `codex --version` works and finish `codex` sign-in on the receiving device, then rerun `citta setup`. |
+| Other device missing | Confirm both are awake, connected to Tailscale under the same owner, and running Citta. Check `citta doctor` on each. |
+| Task queued | Check the receiving device's Permissions, available resources and worker slots in `citta panel`. |
+| Desktop task denied | Follow the [receiving-device access checks](setup.md#choose-what-this-device-should-do). Coding can work while desktop permissions are pending. |
+| Direct `localhost:7331` page does not open the panel | Run `citta panel` and use the private link it prints. |
+
+Inspect failed or interrupted tasks before repeating them; they may already have changed a file or acted in an app. Include the error and task status when [reporting an issue](https://github.com/priyankark/citta/issues), but remove tokens, private paths and task contents you do not want to share.
 
 ## Upgrades and removal
 

@@ -6,7 +6,7 @@ Your laptop has the conversation. Your other computer has the files, the tools, 
 
 Connect your own devices through Tailscale, set up Citta once on each, then ask for what you need in plain language.
 
-> **Release status:** Citta is preparing its first public release. Downloads and production qualification are pending. You can build from source with repository access today. See [installation](docs/install.md) and [release readiness](docs/release-readiness.md).
+> **Early release:** Start with the [installation guide](docs/install.md). Citta is for your own trusted devices; see [tested behavior and remaining limitations](docs/release-readiness.md) before relying on it for unattended work.
 
 ## Watch it work
 
@@ -39,13 +39,13 @@ The meaning is documented in [Lanman’s Sanskrit lexicon](https://www.sanskrit-
 
 You need two of your own macOS or Linux computers, with Tailscale connected under the **same owner account**. Each computer needs Citta installed locally. Being on the network alone does not install Citta.
 
-For the simplest agent setup, install and sign in to Codex on the devices that will run agent tasks. Citta also supports other harnesses through [manual adapters](docs/capabilities.md#agent-harness). Local model tasks need a model runtime and model installed on the receiving device.
+For the simplest agent setup, install the [Codex CLI](https://learn.chatgpt.com/docs/codex/cli) on each device that will run agent tasks. Check `codex --version`, then run `codex` once and complete sign-in. Citta needs the command-line tool available on that device; a desktop-app login alone is not the check. Citta also supports other harnesses through [manual adapters](docs/capabilities.md#agent-harness). Local model tasks need a model runtime and model installed on the receiving device.
 
 **Know what you are enabling:** the default Codex worker can run shell commands, edit files, use the network, and use that device’s configured tools and skills, without asking for approval inside each task. It runs with your device account’s access. Set this up on computers and accounts you trust. An explicit read-only option is available in the [setup guide](docs/setup.md).
 
 ### 2. Install Citta on each device
 
-Follow the [installation guide](docs/install.md) for the archive format, checksum verification, and source-build fallback. The planned binary install does not require Rust; it requires Python 3.11 or newer for the installer.
+Follow the [installation guide](docs/install.md) to choose a Mac or Linux archive, verify its checksum and install it. Binary installation needs [Python 3.11 or newer](https://www.python.org/downloads/), but no Rust compiler. The guide also covers Cargo and source builds.
 
 Then run these commands **on each device**:
 

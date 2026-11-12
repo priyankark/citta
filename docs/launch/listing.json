@@ -1,7 +1,7 @@
 {
-  "status": "prepared_not_scheduled",
+  "status": "draft_created_not_scheduled",
   "product_name": "Citta",
-  "tagline": "Let your AI agents use your other computers",
+  "tagline": "An agent mesh network across your devices",
   "description": "Your agent is on one computer. The files, tools, hardware or spare compute it needs may be on another. Citta connects your Macs and Linux machines over Tailscale so agents can discover capabilities, delegate tasks and bring results back. Built for personal projects and other uses permitted by its noncommercial license.",
   "product_url": "https://github.com/priyankark/citta",
   "product_url_status": "Blocked until repository is public and an installable release is available",
@@ -10,7 +10,7 @@
     "Developer Tools",
     "Productivity"
   ],
-  "topics_status": "Select exact available tags in the live editor; maximum three",
+  "topics_status": "Artificial Intelligence, Developer Tools and Productivity selected and visually verified in the saved Product Hunt editor",
   "pricing": "Free",
   "pricing_explanation": "No Citta license fee for permitted noncommercial uses; external model, API, hardware and network services may have their own costs.",
   "open_source": false,
@@ -31,8 +31,12 @@
     "docs/launch/gallery/04-get-started.png"
   ],
   "gallery_manifest": "docs/launch/gallery/manifest.json",
-  "gallery_status": "Prepared and visually reviewed locally; not uploaded",
+  "gallery_status": "Logo and four gallery images uploaded in order and visually verified in the saved Product Hunt editor on November 12, 2026 UTC; not published",
   "launch_date_basis": "User selected November 14, four days after preparation began",
   "readme_video_file": "docs/media/citta-demo.mp4",
-  "readme_video_captions": "docs/media/citta-demo.srt"
+  "readme_video_captions": "docs/media/citta-demo.srt",
+  "maker_role_status": "I made this selected; Maker badge visually verified",
+  "pricing_status": "Free selected and visually verified",
+  "draft_url": "https://www.producthunt.com/products/citta?launch=citta",
+  "draft_status": "Product Hunt confirmed: This product is a draft and is not scheduled for a launch yet (November 12, 2026 UTC)"
 }

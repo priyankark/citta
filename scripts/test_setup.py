@@ -51,15 +51,23 @@ class Setup(unittest.TestCase):
         self.harness.joinpath('config.toml').write_text('model="fixture-model"\n[mcp_servers.other]\ncommand="preserve-me"\n[mcp_servers.citta]\nenabled=false\n')
         self.ts = self.root / 'tailscale'
         self.ts.write_text(f'''#!{sys.executable}
-import json, os, pathlib, sys
+import json, os, pathlib, sys, time
 root=pathlib.Path(__file__).parent
 assert os.environ.get('TAILSCALE_BE_CLI') == '1'
 args=sys.argv[1:]
 if args == ['status', '--json']:
  print(json.dumps({{'BackendState':'Stopped' if (root/'offline').exists() else 'Running','Self':{{'ID':'other' if (root/'identity-changed').exists() else 'fixture-device','UserID':7,'DNSName':'fixture.tail-test.ts.net.','TailscaleIPs':['100.64.0.1'],'Online':True}},'CurrentTailnet':{{'StableID':'fixture-tailnet','MagicDNSSuffix':'tail-test.ts.net'}},'Peer':{{}}}}))
 elif args == ['serve','status','--json']:
- print(json.dumps({{'TCP':{{'7332':{{'TCPForward':'elsewhere'}}}}}} if (root/'conflict').exists() else {{}}))
+ if (root/'serve-status-denied').exists():
+  print('private-command-output', file=sys.stderr); sys.exit(1)
+ state = json.loads((root/'serve-state').read_text()) if (root/'serve-state').exists() else {{}}
+ print(json.dumps({{'TCP':{{'7332':{{'TCPForward':'elsewhere'}}}}}} if (root/'conflict').exists() else state))
 elif args[:2] == ['serve','--bg']:
+ if (root/'serve-denied').exists() or (root/'serve-timeout').exists():
+  print('private-command-output', flush=True)
+  print('private-command-output', file=sys.stderr, flush=True)
+  if (root/'serve-timeout').exists(): time.sleep(20)
+  sys.exit(1)
  (root/'serve-added').write_text('private route')
 else: sys.exit(2)
 ''')
@@ -542,6 +550,77 @@ sys.exit(0 if 'daemon-reload' in sys.argv else 1)
             self.setup_device(ok=False)
             self.assertEqual(before, self.config.read_bytes())
             self.assertEqual(list(self.config.parent.glob('.setup-*.toml')), [])
+            self.root.joinpath(marker).unlink()
+
+    def test_first_serve_failure_retry_preserves_fresh_admission_defaults(self):
+        harness = self.harness.joinpath('config.toml').read_bytes()
+        self.root.joinpath('serve-denied').touch()
+        self.setup_device(ok=False)
+        initial = tomllib.loads(self.config.read_text())
+        token = self.config.with_name('node.token').read_bytes()
+        self.assertTrue(initial['admission']['guard_all'])
+        self.assertEqual(initial['capabilities'][0]['resources'],
+                         {'memory_bytes': 16 * 1024 * 1024, 'cpu_cores': 0.05})
+        self.assertEqual(self.harness.joinpath('config.toml').read_bytes(), harness)
+        self.assertFalse(self.harness.joinpath('skills').exists())
+        self.assertFalse(self.root.joinpath('serve-added').exists())
+        self.assertFalse(self.config.with_name('setup-pending-profile.json').exists())
+        self.assertEqual(list(self.config.parent.glob('.setup-*.toml')), [])
+        self.root.joinpath('serve-denied').unlink()
+        self.assertTrue(self.setup_device()['agent_configured'])
+        current = tomllib.loads(self.config.read_text())
+        self.assertEqual(current['node_id'], initial['node_id'])
+        self.assertEqual(self.config.with_name('node.token').read_bytes(), token)
+        self.assertEqual(current['admission'], initial['admission'])
+        self.assertEqual(current['capabilities'][0], initial['capabilities'][0])
+
+    def test_serve_failure_retry_preserves_existing_operator_admission_choice(self):
+        self.setup_device()
+        self.config.write_text(self.config.read_text().replace('guard_all = true', 'guard_all = false'))
+        before = self.config.read_bytes()
+        token = self.config.with_name('node.token').read_bytes()
+        harness = self.harness.joinpath('config.toml').read_bytes()
+        routes = {'TCP': {'9000': {'TCPForward': '127.0.0.1:9001'}}}
+        self.root.joinpath('serve-state').write_text(json.dumps(routes))
+        self.root.joinpath('serve-added').unlink()
+        self.root.joinpath('serve-denied').touch()
+        self.setup_device(ok=False)
+        self.assertEqual(self.config.read_bytes(), before)
+        self.assertEqual(self.config.with_name('node.token').read_bytes(), token)
+        self.assertEqual(self.harness.joinpath('config.toml').read_bytes(), harness)
+        self.assertFalse(self.root.joinpath('serve-added').exists())
+        self.root.joinpath('serve-denied').unlink()
+        self.setup_device()
+        self.assertEqual(self.config.read_bytes(), before)
+        self.assertEqual(self.config.with_name('node.token').read_bytes(), token)
+        self.assertFalse(tomllib.loads(self.config.read_text())['admission']['guard_all'])
+        self.assertEqual(json.loads(self.root.joinpath('serve-state').read_text()), routes)
+
+    def test_serve_failures_explain_recovery_without_exposing_command_output(self):
+        self.setup_device()
+        before = self.config.read_bytes()
+        token = self.config.with_name('node.token').read_bytes()
+        harness = self.harness.joinpath('config.toml').read_bytes()
+        self.root.joinpath('serve-added').unlink()
+        for marker in ['serve-status-denied', 'serve-denied', 'serve-timeout']:
+            with self.subTest(marker=marker):
+                self.root.joinpath(marker).touch()
+                error = self.setup_device(ok=False)
+                self.assertNotIn('private-command-output', error)
+                self.assertIn('Tailscale Serve', error)
+                self.assertIn('operator', error)
+                self.assertIn('docs/setup.md#tailscale-https-and-local-permissions', error)
+                if marker != 'serve-status-denied':
+                    self.assertIn('MagicDNS', error)
+                    self.assertIn('HTTPS', error)
+                    self.assertIn('7332', error)
+                if marker == 'serve-timeout':
+                    self.assertIn('timed out', error)
+                self.assertEqual(self.config.read_bytes(), before)
+                self.assertEqual(self.config.with_name('node.token').read_bytes(), token)
+                self.assertEqual(self.harness.joinpath('config.toml').read_bytes(), harness)
+                self.assertFalse(self.root.joinpath('serve-added').exists())
+                self.assertEqual(list(self.config.parent.glob('.setup-*.toml')), [])
             self.root.joinpath(marker).unlink()
 
     def test_login_then_rerun_adds_profile_without_reinitializing(self):

@@ -53,7 +53,7 @@ The `[admission]` config defaults to 512 MiB of memory headroom and a 90% CPU-pr
 
 `admission_memory_bytes` is an OS-specific estimate with an explicit `admission_memory_source`. Linux uses the system available-memory estimate. macOS uses the kernel's `kern.memorystatus_level` percentage of total RAM because the raw sysinfo value can become zero when compressed pages are subtracted. The original raw memory values remain visible in discovery. Reservations deliberately subtract their full estimate even when a running process may already be reflected in telemetry. This is conservative admission, not hard memory/CPU isolation or a promise to prevent OOM under external load. Existing running tasks are not killed merely because system pressure increases.
 
-Install the repository's `skills/citta-delegate` in the originating harness for proactive runtime use. Citta does not itself inspect arbitrary user tasks or decide to divide a conversation. The skill guides authorized agents to create bounded, self-contained subtasks, discover capabilities, delegate, and collect results. Recursive delegation, shared child budgets, automatic file transfer, and live-session takeover remain unsupported.
+Install the repository's `skills/citta-delegate` in the originating harness for proactive runtime use. Citta does not itself inspect arbitrary user tasks or decide to divide a conversation. The skill guides authorized agents to create bounded, self-contained subtasks, discover capabilities, delegate, and collect results. Agents can delegate further, but shared child budgets, cascading cancellation, automatic file transfer, and live-session takeover remain unsupported.
 
 ## Human monitoring
 
