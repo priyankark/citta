@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify the existing f6fd signed Intel candidate; never build, sign, or publish."""
+"""Verify the exact pinned signed Intel draft; never build, sign, or publish."""
 import argparse
 import hashlib
 import json
@@ -12,18 +12,19 @@ import tarfile
 import tempfile
 
 REPOSITORY = 'priyankark/citta'
-RELEASE = 442020092
-SOURCE = 'f6fd91fa7978e16b5aca6dec227c1e303de0daea'
+REPOSITORY_ID = 1448601034
+RELEASE = 442541115
+SOURCE = 'c767ce5b5c1ad283c00afad9684a4f809a7c857e'
 TARGET = 'x86_64-apple-darwin'
 NAME = f'citta-0.1.0-{TARGET}'
 TEAM = '9ZSYA62D6L'
 IDENTIFIER = 'io.citta.daemon'
 CERTIFICATE = '6C0C0715C06427D3D33C15C22FC0A25F1E126304'
-BINARY_SHA256 = '98ae3a933036566c5da424d0e3acd737f5ab712a21235e4c9591eef76cfd80a4'
+BINARY_SHA256 = '4df05409f3e009242d836a73a89329ebcdf73386bc0978a6854d47b79e4819d6'
 ASSETS = {
-    NAME + '.tar.gz': (736373616, 'cbac9030a69d19636bd6d4244a9ac36370477bcb42bc38f27cfbdb4f0ad4414b'),
-    NAME + '.tar.gz.sha256': (736373622, '13ba4b0d0523e930129846484cdeeda945223399a14a618611298bf94919f24c'),
-    NAME + '.manifest.json': (736373663, 'd4eacdac3deb1474aaeff6efe3de7f7b2b1b55baf9b7400c1568d42a0b1bc604'),
+    NAME + '.tar.gz': (738265168, '689c14b36826ab9cf52bb7f90dd79e18052bc0ef8ac1851d0f0b847094dc7200'),
+    NAME + '.tar.gz.sha256': (738265213, '2dd670bb1b8a265e4c7d3cc54f06f23ff66c427a24245274befbf2a26f2e0776'),
+    NAME + '.manifest.json': (738265238, '3babacd8be92e3fefd0527af7d83392d0737bb982f92b806d58bc1ddc7ed86e7'),
 }
 
 
@@ -42,8 +43,10 @@ def check_assets(directory):
 
 
 def check_release(repository, release):
-    require(repository.get('private') is True, 'This rehearsal requires a private repository')
-    require(release.get('id') == RELEASE and release.get('draft') is True, 'Expected private draft release')
+    require(repository.get('full_name') == REPOSITORY and repository.get('id') == REPOSITORY_ID,
+            'Repository identity mismatch')
+    require(isinstance(repository.get('private'), bool), 'Missing repository visibility')
+    require(release.get('id') == RELEASE and release.get('draft') is True, 'Expected pinned unpublished draft release')
     require(release.get('published_at') is None, 'Release was published; inspect before reusing this rehearsal')
     require(release.get('target_commitish') == SOURCE, 'Draft source commit changed')
     for name, (asset_id, checksum) in ASSETS.items():
@@ -54,15 +57,16 @@ def check_release(repository, release):
 
 def download(directory, report):
     def api(endpoint):
-        return json.loads(subprocess.check_output(['gh', 'api', endpoint], timeout=45))
+        return json.loads(subprocess.check_output(['gh', 'api', '--method', 'GET', endpoint], timeout=45))
     repository = api(f'repos/{REPOSITORY}')
     release = api(f'repos/{REPOSITORY}/releases/{RELEASE}')
     check_release(repository, release)
-    report.update(repository_private=True, release_draft=True, release_id=RELEASE)
+    report.update(repository=REPOSITORY, repository_id=REPOSITORY_ID,
+                  repository_private=repository['private'], release_draft=True, release_id=RELEASE)
     for name, (asset_id, _) in ASSETS.items():
         # Exclusive creation preserves a partial failure instead of silently replacing it.
         with (directory / name).open('xb') as output:
-            subprocess.run(['gh', 'api', '-H', 'Accept: application/octet-stream',
+            subprocess.run(['gh', 'api', '--method', 'GET', '-H', 'Accept: application/octet-stream',
                             f'repos/{REPOSITORY}/releases/assets/{asset_id}'],
                            stdout=output, check=True, timeout=60)
     check_assets(directory)

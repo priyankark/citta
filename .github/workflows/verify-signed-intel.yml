@@ -4,15 +4,17 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: verify-signed-intel-f6fd
+  group: verify-signed-intel
   cancel-in-progress: false
 jobs:
   verify:
     permissions:
-      # GitHub requires push access to read draft releases. Download uses GET only.
+      # Draft assets need push access even when the repository is public.
+      # Only the GET-only download step receives the token; candidate execution
+      # uses a sanitized environment and checkout never persists credentials.
       # https://docs.github.com/en/rest/releases/releases#list-releases
       contents: write
-    if: github.event.repository.private && github.repository == 'priyankark/citta'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && github.repository == 'priyankark/citta' && github.repository_id == '1448601034'
     runs-on: macos-26-intel
     timeout-minutes: 8
     steps:
@@ -34,7 +36,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: signed-intel-f6fd-verification-${{ github.run_attempt }}
+          name: signed-intel-verification-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             local/signed-intel-check/download.json
             local/signed-intel-check/verification.json
