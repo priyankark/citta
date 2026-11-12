@@ -1,12 +1,12 @@
 # Launch media
 
-Updated November 12: a **240 × 240 PNG logo**, **four 1270 × 760 gallery PNGs** and a **1280 × 720 demo thumbnail**. The gallery and thumbnail now show a network of agents sharing access to tools, data and compute. Dimensions and checksums are in the manifest. An older gallery is saved on Product Hunt; replacement upload of this revision is pending. The launch has not been scheduled or published.
+Updated November 12: a **240 × 240 PNG logo**, **four 1270 × 760 gallery PNGs** and a **1280 × 720 demo thumbnail**. The gallery and thumbnail now show a network of agents sharing access to tools, data and compute. Dimensions and checksums are in the manifest. The revised gallery is saved on Product Hunt and visible on its independently reloaded page. The launch is scheduled for November 14 at 12:01 AM Pacific.
 
 Use [the logo](gallery/logo.png) and the four images below. [The asset manifest](gallery/manifest.json) includes dimensions, checksums, alt text, captions and result-crop provenance. Editable sources are [HTML](gallery/gallery.html), [CSS](gallery/gallery.css), and [SVG](gallery/logo.svg); the logo reuses Citta's existing panel mark. Render them with `node docs/launch/gallery/render.cjs` from an environment with Playwright and Chromium. This uses a separate headless browser, with no signed-in profile.
 
 ## Gallery sequence
 
-Lead with the network of agents, then show what its members can do with data, tools and compute. The gallery and thumbnail have been regenerated and visually reviewed; external replacements require separate verification.
+Lead with the network of agents, then show what its members can do with data, tools and compute. The gallery and thumbnail have been regenerated and visually reviewed; the replacement images and their order were verified in a freshly opened Product Hunt preview. Product Hunt displays the video before the images.
 
 | Image | Headline | Content |
 | --- | --- | --- |
@@ -22,7 +22,7 @@ Avoid exposing device addresses, usernames, personal paths, tokens or browser ta
 
 ## Existing video
 
-The completed local film is about 1 minute 51 seconds, 1920 × 1080 H.264/AAC, with captions and narration. It contains real task execution and illustrative later scenarios. It is hosted as an [unlisted YouTube video](https://www.youtube.com/watch?v=EPdPu5djxSQ). Signed-out playback was verified, and all 45 manual-caption cues were independently matched to the source SRT. Product Hunt attachment persistence still needs a saved-preview check. The new YouTube title, description and thumbnail require a verified external save.
+The completed local film is about 1 minute 51 seconds, 1920 × 1080 H.264/AAC, with captions and narration. It contains real task execution and illustrative later scenarios. It is hosted as an [unlisted YouTube video](https://www.youtube.com/watch?v=EPdPu5djxSQ). Signed-out playback was verified, and all 45 manual-caption cues were independently matched to the source SRT. The Product Hunt video is present on its reloaded launch page. The new YouTube title, description and thumbnail were saved; title, description and thumbnail were independently verified from public viewer data.
 
 Release-media source: `local/product-video/edit-v3/final/citta-expenses-and-local-ai.mp4` (ignored production material). Use the matching captions and production notes. Do not commit private execution records or the Clipchamp editing session to the public repository.
 
@@ -34,9 +34,9 @@ Release-media source: `local/product-video/edit-v3/final/citta-expenses-and-loca
 
 - [x] Logo and rendered gallery files exist and have been visually reviewed at their final sizes.
 - [x] Actual result crops contain only intended public synthetic demo data; no device addresses, usernames, personal paths, tokens, task IDs or browser tabs.
-- [ ] Verify that Product Hunt saved the staged video and adjacent synthetic-data/noncommercial license description after global **Save changes**.
+- [x] Verify the saved Product Hunt video and the maker comment containing sample-data and noncommercial-license context.
 - [x] Upload the final video to the selected unlisted destination and put its viewer link in `listing.json`.
 - [x] Verify signed-out video playback and independently match all 45 manual-caption cues to the source SRT.
 - [ ] Add concise alt text/captions where the launch editor supports them.
 
-This folder contains the media and its brief. The previously uploaded logo and gallery are saved in the external editor. The video is available unlisted, its Product Hunt attachment needs a saved-preview check, and the launch is not scheduled. Revised gallery uploads require their own verification. The original video and its detailed truth boundaries above are unchanged.
+This folder contains the media and its brief. The logo, revised gallery and video are saved on Product Hunt, which confirms the November 14 schedule. The YouTube video remains unlisted. The original video and its detailed truth boundaries above are unchanged.

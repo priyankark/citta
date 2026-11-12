@@ -1,6 +1,6 @@
 # Demo listing
 
-Prepared November 12, 2026. New title, description and thumbnail are prepared; external save is pending. The recorded video, audio and matching captions are unchanged.
+Updated November 12, 2026. The title, shorter description and revised thumbnail are saved in YouTube Studio. Title, description and thumbnail were independently verified from public viewer data. The video remains unlisted; its recording and captions are unchanged.
 
 ## Title
 
@@ -8,17 +8,19 @@ Citta | A network for agents to share tools, data and compute
 
 ## Description
 
-Citta connects your AI agents into a private network, so they can use each other's tools, access data and put spare compute to work.
+Citta lets agents on different computers share tools, data and compute.
 
-Each agent brings access to its own files, tools, models or hardware. Agents can find what is available on the network, send work to a member with the right access or capacity and get the results back. Citta runs on Macs and Linux machines connected privately through Tailscale, on the same local network or across locations.
+In this demo:
+• An agent on a Mac Mini asks a MacBook Air to organize sample receipts.
+• The Air sends expense categorization to Gemma running locally on the Mini.
 
-This demo shows two real tasks: an agent asks another to organize trip receipts, then sends expense categorization to a local Gemma model.
+Install and try it: https://github.com/priyankark/citta
 
-Source and installation: https://github.com/priyankark/citta
+Built in Rust for Macs and Linux machines connected through Tailscale.
 
-Demonstration with synthetic data. Citta is available under PolyForm Noncommercial 1.0.0; commercial use is not licensed. See the license for permitted uses.
+The demo uses synthetic receipts and shortened waits. The final report was saved on the Mini after the Air ran out of disk space. The later hardware examples are illustrations.
 
-Narration uses Clipchamp text-to-speech. Waiting is shortened. Codex orchestration is cloud-backed. The Air could not save its report because its disk was full, so the returned report was saved on the Mini. Later hardware scenarios are illustrative. Tasks use memory on the machine running them; Citta does not pool RAM.
+Early release. PolyForm Noncommercial 1.0.0; commercial use isn't licensed.
 
 ## Media
 

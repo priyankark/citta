@@ -1,6 +1,6 @@
 # Product Hunt launch copy
 
-Updated November 12, 2026 (UTC). This revision presents Citta as a private network for agents to share tools, data and compute. External save of this copy and the revised gallery is pending. Product Hunt has the earlier saved copy and is not scheduled. [Open the draft](https://www.producthunt.com/products/citta?launch=citta). Machine-readable fields are in [listing.json](listing.json).
+Updated November 12, 2026 (UTC). Product Hunt confirms the launch is scheduled for **November 14 at 12:01 AM Pacific**. The revised gallery order and shortened maker comment have been verified in freshly opened Product Hunt pages. [Open the scheduled launch](https://www.producthunt.com/products/citta?launch=citta). Machine-readable fields are in [listing.json](listing.json).
 
 ## Listing
 
@@ -10,7 +10,7 @@ Updated November 12, 2026 (UTC). This revision presents Citta as a private netwo
 
 **Description:** Citta connects your AI agents into a private network, so they can use each other's tools, access data and put spare compute to work. Each agent brings what it has access to: private files, installed tools, local models or connected hardware. When a task needs more capacity, your agent can send it to a member of the network with the resources to run it.
 
-**Product link:** `https://github.com/priyankark/citta`; the repository is public; verify the published installation path without the maker's account before scheduling.
+**Product link:** `https://github.com/priyankark/citta`; the repository is public; anonymous downloads and public installation have been verified.
 
 **Pricing:** Free. Explain that this applies to uses permitted by the noncommercial license; external model/API subscriptions and other services may cost money.
 
@@ -18,7 +18,7 @@ Updated November 12, 2026 (UTC). This revision presents Citta as a private netwo
 
 ## Video caption
 
-[Watch the demonstration](https://www.youtube.com/watch?v=EPdPu5djxSQ). The unlisted video plays while signed out, and all 45 manual-caption cues match the source SRT. Its Product Hunt attachment still needs a fresh saved-preview check. Keep demo context with the video or maker comment, rather than in the short product description.
+[Watch the demonstration](https://www.youtube.com/watch?v=EPdPu5djxSQ). The unlisted video plays while signed out, and all 45 manual-caption cues match the source SRT. Its attachment is visible in the saved Product Hunt editor. Keep demo context with the video or maker comment, rather than in the short product description.
 
 Demonstration with synthetic data. Citta is available under PolyForm Noncommercial 1.0.0; commercial use is not licensed. See the license for permitted uses.
 
@@ -26,19 +26,17 @@ Place this beside the existing video if retaining its “work trip” opening. T
 
 ## First maker comment
 
-Hi, I'm Priyankar. I built Citta to connect AI agents into a network where they can share access to tools, data and compute.
+Hi, I'm Priyankar. I built Citta so agents on different computers can work together.
 
-One agent might have the files you need. Another might have a local model ready to run, a useful tool installed or access to connected hardware. Citta lets your agent find what is available, send work there and get the result back.
+An agent can discover the tools, models and compute available on your other machines, delegate a task and collect the result. You can monitor the work and set each device's permissions from a control panel.
 
-You can also put spare compute to work. A task runs using the CPU and RAM of the machine that accepts it. Citta doesn't combine memory into one pool.
+In the demo, an agent on my Mac Mini asks my MacBook Air to organize sample receipts. The Air then sends expense categorization back to the Mini, where Gemma runs locally.
 
-The demo shows agents using receipt data and a local Gemma model on the same network. The receipts are synthetic, and the tasks ran on real Macs. The video description includes the recording details.
+Citta is written in Rust and connects Macs and Linux machines through Tailscale. It exposes MCP tools and command adapters; setup currently handles Codex, with other harnesses requiring configuration.
 
-To try it, install Citta on your own Macs or Linux machines connected through Tailscale. Each agent needs its tools and accounts set up. Full-tool agents can run commands, edit files and use installed skills without asking for approval for each command, so this is for devices and agents you trust.
+Install it on two machines and try a task: https://github.com/priyankark/citta
 
-Citta (चित्त) means mind or thought in Sanskrit. The name fits the idea of agents bringing what they know and can do into a shared network.
-
-This is an early release. The code is available under PolyForm Noncommercial 1.0.0; commercial use isn't licensed. The license also permits certain organizations, including educational and charitable institutions. Setup instructions and known limitations are in the README.
+This is an early release, available under PolyForm Noncommercial 1.0.0. Commercial use isn't licensed.
 
 ## Ready answers
 
@@ -66,6 +64,6 @@ This is an early release. The code is available under PolyForm Noncommercial 1.0
 
 ## Share copy
 
-Citta connects your AI agents into a private network, so they can use each other's tools, access data and put spare compute to work. Try it for a permitted noncommercial project: https://github.com/priyankark/citta
+Citta connects your AI agents into a private network, so they can use each other's tools, access data and put spare compute to work. Code and setup: https://github.com/priyankark/citta
 
 This is prepared copy only. Do not send messages or publish posts as part of preparation. Ask for product feedback, not votes, following [Product Hunt's promotion guidance](https://help.producthunt.com/en/articles/17734384-5-how-to-promote-your-launch-and-what-to-avoid).
