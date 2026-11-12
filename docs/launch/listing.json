@@ -4,7 +4,7 @@
   "tagline": "An agent mesh network across your devices",
   "description": "Your agent is on one computer. The files, tools, hardware or spare compute it needs may be on another. Citta connects your Macs and Linux machines over Tailscale so agents can discover capabilities, delegate tasks and bring results back. Built for personal projects and other uses permitted by its noncommercial license.",
   "product_url": "https://github.com/priyankark/citta",
-  "product_url_status": "Blocked until repository is public and an installable release is available",
+  "product_url_status": "Repository is public and verified signed-out; installable release publication is pending final artifact checks",
   "proposed_topics": [
     "Artificial Intelligence",
     "Developer Tools",
@@ -38,5 +38,6 @@
   "maker_role_status": "I made this selected; Maker badge visually verified",
   "pricing_status": "Free selected and visually verified",
   "draft_url": "https://www.producthunt.com/products/citta?launch=citta",
-  "draft_status": "Product Hunt confirmed: This product is a draft and is not scheduled for a launch yet (November 12, 2026 UTC)"
+  "draft_status": "Product Hunt confirmed: This product is a draft and is not scheduled for a launch yet (November 12, 2026 UTC)",
+  "video_status": "Uploaded to the personal maker channel as a private draft; English captions uploaded. Visibility and public playback verification pending."
 }
