@@ -1,0 +1,39 @@
+name: Verify signed Intel release
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: verify-signed-intel-f6fd
+  cancel-in-progress: false
+jobs:
+  verify:
+    if: github.event.repository.private && github.repository == 'priyankark/citta'
+    runs-on: macos-26-intel
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: '3.13'
+      - name: Check verification failure handling
+        run: python3 scripts/test_signed_intel.py
+      - name: Download exact existing private draft assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/check_signed_intel.py download
+      - name: Verify signed Intel bytes and native isolated installation
+        run: python3 scripts/check_signed_intel.py verify
+      - name: Retain verification result without redistributing the archive
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: signed-intel-f6fd-verification-${{ github.run_attempt }}
+          path: |
+            local/signed-intel-check/download.json
+            local/signed-intel-check/verification.json
+            local/signed-intel-check/installer.json
+          if-no-files-found: warn
+          retention-days: 7
