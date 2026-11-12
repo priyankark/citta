@@ -1,10 +1,10 @@
 # Citta
 
-**Your agent. All your devices.**
+**An agent mesh for tools, data and compute.**
 
-Your laptop has the conversation. Your other computer has the files, the tools, or the power to do the work. Citta lets your agent ask that computer for help and bring the result back.
+Let your agents work together—and reach the capabilities each has access to. Citta lets an agent discover available workers, delegate a task, and bring the result back. A worker can use private files, installed tools, connected hardware or a local model to do its part.
 
-Connect your own devices through Tailscale, set up Citta once on each, then ask for what you need in plain language.
+The mesh runs across your own Macs and Linux machines connected through Tailscale. Set up Citta on each, then ask your agent for what you need in plain language.
 
 > **Early release:** Start with the [installation guide](docs/install.md). Citta is for your own trusted devices; see [tested behavior and remaining limitations](docs/release-readiness.md) before relying on it for unattended work.
 
@@ -14,22 +14,22 @@ Connect your own devices through Tailscale, set up Citta once on each, then ask 
 
 **[Watch the demo (1 minute 51 seconds)](https://youtu.be/EPdPu5djxSQ)** · [Download MP4](https://raw.githubusercontent.com/priyankark/citta/main/docs/media/citta-demo.mp4) · [Captions](docs/media/citta-demo.srt)
 
-Two real handoffs: the MacBook reads synthetic receipts, then the Mini runs a local Gemma model. Waits are shortened; later hardware examples are illustrative. Codex orchestration is cloud-backed. The film uses a work-trip scenario to demonstrate the capability; commercial use is not licensed under Citta’s [PolyForm Noncommercial terms](LICENSE.md).
+Two real handoffs: an agent delegates receipt analysis to a worker with access to the files, then sends categorization to a local Gemma model. The demo runs between a MacBook Air and Mac mini using synthetic receipts. Waits are shortened; later hardware examples are illustrative. Codex orchestration is cloud-backed. The film uses a work-trip scenario to demonstrate the capability; commercial use is not licensed under Citta’s [PolyForm Noncommercial terms](LICENSE.md).
 
 ## Why use it?
 
-| Your task | Why another device helps |
+| Your task | What the mesh makes available |
 | --- | --- |
-| “Put together my trip expenses. The receipts are on my MacBook.” | The files are already there. A worker can read them there and return a report. |
-| “Use the Mini’s local model to categorize these expenses.” | Your desktop has the model and enough memory to run it. |
-| “Build my hobby iPhone app on the Mac and test it on the phone plugged into it.” | That Mac has Xcode and the connected hardware. |
-| “Transcribe my recordings on the desktop while I keep using my laptop.” | The desktop has the tools and spare capacity. |
+| “Put together my trip expenses from the receipts folder.” | A worker with access to the receipts can read them and return a report. |
+| “Use a local model to categorize these expenses.” | A configured model worker can run inference and return the categories. |
+| “Build my hobby iPhone app and test it on my phone.” | An agent on your Mac can use its Xcode installation and connected phone. |
+| “Find a worker with capacity to transcribe these recordings.” | Your agent can delegate to a worker with the transcription tools and available resources. |
 
 The expense and local-model workflows have run between a Mac mini and MacBook Air using synthetic receipts. The hardware and transcription examples require the corresponding tools and access on the receiving device; Citta does not install them automatically.
 
 ## Why “Citta”?
 
-**Citta** (चित्त, roughly pronounced **“chit-ta”**) is a Sanskrit word for **mind** or **thought**. The name reflects the idea behind the project: an agent can bring together the capabilities of your devices to carry out a task. The conversation stays with you while the work can happen where it makes sense.
+**Citta** (चित्त, roughly pronounced **“chit-ta”**) is a Sanskrit word for **mind** or **thought**. The name reflects the idea behind the project: agents can bring together their available capabilities to carry out a task. The conversation stays with you while the work can happen where it makes sense.
 
 The meaning is documented in [Lanman’s Sanskrit lexicon](https://www.sanskrit-lexicon.uni-koeln.de/scans/LANScan/LANScanpdf/lan_188.pdf); the [pronunciation](https://www.rep.routledge.com/articles/overview/indian-and-tibetan-philosophy/v-1/sections/pronunciation-of-sanskrit-words) follows the Sanskrit *c* sound, like *ch* in “church.”
 

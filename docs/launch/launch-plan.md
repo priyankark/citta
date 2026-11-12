@@ -8,6 +8,8 @@ Work toward November 14 while preserving the release checks below. Report any un
 
 ## What a useful launch looks like
 
+Lead with **“An agent mesh for tools, data and compute.”** Show an agent discovering a capability, delegating a task and collecting a result. Explain why that worker is useful: it has access to the data, tool, local model or hardware the task needs. Then explain the supported computers, Tailscale connection and receiving-side accounts and permissions. Do not suggest pooled memory, migration of a running agent or unrestricted automatic routing.
+
 Proposed targets: 10 people report completing their first task across two devices, and 15 actionable pieces of setup feedback. These are planning targets, not forecasts. Count voluntary feedback and downloads; do not introduce silent telemetry or imply downloads are successful installations.
 
 ## Before scheduling
@@ -46,5 +48,7 @@ No automatic fallback date is selected. If a launch gate remains blocked, presen
 ## Submission mechanics
 
 Use the maker's personal Product Hunt account. Fill [listing.json](listing.json) and [product-hunt.md](product-hunt.md), then inspect the preview. The official editor distinguishes saving a draft from scheduling publication; keep the page as a draft while incomplete. Product Hunt accepts a direct usable/downloadable product URL, including a GitHub repository. [Submission guidance](https://help.producthunt.com/en/articles/17834537-4-build-your-product-page).
+
+The agent-first listing revision is prepared in the local copy files. The unlisted YouTube video plays signed-out and all 45 manual-caption cues match the source SRT. The video and its adjacent synthetic-data/license description are staged in Product Hunt, with the global save still unverified. Verify the final copy, gallery and media again after **Save changes**, then inspect the preview.
 
 The user has authorized public source, release distribution and Product Hunt scheduling for the selected date. The repository is now public after an independent history and artifact review. Product Hunt has a saved draft; it is not scheduled. Publish the qualified downloads and verify the video and listing before scheduling. No outreach is planned.

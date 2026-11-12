@@ -1,8 +1,8 @@
 {
   "status": "draft_created_not_scheduled",
   "product_name": "Citta",
-  "tagline": "An agent mesh network across your devices",
-  "description": "Your agent is on one computer. The files, tools, hardware or spare compute it needs may be on another. Citta connects your Macs and Linux machines over Tailscale so agents can discover capabilities, delegate tasks and bring results back. Built for personal projects and other uses permitted by its noncommercial license.",
+  "tagline": "An agent mesh for tools, data and compute",
+  "description": "Let your agents discover capabilities, delegate work and bring results back. Citta connects them to workers with access to private data, installed tools, hardware or compute—from coding tasks to local-model inference. Runs on your own Macs and Linux machines over Tailscale. Source-available for permitted noncommercial use. Demo uses synthetic data.",
   "product_url": "https://github.com/priyankark/citta",
   "product_url_status": "Repository is public and verified signed-out; installable release publication is pending final artifact checks",
   "proposed_topics": [
@@ -22,7 +22,7 @@
   "timezone": "America/Los_Angeles",
   "fallback_launch": null,
   "externally_scheduled": false,
-  "video_url": null,
+  "video_url": "https://www.youtube.com/watch?v=EPdPu5djxSQ",
   "logo_file": "docs/launch/gallery/logo.png",
   "gallery_files": [
     "docs/launch/gallery/01-your-devices.png",
@@ -31,7 +31,7 @@
     "docs/launch/gallery/04-get-started.png"
   ],
   "gallery_manifest": "docs/launch/gallery/manifest.json",
-  "gallery_status": "Logo and four gallery images uploaded in order and visually verified in the saved Product Hunt editor on November 12, 2026 UTC; not published",
+  "gallery_status": "The earlier logo and device-focused gallery were uploaded and verified in the saved Product Hunt editor on November 12, 2026 UTC. Revised agent-first gallery files are prepared locally; replacement upload and global save are not yet verified. Not published.",
   "launch_date_basis": "User selected November 14, four days after preparation began",
   "readme_video_file": "docs/media/citta-demo.mp4",
   "readme_video_captions": "docs/media/citta-demo.srt",
@@ -39,5 +39,6 @@
   "pricing_status": "Free selected and visually verified",
   "draft_url": "https://www.producthunt.com/products/citta?launch=citta",
   "draft_status": "Product Hunt confirmed: This product is a draft and is not scheduled for a launch yet (November 12, 2026 UTC)",
-  "video_status": "Uploaded to the personal maker channel as a private draft; English captions uploaded. Visibility and public playback verification pending."
+  "video_status": "Unlisted YouTube video plays signed-out; all 45 manual-caption cues independently matched the source SRT. Video and synthetic-data/license description are staged in Product Hunt; global Save changes has not yet been verified.",
+  "copy_status": "Agent-first copy prepared locally; saving this revision in the Product Hunt editor has not been verified"
 }

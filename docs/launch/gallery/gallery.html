@@ -7,39 +7,39 @@
 </head>
 <body>
   <section class="slide" id="01-your-devices">
-    <header><div class="brand"><img src="logo.svg" alt="">citta<span>.</span></div><span class="eyebrow">YOUR AGENT. ALL YOUR DEVICES.</span></header>
-    <div class="hero"><h1>The right computer<br>for the task.</h1><p>Your agent can ask your other devices<br>for help — and bring the result back.</p></div>
-    <div class="mesh" aria-label="Explanatory diagram: your laptop sends a task to your desktop and receives the result">
-      <div class="device laptop"><div class="display"><span class="tiny">YOUR LAPTOP</span><strong>“Use my<br>other computer.”</strong><i></i></div><div class="base"></div></div>
-      <div class="connection"><span>SEND A TASK</span><b>→</b><b>←</b><span>GET THE RESULT</span></div>
-      <div class="device desktop"><div class="display"><span class="tiny">YOUR OTHER DEVICE</span><strong>Files.<br>Tools. Power.</strong><i></i></div><div class="stand"></div></div>
+    <header><div class="brand"><img src="logo.svg" alt="">citta<span>.</span></div><span class="eyebrow">TOOLS. DATA. COMPUTE.</span></header>
+    <div class="hero"><h1>The right capabilities<br>for the task.</h1><p>Your agent discovers what’s available,<br>delegates the work, and brings<br>the result back.</p></div>
+    <div class="mesh" aria-label="Explanatory diagram: an agent discovers capabilities, delegates a task to an eligible worker, and collects its result">
+      <div class="agent-card"><span class="tiny">YOUR AGENT</span><strong>One task.<br>More ways to do it.</strong><span class="agent-detail">Keeps the conversation with you</span></div>
+      <div class="connection"><span>DISCOVER + DELEGATE</span><b>→</b><b>←</b><span>COLLECT THE RESULT</span></div>
+      <div class="worker-card"><span class="tiny">AN AVAILABLE WORKER</span><strong>The access or capacity<br>this task needs</strong><div class="capabilities"><span>Files + tools</span><span>Agent tools</span><span>Local model</span></div></div>
     </div>
-    <div class="reasons"><div><b>01</b><strong>Private files</strong><span>Already on that device</span></div><div><b>02</b><strong>Installed tools</strong><span>Ready to do the work</span></div><div><b>03</b><strong>Connected hardware</strong><span>A camera, phone or more</span></div><div><b>04</b><strong>Spare compute</strong><span>A model or room to run</span></div></div>
+    <div class="reasons"><div><b>01</b><strong>Private data</strong><span>Read files where they live</span></div><div><b>02</b><strong>Installed tools</strong><span>Use the tools already there</span></div><div><b>03</b><strong>Hardware access</strong><span>Reach connected equipment</span></div><div><b>04</b><strong>Available compute</strong><span>Find capacity for a new task</span></div></div>
     <footer><span>macOS + Linux · Connected through Tailscale</span><span>01 / 04</span></footer>
   </section>
 
   <section class="slide" id="02-the-files">
-    <header><div class="brand"><img src="logo.svg" alt="">citta<span>.</span></div><span class="eyebrow">THE OTHER COMPUTER HAS THE FILES</span></header>
-    <h1>The receipts are on my MacBook.</h1>
-    <p class="lead">Ask from your Mini. The MacBook reads them there.<br>The report comes back for you to review.</p>
-    <div class="route"><span>Mac mini <small>Your request</small></span><b>→</b><span>MacBook Air <small>The receipt files</small></span><b>→</b><span>Back to you <small>An expense report</small></span></div>
+    <header><div class="brand"><img src="logo.svg" alt="">citta<span>.</span></div><span class="eyebrow">DELEGATE TO THE WORKER WITH ACCESS</span></header>
+    <h1>Give your agent access to the files.</h1>
+    <p class="lead">The agent asks a worker on the MacBook to read its receipts.<br>The expense report returns to the Mini for review.</p>
+    <div class="route"><span>Your agent <small>Request starts on the Mini</small></span><b>→</b><span>Worker on the Air <small>Access to the receipt files</small></span><b>→</b><span>Result returned <small>An expense report to review</small></span></div>
     <div class="evidence"><div class="evidence-label"><span>FROM THE ACTUAL DEMO REPORT</span><span>SYNTHETIC TEXT RECEIPTS</span></div><img src="receipt-result.png" alt="Actual report: $860.95 unique transactions, $833.95 with receipts, $27 missing receipt and $58.40 duplicate excluded."></div>
     <div class="takeaways"><span><i>−</i> Duplicate found and excluded</span><span><i>!</i> Missing receipt flagged for review</span></div>
     <footer><span>Real execution · Synthetic data · Report returned to the Mini</span><span>02 / 04</span></footer>
   </section>
 
   <section class="slide" id="03-the-model">
-    <header><div class="brand"><img src="logo.svg" alt="">citta<span>.</span></div><span class="eyebrow">NOW SEND THE WORK THE OTHER WAY</span></header>
-    <h1>“Use the Mini’s local model.”</h1>
-    <p class="lead">Your MacBook can use a model installed on your desktop.</p>
-    <div class="model-layout"><div class="model-story"><span class="pill">MacBook Air → Mac mini</span><h2>Six expenses.<br>Categories<br>from Gemma.</h2><p>Gemma 3 4B via Ollama<br>runs on the Mini.</p><div class="model-return">← Categories come back</div></div><div class="evidence model"><div class="evidence-label"><span>ACTUAL MODEL-RESULT TABLE</span></div><img src="model-result.png" alt="Actual model categories: hotel as lodging, rail and cab as transport, dinner and coffee as meals, and parking as other."></div></div>
+    <header><div class="brand"><img src="logo.svg" alt="">citta<span>.</span></div><span class="eyebrow">DELEGATE TO A LOCAL MODEL</span></header>
+    <h1>Use the model that fits the task.</h1>
+    <p class="lead">Your agent can use Gemma on the Mini to categorize expenses.</p>
+    <div class="model-layout"><div class="model-story"><span class="pill">MacBook Air → Mac mini</span><h2>Six expenses.<br>A task for<br>a local model.</h2><p>Gemma 3 4B via Ollama.<br>The model and compute<br>are already on the Mini.</p><div class="model-return">← Categories come back</div></div><div class="evidence model"><div class="evidence-label"><span>ACTUAL MODEL-RESULT TABLE</span></div><img src="model-result.png" alt="Actual model categories: hotel as lodging, rail and cab as transport, dinner and coffee as meals, and parking as other."></div></div>
     <footer><span>Local inference · Cloud-backed Codex orchestration · Synthetic data</span><span>03 / 04</span></footer>
   </section>
 
   <section class="slide" id="04-get-started">
-    <header><div class="brand"><img src="logo.svg" alt="">citta<span>.</span></div><span class="eyebrow">START WITH TWO COMPUTERS</span></header>
-    <h1>Connect them.<br>Let your agent get to work.</h1>
-    <div class="steps"><div><span class="number">1</span><h2>Connect Tailscale</h2><p>Your own computers.<br>The same owner account.</p><div class="step-bottom">macOS + Linux</div></div><div><span class="number">2</span><h2>Set up Citta</h2><p>Install it on each device.<br>Run setup and check access.</p><div class="commands"><code>citta setup</code><code>citta doctor</code></div></div><div><span class="number">3</span><h2>Try one task</h2><p>“Find my other computer.<br>Run a small task there.”</p><div class="step-bottom">See which device did the work</div></div></div>
+    <header><div class="brand"><img src="logo.svg" alt="">citta<span>.</span></div><span class="eyebrow">CONNECT. DISCOVER. DELEGATE.</span></header>
+    <h1>Give your agent<br>more capabilities.</h1>
+    <div class="steps"><div><span class="number">1</span><h2>Connect Tailscale</h2><p>Your own computers.<br>The same owner account.</p><div class="step-bottom">macOS + Linux</div></div><div><span class="number">2</span><h2>Set up Citta</h2><p>Install it on each device.<br>Run setup and check access.</p><div class="commands"><code>citta setup</code><code>citta doctor</code></div></div><div><span class="number">3</span><h2>Try one task</h2><p>“Find an available worker.<br>Run a small task there.”</p><div class="step-bottom">Check which worker ran the task</div></div></div>
     <div class="setup-note">Each device needs the tools, accounts and permissions for its part.</div>
     <footer><span>Free for permitted noncommercial use · PolyForm Noncommercial 1.0.0</span><span>04 / 04</span></footer>
   </section>

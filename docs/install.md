@@ -104,7 +104,7 @@ To stop using Citta, first stop its user service and disconnect only Citta's Tai
 
 ## Build a release candidate
 
-Maintainers can run the manual **Release candidate** workflow for native Mac ARM, Mac Intel and Linux x86-64 archives. It only uploads private workflow artifacts; it does not create a GitHub release, change repository visibility or publish a tag.
+Maintainers can run the manual **Release candidate** workflow for native Mac ARM, Mac Intel and Linux x86-64 archives. It uploads workflow artifacts; it does not create a GitHub release, change repository visibility or publish a tag.
 
 From a clean, reviewed checkout:
 
