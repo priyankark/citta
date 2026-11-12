@@ -2,13 +2,23 @@
 
 Citta is being prepared for its first public release. The release is **not yet qualified**. This record separates prepared source and demonstration evidence from the checks needed before publishing a production tag or launching on Product Hunt.
 
-Last reviewed: November 12, 2026 (UTC). The current tested source is `f6fd91fa7978e16b5aca6dec227c1e303de0daea`, the [PR 14](https://github.com/priyankark/citta/pull/14) merge. Its exact artifacts and physical checks are recorded below. Earlier `e15fe0e` evidence and failed attempts remain as history. A later documentation-only evidence update does not change the source provenance of these binaries; runtime or packaging changes require a new qualification record.
+Last reviewed: November 12, 2026 (UTC). The final candidate is `c767ce5b5c1ad283c00afad9684a4f809a7c857e`, recorded first below. The earlier `f6fd91fa7978e16b5aca6dec227c1e303de0daea` artifacts and physical checks remain as a historical baseline, together with `e15fe0e` evidence and failed attempts. Documentation updates do not change artifact provenance; each build retains its own source and verification record.
+
+## Final candidate `c767ce5`: packaging and source crate verified
+
+The final artifact candidate is clean source `c767ce5b5c1ad283c00afad9684a4f809a7c857e`, including the setup-recovery correction and refreshed packaged documentation. Full [CI run 43160740009](https://github.com/priyankark/citta/actions/runs/43160740009) passed on runtime source `59debd4e332e6bbf77eb77ec2242a769996650ba`: Linux, Intel macOS (including ARM compilation) and audit completed successfully. A separate comparison confirmed that `src`, `Cargo.toml`, `Cargo.lock`, `ui`, `skills` and `examples` are identical between that source and `c767ce5`. This is runtime-source equivalence; it does not mean the full CI workflow ran on `c767ce5`.
+
+Native [packaging run 43162820799](https://github.com/priyankark/citta/actions/runs/43162820799) ran on `c767ce5` and passed all three jobs: Apple Silicon macOS, Intel macOS and Linux x86-64. Each native archive passed checksum, fresh isolated installation, installed version/help, existing-install refusal, required-assets and no-service/configuration-change checks. Both final macOS executables now carry the Citta Developer ID identity (`io.citta.daemon`, team `9ZSYA62D6L`), hardened runtime and secure timestamps. Apple accepted ARM submission `0de8fa63-6ee0-4b5a-831d-2b0cef78722c` and Intel submission `a5386212-b6e7-4a54-8f31-5eb6656ac92b`; online notarization checks passed. The exact signed Intel archive passed native execution and isolated installation in [run 43164792893](https://github.com/priyankark/citta/actions/runs/43164792893); final ARM isolated installation also passed. The final candidate's physical two-device checks and public-download path remain pending; earlier `f6fd91f` signing, deployment and soak evidence does not qualify these new bytes. No offline or stapled-container guarantee is made.
+
+The same clean source produced `citta-0.1.0.crate`: 197,967 bytes, 64 files, SHA-256 `e50e952aaa7c6728c07626db94c7ae0d15b7dadae598b95bf445b6a642e78a9e`. Its VCS metadata names `c767ce5`; all 19 embedded paths are present. Packaging, publish dry-run and installation from extracted contents into a fresh target passed locally on Apple Silicon, followed by version/setup-help checks. The updated diagnostic and hosted-video/raw-download links are present; private, media and launch paths are excluded from the crate. No registry upload or registry-based installation has occurred.
+
+This section records the current candidate. The launch-gate table and artifact sections below retain the earlier `f6fd91f` record and failed attempts; their passing results must not be attributed to `c767ce5`. Neither the new packages nor the crate are published or production-qualified by these checks.
 
 ## Setup recovery correction awaiting qualification
 
 A subsequent review reproduced a first-setup retry defect: if Tailscale Serve failed before enrollment completed, retry could retain the legacy resource-admission defaults. The correction writes setup defaults in the initial configuration, preserves intentional settings on existing installations, and adds actionable HTTPS/operator recovery guidance without exposing subprocess output. Local validation passed 43 Rust tests and 33 onboarding scenarios, including failure/retry, initial publication, existing-policy preservation and sanitized timeout errors. Independent review passed. These runtime changes require a new candidate; the signed `f6fd91f` artifacts and physical evidence below remain historical and do not qualify the corrected executable.
 
-## Launch gates
+## Historical `f6fd91f` launch-gate snapshot
 
 | Gate | Current evidence | What closes it |
 | --- | --- | --- |
@@ -22,7 +32,7 @@ A subsequent review reproduced a first-setup retry defect: if Tailscale Serve fa
 | Source and notices | PolyForm Noncommercial 1.0.0, attribution notices and dependency-license collection are prepared. The latest targeted scan covered 300 unique blobs reachable through local refs at `4c782ac`, following the earlier 250-blob scan. No high-confidence credential signatures were found; reviewed matches were synthetic fixtures or compressed PNG byte patterns. | A separate sampled media review found no unintended private data in 104 frames, 45 captions and 2,210 OCR lines. Review final changes and retain third-party terms; signature scans, sampling and OCR can miss content. |
 | Product Hunt entry | The Product Hunt draft is created with the new tagline, description, maker role/comment, free pricing, three categories, logo and four gallery images. Saved gallery order is visually verified. Product Hunt confirms the draft is not scheduled. The README demo is local; hosted video is pending. User-selected launch target is November 14. | A working public product URL, usable install, qualified advertised functionality, hosted video with the adjacent license caption and completed external listing; schedule only after the gates above pass. |
 
-## Current candidate artifacts and native checks
+## Historical `f6fd91f` artifacts and native checks
 
 All files in this table identify clean source `f6fd91fa7978e16b5aca6dec227c1e303de0daea`. Native [packaging run 42974812756](https://github.com/priyankark/citta/actions/runs/42974812756) completed successfully on Apple Silicon macOS, Intel macOS and Linux x86-64. Each job built its native archive and passed the native installer check; downloaded archives were then checked against every manifest hash. These are unpublished artifacts, not signed production downloads.
 

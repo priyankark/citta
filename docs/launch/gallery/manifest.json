@@ -1,5 +1,5 @@
 {
-  "status": "prepared_locally_not_uploaded",
+  "status": "revised_gallery_prepared_locally_not_uploaded",
   "created": "2026-11-11",
   "logo_file": "logo.png",
   "gallery_files": [
@@ -13,33 +13,33 @@
       "file": "01-your-devices.png",
       "width": 1270,
       "height": 760,
-      "bytes": 237802,
-      "sha256": "f21bc1c2678a3aee3fc5f086221f71b00f045fc5c1b85d6f2e3bd282f33c9e14",
-      "alt_text": "Citta connects your laptop and another device for task handoff. Four reasons: private files, installed tools, connected hardware and spare compute."
+      "bytes": 283863,
+      "sha256": "17ff0b386dacf92f54bc7d3fb86f27b4e520fc41d08df29ef4c408c35ee52f48",
+      "alt_text": "Citta helps an agent discover capabilities, delegate a task to an available worker, and collect the result. Reasons include private data, installed tools, connected hardware and available compute."
     },
     {
       "file": "02-the-files.png",
       "width": 1270,
       "height": 760,
-      "bytes": 197817,
-      "sha256": "7e7818c4ddb672d31420cd17ec344f9c75b6da1b2f30a66911b644998e1a7d3f",
-      "alt_text": "Ask from a Mac mini; the MacBook Air reads its synthetic receipts and returns an expense report. The real report identifies a duplicate and a missing receipt."
+      "bytes": 207713,
+      "sha256": "4b561bf465a93d85192fb9b7ccc1e2fb76516be38eaf7dd43d9f624bfcce9f24",
+      "alt_text": "An agent on the Mini asks a worker on the Air to read synthetic receipts. The actual returned expense report identifies a duplicate and a missing receipt."
     },
     {
       "file": "03-the-model.png",
       "width": 1270,
       "height": 760,
-      "bytes": 208476,
-      "sha256": "f93838f49bb61229b849c47c5565099c942e38d83e0b9238eec9210575cef90e",
-      "alt_text": "Reverse handoff: the MacBook Air uses Gemma 3 4B through Ollama on the Mini to categorize six synthetic expenses. Inference is local; Codex orchestration is cloud-backed."
+      "bytes": 212641,
+      "sha256": "fd92e6e094223ec99f0d0e44da46780504874b465038bb41ca68ffc523fd0452",
+      "alt_text": "An agent delegates expense categorization to Gemma 3 4B through Ollama on the Mini. The actual model-result table is shown; inference is local and Codex orchestration is cloud-backed."
     },
     {
       "file": "04-get-started.png",
       "width": 1270,
       "height": 760,
-      "bytes": 221484,
-      "sha256": "05be8b07ea9ba303c6a6c1675c8ea2e14ba62dcb6a82cceb2f9f76f1dedef0db",
-      "alt_text": "Start with two computers: connect Tailscale under the same owner, install Citta on each and run setup and doctor, then ask for a small remote task. Each device needs the tools, accounts and permissions for its part."
+      "bytes": 222488,
+      "sha256": "330d9dda2f235763308513588eedf37f1353ede3b946f8df7f993d614bd810e4",
+      "alt_text": "Give your agent more capabilities: connect your own computers through Tailscale under the same owner, install Citta and check setup, then ask an available worker to run a small task. Each receiving device needs the required tools, accounts and permissions."
     },
     {
       "file": "logo.png",
@@ -102,13 +102,14 @@
     "Slides 2 and 3 crop actual demo results. No OCR, reimbursement approval or email sending is represented.",
     "The Air could not save the forward report locally because its disk was full; returned output was saved on the Mini. The gallery does not claim a successful Air-local save.",
     "No device addresses, usernames, personal paths, tokens, task identifiers or browser tabs appear in the prepared images.",
-    "No assets have been uploaded or a Product Hunt listing scheduled."
+    "These revised gallery images have not yet been uploaded; listing state is tracked separately."
   ],
   "render": {
     "source": "gallery.html + gallery.css + logo.svg + two result crops",
     "command": "node docs/launch/gallery/render.cjs",
     "requirements": "Node.js, Playwright and Chromium in the tooling environment. Optional PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH selects a local browser. Uses a separate headless browser, no signed-in profile.",
-    "visual_review": "All four images reviewed at final 1270\u00d7760 size; logo reviewed separately.",
-    "platform": "Rendered using Chromium on macOS; system Arial font may vary on other platforms."
+    "visual_review": "All four revised images inspected at final 1270×760 size. Existing logo and result crops preserved byte-for-byte.",
+    "platform": "Rendered using Chromium on macOS; system Arial font may vary on other platforms.",
+    "revision_method": "Existing render.cjs executed in a private fresh headless browser with only the logo-render step omitted in memory; renderer source and logo assets unchanged."
   }
 }
