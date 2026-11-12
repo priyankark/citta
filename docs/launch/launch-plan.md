@@ -16,9 +16,9 @@ Proposed targets: 10 people report completing their first task across two device
 - [ ] Required CI checks run and pass. Billing or runner failures are resolved, not described as code passes.
 - [ ] All advertised platforms have usable packages and documented requirements.
 - [ ] A person without the maker's repository credentials can download, install, enroll two devices and complete a task using only the published guide.
-- [ ] The same candidate passes the physical-device acceptance checks, including restart, sleep/reconnect, denied permissions and failure reporting.
+- [ ] The same candidate passes physical coding/model acceptance, restart/reconnect of an owned test endpoint, denied permissions and failure reporting. Whole-device sleep/network loss is an explicit early-release limitation until a safe independent recovery path is available; do not claim it passed.
 - [ ] macOS signing, notarization and upgrade identity are qualified, or the actual early-release limitations are explicit and the installation path is tested. Do not advertise a signed/notarized build without evidence.
-- [ ] Desktop helpers in the release match the reviewed source; checks demonstrate the permissions advertised by onboarding.
+- [ ] Desktop helpers in the release match the reviewed source. Onboarding explains receiving-worker grants, and unverified signed-worker desktop continuity is explicitly labeled experimental. A permission flag alone is not desktop acceptance.
 - [ ] The local-model example has a working setup recipe and lists model/runtime prerequisites.
 - [ ] Published source/history and archive contents are reviewed for private material; LICENSE, NOTICE and required dependency notices ship with downloads.
 - [ ] The public product link, download links, logo, four gallery images, final video link and captions work from a signed-out browser.
@@ -47,4 +47,4 @@ No automatic fallback date is selected. If a launch gate remains blocked, presen
 
 Use the maker's personal Product Hunt account. Fill [listing.json](listing.json) and [product-hunt.md](product-hunt.md), then inspect the preview. The official editor distinguishes saving a draft from scheduling publication; keep the page as a draft while incomplete. Product Hunt accepts a direct usable/downloadable product URL, including a GitHub repository. [Submission guidance](https://help.producthunt.com/en/articles/17834537-4-build-your-product-page).
 
-Preparation here does not publish a repository, upload a public video, create a Product Hunt listing, send outreach or schedule a launch. The release and page must first be concrete and reviewable.
+The user has authorized public source, release distribution and Product Hunt scheduling for the selected date. The repository is now public after an independent history and artifact review. Product Hunt has a saved draft; it is not scheduled. Publish the qualified downloads and verify the video and listing before scheduling. No outreach is planned.

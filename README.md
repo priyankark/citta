@@ -10,9 +10,9 @@ Connect your own devices through Tailscale, set up Citta once on each, then ask 
 
 ## Watch it work
 
-[![Watch Citta move an expense task from Mini to MacBook, then run a local model in the other direction](docs/media/demo-thumbnail.png)](docs/media/citta-demo.mp4)
+[![Watch Citta move an expense task from Mini to MacBook, then run a local model in the other direction](docs/media/demo-thumbnail.png)](https://youtu.be/EPdPu5djxSQ)
 
-**[Watch or download the demo (1 minute 51 seconds)](docs/media/citta-demo.mp4)** · [Captions](docs/media/citta-demo.srt)
+**[Watch the demo (1 minute 51 seconds)](https://youtu.be/EPdPu5djxSQ)** · [Download MP4](https://raw.githubusercontent.com/priyankark/citta/main/docs/media/citta-demo.mp4) · [Captions](docs/media/citta-demo.srt)
 
 Two real handoffs: the MacBook reads synthetic receipts, then the Mini runs a local Gemma model. Waits are shortened; later hardware examples are illustrative. Codex orchestration is cloud-backed. The film uses a work-trip scenario to demonstrate the capability; commercial use is not licensed under Citta’s [PolyForm Noncommercial terms](LICENSE.md).
 

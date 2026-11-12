@@ -131,6 +131,40 @@ class Release(unittest.TestCase):
         self.assertEqual(inventory[0]['name'], 'example')
         self.assertEqual((self.root / 'notices/third-party/example-1/LICENSE').read_text(), 'upstream legal text')
 
+    def test_packaged_readme_media_uses_pinned_raw_urls(self):
+        source = self.root / 'source'
+        readme = ('[![Demo](docs/media/demo-thumbnail.png)](https://youtu.be/example)\n'
+                  '[Download](docs/media/citta-demo.mp4) [Captions](docs/media/citta-demo.srt)\n'
+                  '[Raw download](https://raw.githubusercontent.com/priyankark/citta/main/docs/media/citta-demo.mp4)\n'
+                  '[Launch](docs/launch/story.md) [Setup](docs/setup.md)\n')
+        files = {'README.md': readme, 'LICENSE.md': 'license', 'NOTICE': 'notice',
+                 'plan.md': 'plan', 'docs/setup.md': 'setup',
+                 'docs/media/demo-thumbnail.png': 'image', 'docs/media/citta-demo.mp4': 'video',
+                 'docs/media/citta-demo.srt': 'captions', 'docs/launch/story.md': 'story',
+                 'scripts/upgrade_device.py': 'upgrade', 'scripts/render_service.py': 'service',
+                 'scripts/install_release.py': 'installer'}
+        for name, content in files.items():
+            file = source / name
+            file.parent.mkdir(parents=True, exist_ok=True)
+            file.write_text(content)
+        metadata = {'resolve': {'root': 'root', 'nodes': [{'id': 'root', 'deps': []}]}, 'packages': []}
+        commit = 'a' * 40
+        destination = self.root / 'packaged'
+        tracked = '\n'.join(name for name in files if name.startswith('docs/'))
+        with patch.object(packaging, 'ROOT', source), patch.object(packaging, 'run', return_value=tracked):
+            manifest = packaging.assemble(self.bundle / 'bin/citta', destination, metadata,
+                                          {'source_commit': commit})
+        expected = (f'[![Demo](https://raw.githubusercontent.com/priyankark/citta/{commit}/docs/media/demo-thumbnail.png)](https://youtu.be/example)\n'
+                    f'[Download](https://raw.githubusercontent.com/priyankark/citta/{commit}/docs/media/citta-demo.mp4) '
+                    f'[Captions](https://raw.githubusercontent.com/priyankark/citta/{commit}/docs/media/citta-demo.srt)\n'
+                    f'[Raw download](https://raw.githubusercontent.com/priyankark/citta/{commit}/docs/media/citta-demo.mp4)\n'
+                    f'[Launch](https://github.com/priyankark/citta/blob/{commit}/docs/launch/story.md) [Setup](docs/setup.md)\n')
+        self.assertEqual((destination / 'README.md').read_text(), expected)
+        self.assertFalse((destination / 'docs/media').exists())
+        self.assertFalse((destination / 'docs/launch').exists())
+        self.assertEqual((destination / 'docs/setup.md').read_text(), 'setup')
+        self.assertEqual(manifest['files']['README.md'], packaging.digest(destination / 'README.md'))
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

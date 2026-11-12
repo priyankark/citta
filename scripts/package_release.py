@@ -77,7 +77,11 @@ def assemble(binary, destination, metadata, provenance):
     for name in ('LICENSE.md', 'NOTICE', 'README.md', 'plan.md'):
         shutil.copyfile(ROOT / name, destination / name)
     readme = destination / 'README.md'
-    readme.write_text(readme.read_text().replace('(docs/media/', f"(https://github.com/priyankark/citta/blob/{provenance['source_commit']}/docs/media/").replace('(docs/launch/', f"(https://github.com/priyankark/citta/blob/{provenance['source_commit']}/docs/launch/"))
+    media_url = f"https://raw.githubusercontent.com/priyankark/citta/{provenance['source_commit']}/docs/media/"
+    readme.write_text(readme.read_text()
+                      .replace('(docs/media/', f'({media_url}')
+                      .replace('(https://raw.githubusercontent.com/priyankark/citta/main/docs/media/', f'({media_url}')
+                      .replace('(docs/launch/', f"(https://github.com/priyankark/citta/blob/{provenance['source_commit']}/docs/launch/"))
     bundled = run('git', 'ls-files', '--cached', '--others', '--exclude-standard', '--', 'skills', 'docs', 'examples').splitlines()
     for relative in bundled:
         if relative.startswith(('docs/launch/', 'docs/media/')):
