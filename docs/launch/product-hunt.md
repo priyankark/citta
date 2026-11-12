@@ -1,6 +1,6 @@
 # Product Hunt launch copy
 
-Prepared November 10 and updated November 12, 2026 (UTC). Product Hunt has an older saved draft with the name, listing copy, logo, gallery, pricing, categories and maker comment; it is not scheduled. The agent-first copy below is a prepared revision, not yet verified as saved externally. The video and its synthetic-data/license description are staged in the editor; global **Save changes** remains unverified. [Open the draft](https://www.producthunt.com/products/citta?launch=citta) while signed in as its maker. Schedule only after the [release gates](launch-plan.md) pass. Machine-readable fields are in [listing.json](listing.json).
+Prepared November 10 and updated November 12, 2026 (UTC). The benefit-led description and agent-first tagline below were saved in Product Hunt, with its **Changes saved** confirmation visually verified. The draft is not scheduled. The revised maker comment and agent-first gallery still need to be applied; the video attachment needs a fresh saved-preview check. [Open the draft](https://www.producthunt.com/products/citta?launch=citta) while signed in as its maker. Schedule only after the [release gates](launch-plan.md) pass. Machine-readable fields are in [listing.json](listing.json).
 
 ## Listing
 
