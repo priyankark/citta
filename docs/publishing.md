@@ -4,7 +4,7 @@ Citta has two distribution paths: a Rust source crate for `cargo install`, and n
 
 ## Install from crates.io
 
-For version 0.1.0 listed on [crates.io](https://crates.io/crates/citta), a fresh installation uses:
+[Citta 0.1.0 is published on crates.io](https://crates.io/crates/citta/0.1.0), from source `c767ce5b5c1ad283c00afad9684a4f809a7c857e`, matching the [native release](https://github.com/priyankark/citta/releases/tag/v0.1.0). A fresh installation uses:
 
 ```sh
 cargo install citta --version 0.1.0 --locked
@@ -44,7 +44,7 @@ Check that every `include_str!` and `include_bytes!` path exists in the extracte
 - [ ] The dry run and isolated installation pass for the exact final file set.
 - [ ] Binary archives have the same source revision and correct supported-platform provenance.
 
-The `citta` name returned “does not exist” from the registry API during the November 10, 2026 preparation check. This is an observation, not a reservation; repeat the check immediately before publication.
+The `citta` name was checked again immediately before the November 12 publication. Version 0.1.0 was uploaded once with the reviewed crate SHA-256 `e50e952aaa7c6728c07626db94c7ae0d15b7dadae598b95bf445b6a642e78a9e`. Anonymous registry metadata/download matched that hash; a fresh registry-only Cargo home/target/prefix installation and version/setup-help checks passed without publishing credentials. For future versions, repeat availability and ownership checks before uploading.
 
 ## Publish the qualified revision
 

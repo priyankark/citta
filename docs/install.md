@@ -2,11 +2,11 @@
 
 Install Citta once on **each computer you want your agent to use**. Your computers should be signed in to Tailscale with the same owner account. You do not need SSH, copied tokens, or a new Citta account.
 
-Choose a native archive from [Citta releases](https://github.com/priyankark/citta/releases), or use the [source installation](#build-from-source) below. Each release records its tested platforms and limitations. Development workflow artifacts are separate from published releases.
+Choose a native archive from [Citta 0.1.0](https://github.com/priyankark/citta/releases/tag/v0.1.0), or use the [source installation](#build-from-source) below. Each release records its tested platforms and limitations. Development workflow artifacts are separate from published releases.
 
 ## What you need
 
-- A Mac with Apple Silicon or Intel, or Linux x86-64. macOS archives target macOS 14 or later; that deployment target is not yet a verified minimum OS support claim. The prepared Linux CI archive is built on Ubuntu 24.04 and requires its glibc 2.39 baseline or newer; other distributions need compatibility testing or a source build.
+- A Mac with Apple Silicon or Intel, or Linux x86-64. macOS archives target macOS 14 or later; that deployment target is not yet a verified minimum OS support claim. The published Linux archive is built on Ubuntu 24.04 and requires its glibc 2.39 baseline or newer; other distributions need compatibility testing or a source build.
 - [Tailscale](https://tailscale.com/download), connected on each device. Use the same owner account; tagged or other users' devices are excluded from automatic enrollment.
 - [Python 3.11 or later](https://www.python.org/downloads/) for the archive installer and example adapters. Check with `python3 --version` in the terminal you will use for installation.
 - For delegated agent work: a supported agent harness installed and signed in on the receiving computer. Setup currently configures the [Codex CLI](https://learn.chatgpt.com/docs/codex/cli) automatically. Check `codex --version`, run `codex` once and finish sign-in before running Citta setup. The receiving agent uses the tools and app connections installed there.
@@ -17,11 +17,11 @@ An installed archive needs no Rust compiler. macOS desktop control additionally 
 
 Open [Citta releases](https://github.com/priyankark/citta/releases). Choose the archive and the adjacent `.sha256` file for your device:
 
-| Computer | Archive suffix |
-| --- | --- |
-| Mac with Apple Silicon | `aarch64-apple-darwin.tar.gz` |
-| Mac with Intel processor | `x86_64-apple-darwin.tar.gz` |
-| Linux x86-64 | `x86_64-unknown-linux-gnu.tar.gz` |
+| Platform | 0.1.0 archive | Checksum |
+| --- | --- | --- |
+| Mac with Apple Silicon | [Download](https://github.com/priyankark/citta/releases/download/v0.1.0/citta-0.1.0-aarch64-apple-darwin.tar.gz) | [SHA-256](https://github.com/priyankark/citta/releases/download/v0.1.0/citta-0.1.0-aarch64-apple-darwin.tar.gz.sha256) |
+| Mac with Intel processor | [Download](https://github.com/priyankark/citta/releases/download/v0.1.0/citta-0.1.0-x86_64-apple-darwin.tar.gz) | [SHA-256](https://github.com/priyankark/citta/releases/download/v0.1.0/citta-0.1.0-x86_64-apple-darwin.tar.gz.sha256) |
+| Linux x86-64 | [Download](https://github.com/priyankark/citta/releases/download/v0.1.0/citta-0.1.0-x86_64-unknown-linux-gnu.tar.gz) | [SHA-256](https://github.com/priyankark/citta/releases/download/v0.1.0/citta-0.1.0-x86_64-unknown-linux-gnu.tar.gz.sha256) |
 
 Download both files from that release into the same folder. On a Mac, verify the download before extracting it. For an Apple Silicon `0.1.0` archive:
 
@@ -66,7 +66,7 @@ A successful task whose worker is the other device proves the connection. A devi
 
 ## Build from source
 
-For a version listed on [crates.io](https://crates.io/crates/citta), a fresh installation can use `cargo install citta --version 0.1.0 --locked` instead of cloning the repository. This path requires Rust 1.99.1 or later and a C compiler/linker. Cargo installs the binary and its embedded UI/skills; download the matching source archive if you need the example adapters or maintenance scripts. See [crate installation and publication](publishing.md).
+[Citta 0.1.0 is available on crates.io](https://crates.io/crates/citta/0.1.0). A fresh installation can use `cargo install citta --version 0.1.0 --locked` instead of cloning the repository. This path requires Rust 1.99.1 or later and a C compiler/linker. Cargo installs the binary and its embedded UI/skills; download the matching source archive if you need the example adapters or maintenance scripts. See [crate installation and publication](publishing.md).
 
 For development, install Rust 1.99.1, a C compiler, and Python 3.11+. On macOS, Xcode Command Line Tools provide the C compiler. On Linux, install your distribution's C compiler and linker. Check free disk space before compiling.
 

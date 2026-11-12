@@ -6,7 +6,7 @@ Let your agents work together—and reach the capabilities each has access to. C
 
 The mesh runs across your own Macs and Linux machines connected through Tailscale. Set up Citta on each, then ask your agent for what you need in plain language.
 
-> **Early release:** Start with the [installation guide](docs/install.md). Citta is for your own trusted devices; see [tested behavior and remaining limitations](docs/release-readiness.md) before relying on it for unattended work.
+> **0.1.0 is available:** [Mac and Linux installers](https://github.com/priyankark/citta/releases/tag/v0.1.0) · [Cargo crate](https://crates.io/crates/citta/0.1.0) · [Installation guide](docs/install.md). This is an early release for your own trusted devices; see [tested behavior and remaining limitations](docs/release-readiness.md) before relying on it for unattended work.
 
 ## Watch it work
 
