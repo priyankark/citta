@@ -591,7 +591,7 @@ function applyView() {
     v === "permissions"
       ? "Permissions across your devices"
       : v === "agents"
-        ? "Agents across your mesh"
+        ? "Agents on your network"
         : v === "runs"
           ? "Work across your network"
           : "Your agent network";
@@ -602,7 +602,7 @@ function applyView() {
         ? "See reported sessions, detected runtimes, and discovery coverage on every device."
         : v === "runs"
           ? "Follow execution, inspect results, and keep failed runs visible."
-          : "A live view of the devices, agents, and work across your mesh.";
+          : "See your agents, available compute and tasks across the network.";
   document.querySelectorAll(".nav").forEach((b) => {
     b.classList.toggle("active", b.dataset.view === v);
     b.setAttribute("aria-current", b.dataset.view === v ? "page" : "false");

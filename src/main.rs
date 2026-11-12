@@ -19,7 +19,7 @@ use tokio_util::sync::CancellationToken;
 #[derive(Parser)]
 #[command(
     version,
-    about = "Cross-device capabilities and task delegation for agents"
+    about = "A network for agents to share tools, data and compute"
 )]
 struct Cli {
     #[arg(long, global = true)]

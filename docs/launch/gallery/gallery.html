@@ -8,39 +8,40 @@
 <body>
   <section class="slide" id="01-your-devices">
     <header><div class="brand"><img src="logo.svg" alt="">citta<span>.</span></div><span class="eyebrow">TOOLS. DATA. COMPUTE.</span></header>
-    <div class="hero"><h1>The right capabilities<br>for the task.</h1><p>Your agent discovers what’s available,<br>delegates the work, and brings<br>the result back.</p></div>
-    <div class="mesh" aria-label="Explanatory diagram: an agent discovers capabilities, delegates a task to an eligible worker, and collects its result">
-      <div class="agent-card"><span class="tiny">YOUR AGENT</span><strong>One task.<br>More ways to do it.</strong><span class="agent-detail">Keeps the conversation with you</span></div>
-      <div class="connection"><span>DISCOVER + DELEGATE</span><b>→</b><b>←</b><span>COLLECT THE RESULT</span></div>
-      <div class="worker-card"><span class="tiny">AN AVAILABLE WORKER</span><strong>The access or capacity<br>this task needs</strong><div class="capabilities"><span>Files + tools</span><span>Agent tools</span><span>Local model</span></div></div>
+    <div class="hero"><h1>A network for<br>your AI agents.</h1><p>Use each other’s tools.<br>Access data across the network.<br>Put spare compute to work.</p></div>
+    <div class="mesh" aria-label="Explanatory network diagram: three connected agents bring access to private data, installed tools and spare compute">
+      <svg class="mesh-links" viewBox="0 0 1166 222" aria-hidden="true"><path d="M310 65 H856 M310 95 L428 157 M738 157 L856 95"/><circle cx="583" cy="65" r="5"/><circle cx="369" cy="126" r="5"/><circle cx="797" cy="126" r="5"/></svg>
+      <div class="network-agent data-agent"><span class="tiny">AGENT 01</span><strong>Private data</strong><span class="agent-detail">Files this agent can access</span></div>
+      <div class="network-agent tools-agent"><span class="tiny">AGENT 02</span><strong>Installed tools</strong><span class="agent-detail">Tools and skills ready to use</span></div>
+      <div class="network-agent compute-agent"><span class="tiny">AGENT 03</span><strong>Spare compute</strong><span class="agent-detail">Capacity to run another task</span></div>
     </div>
     <div class="reasons"><div><b>01</b><strong>Private data</strong><span>Read files where they live</span></div><div><b>02</b><strong>Installed tools</strong><span>Use the tools already there</span></div><div><b>03</b><strong>Hardware access</strong><span>Reach connected equipment</span></div><div><b>04</b><strong>Available compute</strong><span>Find capacity for a new task</span></div></div>
     <footer><span>macOS + Linux · Connected through Tailscale</span><span>01 / 04</span></footer>
   </section>
 
   <section class="slide" id="02-the-files">
-    <header><div class="brand"><img src="logo.svg" alt="">citta<span>.</span></div><span class="eyebrow">DELEGATE TO THE WORKER WITH ACCESS</span></header>
-    <h1>Give your agent access to the files.</h1>
-    <p class="lead">The agent asks a worker on the MacBook to read its receipts.<br>The expense report returns to the Mini for review.</p>
-    <div class="route"><span>Your agent <small>Request starts on the Mini</small></span><b>→</b><span>Worker on the Air <small>Access to the receipt files</small></span><b>→</b><span>Result returned <small>An expense report to review</small></span></div>
+    <header><div class="brand"><img src="logo.svg" alt="">citta<span>.</span></div><span class="eyebrow">DATA ACROSS YOUR AGENT NETWORK</span></header>
+    <h1>The network has the files you need.</h1>
+    <p class="lead">An agent on the Mini asks the Air’s agent to read receipt files.<br>The expense report returns to the Mini for review.</p>
+    <div class="route"><span>Your agent <small>Request starts on the Mini</small></span><b>→</b><span>Agent on the Air <small>Access to the receipt files</small></span><b>→</b><span>Result returned <small>An expense report to review</small></span></div>
     <div class="evidence"><div class="evidence-label"><span>FROM THE ACTUAL DEMO REPORT</span><span>SYNTHETIC TEXT RECEIPTS</span></div><img src="receipt-result.png" alt="Actual report: $860.95 unique transactions, $833.95 with receipts, $27 missing receipt and $58.40 duplicate excluded."></div>
     <div class="takeaways"><span><i>−</i> Duplicate found and excluded</span><span><i>!</i> Missing receipt flagged for review</span></div>
     <footer><span>Real execution · Synthetic data · Report returned to the Mini</span><span>02 / 04</span></footer>
   </section>
 
   <section class="slide" id="03-the-model">
-    <header><div class="brand"><img src="logo.svg" alt="">citta<span>.</span></div><span class="eyebrow">DELEGATE TO A LOCAL MODEL</span></header>
-    <h1>Use the model that fits the task.</h1>
-    <p class="lead">Your agent can use Gemma on the Mini to categorize expenses.</p>
+    <header><div class="brand"><img src="logo.svg" alt="">citta<span>.</span></div><span class="eyebrow">COMPUTE ACROSS YOUR AGENT NETWORK</span></header>
+    <h1>Put a local model to work.</h1>
+    <p class="lead">An agent on the Air sends expense categorization to Gemma on the Mini.</p>
     <div class="model-layout"><div class="model-story"><span class="pill">MacBook Air → Mac mini</span><h2>Six expenses.<br>A task for<br>a local model.</h2><p>Gemma 3 4B via Ollama.<br>The model and compute<br>are already on the Mini.</p><div class="model-return">← Categories come back</div></div><div class="evidence model"><div class="evidence-label"><span>ACTUAL MODEL-RESULT TABLE</span></div><img src="model-result.png" alt="Actual model categories: hotel as lodging, rail and cab as transport, dinner and coffee as meals, and parking as other."></div></div>
     <footer><span>Local inference · Cloud-backed Codex orchestration · Synthetic data</span><span>03 / 04</span></footer>
   </section>
 
   <section class="slide" id="04-get-started">
-    <header><div class="brand"><img src="logo.svg" alt="">citta<span>.</span></div><span class="eyebrow">CONNECT. DISCOVER. DELEGATE.</span></header>
-    <h1>Give your agent<br>more capabilities.</h1>
-    <div class="steps"><div><span class="number">1</span><h2>Connect Tailscale</h2><p>Your own computers.<br>The same owner account.</p><div class="step-bottom">macOS + Linux</div></div><div><span class="number">2</span><h2>Set up Citta</h2><p>Install it on each device.<br>Run setup and check access.</p><div class="commands"><code>citta setup</code><code>citta doctor</code></div></div><div><span class="number">3</span><h2>Try one task</h2><p>“Find an available worker.<br>Run a small task there.”</p><div class="step-bottom">Check which worker ran the task</div></div></div>
-    <div class="setup-note">Each device needs the tools, accounts and permissions for its part.</div>
+    <header><div class="brand"><img src="logo.svg" alt="">citta<span>.</span></div><span class="eyebrow">YOUR AGENTS, CONNECTED.</span></header>
+    <h1>Build your<br>agent network.</h1>
+    <div class="steps"><div><span class="number">1</span><h2>Connect Tailscale</h2><p>Your own computers.<br>The same owner account.</p><div class="step-bottom">macOS + Linux</div></div><div><span class="number">2</span><h2>Set up Citta</h2><p>Install it on each device.<br>Run setup and check access.</p><div class="commands"><code>citta setup</code><code>citta doctor</code></div></div><div><span class="number">3</span><h2>Try one task</h2><p>“Find another agent.<br>Ask it to run a small task.”</p><div class="step-bottom">See which agent ran the task</div></div></div>
+    <div class="setup-note">Each agent needs the tools, accounts and permissions for its part.</div>
     <footer><span>Free for permitted noncommercial use · PolyForm Noncommercial 1.0.0</span><span>04 / 04</span></footer>
   </section>
 </body>

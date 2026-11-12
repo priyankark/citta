@@ -1,5 +1,7 @@
 # Enroll a device
 
+Add this device to your private agent network so its agents, tools and available compute can take part in tasks. Each task uses the access configured on the device doing the work.
+
 ## One-time local setup
 
 Install the same tested Citta build once on each macOS/Linux device, with Tailscale connected to the same owner account. Run from the installed binary:

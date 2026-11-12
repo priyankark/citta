@@ -1,6 +1,6 @@
 # Install Citta
 
-Install Citta once on **each computer you want your agent to use**. Your computers should be signed in to Tailscale with the same owner account. You do not need SSH, copied tokens, or a new Citta account.
+Build your agent network by installing Citta on **each computer that will take part**. Your computers should be signed in to Tailscale with the same owner account. You do not need SSH, copied tokens, or a new Citta account.
 
 Choose a native archive from [Citta 0.1.0](https://github.com/priyankark/citta/releases/tag/v0.1.0), or use the [source installation](#build-from-source) below. Each release records its tested platforms and limitations. Development workflow artifacts are separate from published releases.
 

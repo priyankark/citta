@@ -1,16 +1,16 @@
 # Product Hunt launch copy
 
-Prepared November 10 and updated November 12, 2026 (UTC). The benefit-led description and agent-first tagline below were saved in Product Hunt, with its **Changes saved** confirmation visually verified. The draft is not scheduled. The revised maker comment and agent-first gallery still need to be applied; the video attachment needs a fresh saved-preview check. [Open the draft](https://www.producthunt.com/products/citta?launch=citta) while signed in as its maker. Schedule only after the [release gates](launch-plan.md) pass. Machine-readable fields are in [listing.json](listing.json).
+Updated November 12, 2026 (UTC). This revision presents Citta as a private network for agents to share tools, data and compute. External save of this copy and the revised gallery is pending. Product Hunt has the earlier saved copy and is not scheduled. [Open the draft](https://www.producthunt.com/products/citta?launch=citta). Machine-readable fields are in [listing.json](listing.json).
 
 ## Listing
 
 **Name:** Citta
 
-**Tagline:** An agent mesh for tools, data and compute
+**Tagline:** A network for agents to share tools, data and compute
 
-**Description:** Your agent shouldn’t get stuck because the file, tool or model it needs is somewhere else. Citta connects your agents so they can find each other, delegate work and bring back results. Put private data, specialized tools, spare compute and connected hardware within reach of the agent you already use.
+**Description:** Citta connects your AI agents into a private network, so they can use each other's tools, access data and put spare compute to work. Each agent brings what it has access to: private files, installed tools, local models or connected hardware. When a task needs more capacity, your agent can send it to a member of the network with the resources to run it.
 
-**Product link:** `https://github.com/priyankark/citta` — the repository is public; verify the published installation path without the maker's account before scheduling.
+**Product link:** `https://github.com/priyankark/citta`; the repository is public; verify the published installation path without the maker's account before scheduling.
 
 **Pricing:** Free. Explain that this applies to uses permitted by the noncommercial license; external model/API subscriptions and other services may cost money.
 
@@ -26,25 +26,23 @@ Place this beside the existing video if retaining its “work trip” opening. T
 
 ## First maker comment
 
-Hi, I'm Priyankar, the maker of Citta.
+Hi, I'm Priyankar. I built Citta to connect AI agents into a network where they can share access to tools, data and compute.
 
-Agents can write code, work with files and use tools. But the capability a task needs may belong to another agent: access to data, an installed tool, a local model or connected hardware.
+One agent might have the files you need. Another might have a local model ready to run, a useful tool installed or access to connected hardware. Citta lets your agent find what is available, send work there and get the result back.
 
-Citta is an agent mesh for discovering those capabilities, delegating tasks and collecting results. A worker can use the files and tools available to its account. With full-tool setup, that includes Bash, scripts, code execution and installed skills; those tasks run without per-command approval, so this mode is for trusted agents and devices.
+You can also put spare compute to work. A task runs using the CPU and RAM of the machine that accepts it. Citta doesn't combine memory into one pool.
 
-The mesh runs on your Macs and Linux machines connected through Tailscale. Set up the tools and accounts each worker needs, then ask your agent to find a suitable worker and send it a task.
+The demo shows agents using receipt data and a local Gemma model on the same network. The receipts are synthetic, and the tasks ran on real Macs. The video description includes the recording details.
 
-The demo shows both directions. An agent on a Mac Mini asks a MacBook Air to organize synthetic trip receipts. Then the Air asks the Mini to categorize the expenses with a local Gemma model. The files and the model are on different computers, but they can contribute to the same task.
+To try it, install Citta on your own Macs or Linux machines connected through Tailscale. Each agent needs its tools and accounts set up. Full-tool agents can run commands, edit files and use installed skills without asking for approval for each command, so this is for devices and agents you trust.
 
-The name comes from the Sanskrit word *citta* (चित्त), meaning mind or thought. It reflects the idea of agents bringing different capabilities together around a shared task.
+Citta (चित्त) means mind or thought in Sanskrit. The name fits the idea of agents bringing what they know and can do into a shared network.
 
-Citta is for people experimenting with agents across their own Macs and Linux machines. The source is available under PolyForm Noncommercial 1.0.0; commercial use isn't licensed. The license also expressly permits certain organizations, including educational and charitable institutions. This is an early release, and receiving devices still need the tools, accounts and permissions for the work you ask them to do.
-
-What capability would you want your agent to find first? I'd especially like feedback on setup: where did you get stuck, and what did you expect to happen?
+This is an early release. The code is available under PolyForm Noncommercial 1.0.0; commercial use isn't licensed. The license also permits certain organizations, including educational and charitable institutions. Setup instructions and known limitations are in the README.
 
 ## Ready answers
 
-**Why an agent mesh?** A worker may have access to data, an installed tool, a local model, connected hardware or available compute that the requesting agent lacks. Citta exposes worker capabilities and task handoff so an agent can choose where to send new work. It does not index every file or automatically grant access to everything on a device.
+**Why a network for agents?** Each member can bring access to different data, tools, models, hardware or compute. Agents can discover what is available and send work to the member that can do it. Network membership does not automatically grant access to every file or app.
 
 **What do I need?** Two supported computers under your control, Tailscale connected on both, and Citta installed on each. For delegated agent work, the receiving computer needs a configured agent harness and access to the tools it will use. See the README for the current supported setup.
 
@@ -52,7 +50,9 @@ What capability would you want your agent to find first? I'd especially like fee
 
 **Does it automatically move work when resources run low?** Agents can discover available workers and request placement for a new task using declared requirements. Resource estimates are admission checks, not operating-system limits. Citta does not promise automatic rerouting of every task.
 
-**Does Citta pool RAM or move a running agent?** It sends tasks to another computer to run there. It does not combine the machines' RAM or migrate an agent's live process.
+**How does sharing compute and memory work?** A task uses the CPU and RAM of the machine where it runs. Citta can place a new task on a member with enough resources. It does not pool RAM or move an agent's running process.
+
+**Is it limited to my local network?** No. Tailscale connects your devices privately, including across locations. The machines still need Citta, their tools and the required access configured.
 
 **Is everything local?** Citta has no required cloud task coordinator, and a local model can run on a receiving device. The agent harness and tools may still use cloud services. The demonstrated orchestration used cloud-backed Codex; task results can contain file contents. Choose tools and data access accordingly.
 
@@ -66,6 +66,6 @@ What capability would you want your agent to find first? I'd especially like fee
 
 ## Share copy
 
-Give your agent more ways to get a task done. Citta is an agent mesh for discovering capabilities, delegating work and bringing results back—from files and installed tools to a local model on another machine. Watch the real two-way demo and try it for a permitted noncommercial project: [insert live Product Hunt link].
+Citta connects your AI agents into a private network, so they can use each other's tools, access data and put spare compute to work. Try it for a permitted noncommercial project: https://github.com/priyankark/citta
 
 This is prepared copy only. Do not send messages or publish posts as part of preparation. Ask for product feedback, not votes, following [Product Hunt's promotion guidance](https://help.producthunt.com/en/articles/17734384-5-how-to-promote-your-launch-and-what-to-avoid).
