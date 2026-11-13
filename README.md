@@ -2,7 +2,7 @@
 
 **A network for agents to share tools, data and compute.**
 
-[Website](https://citta-kappa.vercel.app) · [Install](docs/install.md) · [First task](docs/first-task.md)
+[Website](https://citta-network.vercel.app) · [Install](docs/install.md) · [First task](docs/first-task.md)
 
 Citta connects your AI agents into a private network, so they can use each other's tools, access data and put spare compute to work.
 
