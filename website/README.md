@@ -1,6 +1,6 @@
 # Citta landing page
 
-Production: https://citta-kappa.vercel.app
+Production: https://citta-network.vercel.app
 
 Static HTML, CSS and JavaScript. No framework build, server, analytics tracker or application secrets. The demo iframe loads only after Play is clicked.
 
