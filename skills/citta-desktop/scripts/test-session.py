@@ -48,6 +48,98 @@ class Sessions(unittest.TestCase):
         with patch.object(s, 'native', side_effect=RuntimeError('addon missing')):
             self.assertEqual(s.probe(), {'probe_error': 'addon missing'})
 
+    def test_capture_clients_have_distinct_private_executables_and_cleanup(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / 'original-node'
+            source.write_bytes(b'exact runtime bytes')
+            with patch.object(s, 'ROOT', root), patch.object(s.sys, 'platform', 'darwin'), \
+                    patch.object(s.shutil, 'which', return_value=str(source)):
+                with s.capture_runtime({'action': 'capture'}) as first:
+                    with s.capture_runtime({'action': 'capture'}) as second:
+                        self.assertNotEqual(first, second)
+                        for name in (first, second):
+                            executable = Path(name)
+                            self.assertFalse(executable.is_symlink())
+                            self.assertEqual(executable.read_bytes(), source.read_bytes())
+                            self.assertEqual(executable.stat().st_mode & 0o777, 0o700)
+                            self.assertEqual(executable.parent.stat().st_mode & 0o777, 0o700)
+                    self.assertFalse(Path(second).parent.exists())
+                    self.assertTrue(Path(first).exists())
+                self.assertFalse(Path(first).parent.exists())
+                self.assertTrue(source.exists())
+
+    def test_capture_timeout_keeps_permit_and_cleans_without_replay(self):
+        original_run = subprocess.run
+        calls = []
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / 'original-node'
+            source.write_bytes(b'runtime')
+            fd = s.acquire(root)
+            def run(command, **kwargs):
+                if command[0] == '/bin/cp':
+                    return original_run(command, **kwargs)
+                calls.append(command)
+                self.assertEqual(kwargs['timeout'], 20)
+                self.assertIn(fd, kwargs['pass_fds'])
+                permit = int(kwargs['env']['CITTA_DESKTOP_PERMIT_FD'])
+                self.assertIn(permit, kwargs['pass_fds'])
+                self.assertEqual(os.read(permit, 100), b'guarded-session\n')
+                raise subprocess.TimeoutExpired(command, 20)
+            try:
+                with patch.object(s, 'ROOT', root), patch.object(s.sys, 'platform', 'darwin'), \
+                        patch.object(s.shutil, 'which', return_value=str(source)), \
+                        patch.object(s.subprocess, 'run', side_effect=run):
+                    with self.assertRaises(subprocess.TimeoutExpired):
+                        s.native({'action': 'capture'}, fd)
+                self.assertEqual(len(calls), 1)
+                self.assertFalse(Path(calls[0][0]).parent.exists())
+                self.assertTrue(source.exists())
+            finally:
+                os.close(fd)
+
+    def test_isolation_failure_never_runs_shared_capture(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(s, 'ROOT', Path(tmp)), patch.object(s.sys, 'platform', 'darwin'), \
+                    patch.object(s.shutil, 'which', return_value='/original/node'), \
+                    patch.object(s.subprocess, 'run', side_effect=subprocess.CalledProcessError(1, 'cp')) as run:
+                with self.assertRaisesRegex(RuntimeError, 'capture_runtime_isolation_failed'):
+                    s.native({'action': 'capture'})
+                self.assertEqual(len(run.call_args_list), 2)
+                self.assertTrue(all(call.args[0][0] == '/bin/cp' for call in run.call_args_list))
+                self.assertEqual(list(Path(tmp).iterdir()), [])
+
+    def test_copy_fallback_supports_filesystems_without_cloning(self):
+        original_run = subprocess.run
+        calls = []
+        with tempfile.TemporaryDirectory() as tmp:
+            source = Path(tmp) / 'original-node'
+            source.write_bytes(b'unchanged executable')
+            def run(command, **kwargs):
+                calls.append(command)
+                if '-c' in command:
+                    raise subprocess.CalledProcessError(1, command)
+                return original_run(command, **kwargs)
+            with patch.object(s, 'ROOT', Path(tmp)), patch.object(s.sys, 'platform', 'darwin'), \
+                    patch.object(s.shutil, 'which', return_value=str(source)), \
+                    patch.object(s.subprocess, 'run', side_effect=run):
+                with s.capture_runtime({'action': 'capture'}) as executable:
+                    self.assertEqual(Path(executable).read_bytes(), source.read_bytes())
+            self.assertEqual(len(calls), 2)
+            self.assertFalse(Path(executable).exists())
+
+    def test_other_operations_and_platforms_do_not_copy_node(self):
+        with patch.object(s.shutil, 'which', side_effect=AssertionError('unexpected runtime copy')):
+            with patch.object(s.sys, 'platform', 'darwin'):
+                for request in ({'action': 'status'}, {'action': 'type'},
+                                {'action': 'capture', 'backend': 'system-window'}):
+                    with s.capture_runtime(request) as executable:
+                        self.assertEqual(executable, 'node')
+            with patch.object(s.sys, 'platform', 'linux'):
+                with s.capture_runtime({'action': 'capture'}) as executable:
+                    self.assertEqual(executable, 'node')
+
     def test_wait_unlock_pause_resume(self):
         status = ready()
         status['context']['screen_locked'] = True
