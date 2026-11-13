@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Cooperative, per-user desktop lease. No security boundary against same-user Bash."""
 import argparse
+from contextlib import contextmanager
 import fcntl
 import hmac
 import json
@@ -8,9 +9,11 @@ import math
 import os
 from pathlib import Path
 import secrets
+import shutil
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 
 HERE = Path(__file__).resolve().parent
@@ -97,6 +100,36 @@ class Session:
             raise RuntimeError('lease_expired')
 
 
+@contextmanager
+def capture_runtime(request):
+    # macOS replayd can confuse simultaneous capture clients with the same Node
+    # executable path. A private, byte-identical executable keeps this operation
+    # separate without stopping other apps or changing signing/TCC permissions.
+    if (sys.platform != 'darwin' or request.get('action') != 'capture'
+            or (request.get('backend') or 'rusty-robot') != 'rusty-robot'):
+        yield 'node'
+        return
+    source = shutil.which('node')
+    if source is None:
+        raise RuntimeError('capture_runtime_unavailable: Node is missing from PATH')
+    private_dir(ROOT)
+    with tempfile.TemporaryDirectory(prefix='capture-', dir=ROOT) as directory:
+        executable = Path(directory) / 'node'
+        try:
+            # APFS copy-on-write avoids copying the entire runtime for each shot.
+            # A bounded ordinary copy supports installations on other filesystems.
+            try:
+                subprocess.run(['/bin/cp', '-c', str(Path(source).resolve()), str(executable)],
+                               check=True, capture_output=True, timeout=2)
+            except subprocess.CalledProcessError:
+                subprocess.run(['/bin/cp', str(Path(source).resolve()), str(executable)],
+                               check=True, capture_output=True, timeout=2)
+            executable.chmod(0o700)
+        except (OSError, subprocess.SubprocessError) as error:
+            raise RuntimeError('capture_runtime_isolation_failed: ' + str(error)) from error
+        yield str(executable)
+
+
 def native(request, lease_fd=None):
     # The inherited pipe is a one-operation permit. It contains no credential.
     # The inherited lock keeps exclusivity if the broker crashes during input.
@@ -112,9 +145,10 @@ def native(request, lease_fd=None):
             write_fd = None
             env['CITTA_DESKTOP_PERMIT_FD'] = str(read_fd)
             pass_fds = (read_fd, lease_fd)
-        result = subprocess.run(['node', str(HERE / 'desktop-control.cjs'), '-'],
-                                input=json.dumps(request), text=True, capture_output=True,
-                                timeout=20, env=env, pass_fds=pass_fds)
+        with capture_runtime(request) as executable:
+            result = subprocess.run([executable, str(HERE / 'desktop-control.cjs'), '-'],
+                                    input=json.dumps(request), text=True, capture_output=True,
+                                    timeout=20, env=env, pass_fds=pass_fds)
         response = json.loads(result.stdout)
         if result.returncode or not response.get('ok'):
             raise RuntimeError(response.get('error', 'native_helper_failed'))

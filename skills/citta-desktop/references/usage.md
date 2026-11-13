@@ -60,6 +60,14 @@ Input rechecks the unlocked session and expected foreground application immediat
 Validation performed locally: Swift compilation, Node syntax, and isolated adapter contract tests (`node test-control.cjs`), including a never-resolving native-capture stand-in whose process is terminated at the deadline and success/error cases that clear the timer. These offline checks do not establish desktop readiness on an installed device; record its functional verification separately.
 
 
+## Capture isolation on macOS
+
+The guarded helper automatically runs each Rusty Robot screenshot in a private copy of the current Node executable. On macOS 27, concurrent capture clients sharing a Node executable path can make ReplayKit repeatedly reconnect and leave ScreenCaptureKit waiting until timeout. A separate executable path avoids that collision in the reproduced case. The copy retains the runtime's bytes and signing identity; normal permission checks still apply. This does not change TCC grants or stop other capture apps.
+
+The helper uses an APFS clone when available and a bounded ordinary copy otherwise. Each copy operation has a two-second deadline. The private runtime is removed after capture success, error or timeout; a forcibly killed broker can leave its own temporary directory behind. Isolation failures are reported rather than retrying capture through the shared runtime. The native subprocess retains its 20-second deadline and inherited desktop lease. Status, input and the explicit `system-window` backend keep their existing execution path. This fixes the Citta helper path; applications importing Rusty Robot directly still need their own capture isolation.
+
+Verified on an unlocked Apple Silicon Mini running macOS 27.0 (26A425), Node 24.22.0 and the installed Rusty Robot 0.1.2 package: the shared-runtime capture timed out, while five consecutive guarded captures with automatic isolation succeeded in 2.22–2.78 seconds, producing 1280×720 PNGs. The final image was inspected visually, temporary runtimes were removed, and the existing Node apps remained running. This is bounded local verification, not a macOS-wide guarantee.
+
 ## Guarded sessions
 
 Python 3.9+ and Unix `fcntl` are required. Setup installs all portable sources; compile `desktop-context.swift` again after this update to enable HID idle observations. Credentials stay in a task-private directory, never in prompts, logs, or command arguments. A credential is a bearer capability for this cooperative helper only. Use a different nonexistent credential filename for each session.
