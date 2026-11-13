@@ -56,7 +56,7 @@ class Sessions(unittest.TestCase):
             with patch.object(s, 'ROOT', root), patch.object(s.sys, 'platform', 'darwin'), \
                     patch.object(s.shutil, 'which', return_value=str(source)):
                 with s.capture_runtime({'action': 'capture'}) as first:
-                    with s.capture_runtime({'action': 'capture'}) as second:
+                    with s.capture_runtime({'action': 'capture', 'backend': None}) as second:
                         self.assertNotEqual(first, second)
                         for name in (first, second):
                             executable = Path(name)

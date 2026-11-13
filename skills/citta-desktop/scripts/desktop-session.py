@@ -106,7 +106,7 @@ def capture_runtime(request):
     # executable path. A private, byte-identical executable keeps this operation
     # separate without stopping other apps or changing signing/TCC permissions.
     if (sys.platform != 'darwin' or request.get('action') != 'capture'
-            or request.get('backend', 'rusty-robot') != 'rusty-robot'):
+            or (request.get('backend') or 'rusty-robot') != 'rusty-robot'):
         yield 'node'
         return
     source = shutil.which('node')
