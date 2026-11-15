@@ -36,7 +36,18 @@ const MAX_PAIR_BODY: usize = 4096;
 struct StatusFailure(&'static str);
 impl std::fmt::Display for StatusFailure {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.0)
+        // Preserve actionable CLI wording; structured reports use the fixed code.
+        f.write_str(match self.0 {
+            "tailscale_command_start_failed" => "start Tailscale CLI",
+            "tailscale_output_read_failed" => "read Tailscale output",
+            "tailscale_output_limit_exceeded" => "Tailscale response too large",
+            "tailscale_command_wait_failed" => "wait for Tailscale CLI",
+            "tailscale_command_failed" => "Tailscale command failed",
+            "tailscale_command_timeout" => "Tailscale command timed out",
+            "tailscale_status_invalid_json" => "invalid Tailscale status",
+            "tailscale_identity_changed_or_disconnected" => "Tailscale identity validation failed",
+            code => code,
+        })
     }
 }
 impl std::error::Error for StatusFailure {}
