@@ -91,8 +91,23 @@ impl App {
         }
     }
     pub fn execution_allowed(&self, origin: &Client, task: &Task, capability: &str) -> bool {
-        self.execution_identity(origin, task)
-            .is_some_and(|id| self.permissions.allows(&id, capability))
+        self.execution_denial(origin, task, capability).is_none()
+    }
+    pub fn execution_denial(
+        &self,
+        origin: &Client,
+        task: &Task,
+        capability: &str,
+    ) -> Option<&'static str> {
+        match self.execution_identity(origin, task) {
+            Some(id) if self.permissions.allows(&id, capability) => None,
+            Some(_) => Some("device_policy_denied"),
+            None => Some(
+                self.enrollment
+                    .as_ref()
+                    .map_or("origin_not_trusted", |e| e.trust_unavailable_reason()),
+            ),
+        }
     }
     pub async fn db<T: Send + 'static>(
         &self,

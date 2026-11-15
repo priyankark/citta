@@ -422,14 +422,45 @@ async fn netmap_removal_revokes_credentials_durably_and_cli_failure_fails_closed
         .unwrap();
     }
     assert_eq!(a.authenticate(&credential), Some("beta".into()));
+    data["BackendState"] = json!("Stopped");
+    std::fs::write(&status_path, data.to_string()).unwrap();
+    assert!(a.refresh().await.is_err());
+    assert_eq!(
+        a.trust_unavailable_reason(),
+        "tailscale_identity_changed_or_disconnected"
+    );
+    assert!(a.authenticate(&credential).is_none());
+    data["BackendState"] = json!("Running");
+    std::fs::write(&status_path, data.to_string()).unwrap();
+    a.refresh().await.unwrap();
+    assert_eq!(a.authenticate(&credential), Some("beta".into()));
     std::fs::write(&status_path, "not JSON").unwrap();
     assert!(a.refresh().await.is_err());
     assert!(a.authenticate(&credential).is_none());
     assert!(a.clients().is_empty());
+    assert_eq!(
+        a.trust_unavailable_reason(),
+        "tailscale_status_invalid_json"
+    );
+    let failure = a.report()["last_failure"].clone();
+    assert_eq!(failure["reason"], "tailscale_status_invalid_json");
+    assert!(failure["at"].as_i64().is_some());
+    // A recovered check must retain the failure, not silently erase its evidence.
+    std::fs::write(&status_path, data.to_string()).unwrap();
+    a.refresh().await.unwrap();
+    assert_eq!(a.authenticate(&credential), Some("beta".into()));
+    assert!(a.report()["error"].is_null());
+    assert_eq!(a.report()["last_failure"], failure);
+    assert!(!a.report().to_string().contains(&credential));
+    // A stale observation still denies trust even without a subprocess error.
+    a.inner.lock().unwrap().refreshed = Some(Instant::now() - FRESH);
+    assert_eq!(a.trust_unavailable_reason(), "tailscale_identity_stale");
+    assert!(a.authenticate(&credential).is_none());
     data["Peer"] = json!({});
     std::fs::write(&status_path, data.to_string()).unwrap();
     a.refresh().await.unwrap();
     assert!(a.authenticate(&credential).is_none());
+    assert_eq!(a.trust_unavailable_reason(), "origin_not_enrolled");
     let restored = Enrollment::open(a.config.clone()).unwrap().unwrap();
     assert!(restored.inner.lock().unwrap().records.is_empty());
 }
@@ -622,6 +653,26 @@ async fn owner_panel_controls_remote_device_over_separate_automatic_tls_channel(
     let task: crate::model::Task = task_client.post("/v1/tasks", &submission).await.unwrap();
     assert_eq!(task.requester.as_deref(), Some("tailscale:alpha"));
     assert!(!ba.execution_allowed(&Client::local(&ba.config).unwrap(), &task, "echo"));
+    assert_eq!(
+        ba.execution_denial(&Client::local(&ba.config).unwrap(), &task, "echo"),
+        Some("device_policy_denied")
+    );
+    let remote_origin = b.clients().pop().unwrap();
+    assert_eq!(
+        ba.execution_denial(&remote_origin, &task, "echo"),
+        Some("device_policy_denied")
+    );
+    {
+        let mut inner = b.inner.lock().unwrap();
+        inner.refreshed = None;
+        inner.error = Some("tailscale_command_timeout");
+    }
+    assert_eq!(
+        ba.execution_denial(&remote_origin, &task, "echo"),
+        Some("tailscale_command_timeout")
+    );
+    trust(&b, ar.clone());
+    b.inner.lock().unwrap().error = None;
     let mut forged = submission;
     forged["requester"] = json!("local:beta");
     assert!(
@@ -640,4 +691,58 @@ async fn owner_panel_controls_remote_device_over_separate_automatic_tls_channel(
     );
     aserver.abort();
     bserver.abort();
+}
+
+#[tokio::test]
+async fn status_failures_are_typed_without_disclosing_subprocess_contents() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let bin = dir.path().join("status-fixture");
+    let private = "NEVER_EXPOSE_THIS_STATUS_OR_STDERR";
+    for (script, expected) in [
+        (
+            format!("#!/bin/sh\necho {private} >&2\nexit 7\n"),
+            "tailscale_command_failed",
+        ),
+        (
+            format!("#!/bin/sh\necho {private}\n"),
+            "tailscale_status_invalid_json",
+        ),
+    ] {
+        std::fs::write(&bin, script).unwrap();
+        std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o700)).unwrap();
+        let error = status(&bin).await.err().unwrap();
+        assert_eq!(status_failure(&error), expected);
+        assert!(!status_failure(&error).contains(private));
+    }
+    std::fs::remove_file(&bin).unwrap();
+    let error = status(&bin).await.err().unwrap();
+    assert_eq!(status_failure(&error), "tailscale_command_start_failed");
+}
+
+#[tokio::test]
+async fn status_timeout_is_bounded_and_terminates_its_subprocess() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let bin = dir.path().join("blocked-status");
+    std::fs::write(
+        &bin,
+        "#!/bin/sh\necho $$ > \"$0.pid\"\nexec /bin/sleep 30\n",
+    )
+    .unwrap();
+    std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let error = status(&bin).await.err().unwrap();
+    assert_eq!(status_failure(&error), "tailscale_command_timeout");
+    let pid: i32 = std::fs::read_to_string(dir.path().join("blocked-status.pid"))
+        .unwrap()
+        .trim()
+        .parse()
+        .unwrap();
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while unsafe { libc::kill(pid, 0) } == 0 {
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+    })
+    .await
+    .expect("timed-out status subprocess must be reaped");
 }

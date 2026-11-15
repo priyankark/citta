@@ -31,6 +31,28 @@ const LIMIT: usize = 64;
 const FRESH: Duration = Duration::from_secs(30);
 const MAX_PAIR_BODY: usize = 4096;
 
+// Fixed categories only: subprocess output and parse errors can contain secrets.
+#[derive(Debug)]
+struct StatusFailure(&'static str);
+impl std::fmt::Display for StatusFailure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.0)
+    }
+}
+impl std::error::Error for StatusFailure {}
+fn status_failure(error: &anyhow::Error) -> &'static str {
+    error
+        .downcast_ref::<StatusFailure>()
+        .map(|e| e.0)
+        .unwrap_or("tailscale_status_unavailable")
+}
+
+#[derive(Clone, Serialize)]
+struct FailureObservation {
+    at: i64,
+    reason: &'static str,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Settings {
@@ -188,7 +210,7 @@ async fn tailscale(bin: &Path, args: &[&str]) -> Result<Vec<u8>> {
         .stderr(Stdio::null())
         .kill_on_drop(true)
         .spawn()
-        .context("start Tailscale CLI")?;
+        .context(StatusFailure("tailscale_command_start_failed"))?;
     let mut stdout = child
         .stdout
         .take()
@@ -196,21 +218,31 @@ async fn tailscale(bin: &Path, args: &[&str]) -> Result<Vec<u8>> {
         .take(2 * 1024 * 1024 + 1);
     let operation = async {
         let mut bytes = Vec::new();
-        stdout.read_to_end(&mut bytes).await?;
+        stdout
+            .read_to_end(&mut bytes)
+            .await
+            .context(StatusFailure("tailscale_output_read_failed"))?;
         ensure!(
             bytes.len() <= 2 * 1024 * 1024,
-            "Tailscale response too large"
+            StatusFailure("tailscale_output_limit_exceeded")
         );
-        ensure!(child.wait().await?.success(), "Tailscale command failed");
+        ensure!(
+            child
+                .wait()
+                .await
+                .context(StatusFailure("tailscale_command_wait_failed"))?
+                .success(),
+            StatusFailure("tailscale_command_failed")
+        );
         Ok(bytes)
     };
     tokio::time::timeout(Duration::from_secs(8), operation)
         .await
-        .context("Tailscale command timed out")?
+        .context(StatusFailure("tailscale_command_timeout"))?
 }
 async fn status(bin: &Path) -> Result<Status> {
     serde_json::from_slice(&tailscale(bin, &["status", "--json"]).await?)
-        .context("invalid Tailscale status")
+        .context(StatusFailure("tailscale_status_invalid_json"))
 }
 pub async fn local_node_name(bin: &Path) -> Result<String> {
     let state = status(bin).await?;
@@ -256,6 +288,7 @@ struct Inner {
     refreshed: Option<Instant>,
     checked_at: Option<i64>,
     error: Option<&'static str>,
+    last_failure: Option<FailureObservation>,
 }
 pub struct Enrollment {
     control: bool,
@@ -360,6 +393,7 @@ impl Enrollment {
                 refreshed: None,
                 checked_at: None,
                 error: Some("waiting_for_tailscale"),
+                last_failure: None,
             }),
             callbacks: Semaphore::new(4),
         })))
@@ -415,6 +449,14 @@ impl Enrollment {
             .find(|(_, r)| r.node_id == node)
             .map(|(id, _)| format!("tailscale:{id}"))
     }
+    pub fn trust_unavailable_reason(&self) -> &'static str {
+        let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        inner.error.unwrap_or(if fresh(&inner) {
+            "origin_not_enrolled"
+        } else {
+            "tailscale_identity_stale"
+        })
+    }
     pub fn authenticate(&self, token: &str) -> Option<String> {
         let inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
         active(&inner)
@@ -427,7 +469,7 @@ impl Enrollment {
             let record = inner.records.get(&c.id).filter(|r| fresh(&inner) && r.url == c.url);
             json!({"device_id":c.id,"url":c.url,"online":c.online,"node_id":record.map(|r| &r.node_id),"state":if record.is_some() {"paired"} else {"waiting_for_peer"}})
         }).collect();
-        json!({"enabled":true,"trust":"same_tailscale_owner","device_id":self.settings.device_id,"fresh":fresh(&inner),"checked_at":inner.checked_at,"error":inner.error,"peers":peers})
+        json!({"enabled":true,"trust":"same_tailscale_owner","device_id":self.settings.device_id,"fresh":fresh(&inner),"checked_at":inner.checked_at,"error":inner.error,"last_failure":inner.last_failure,"peers":peers})
     }
     fn save(&self, records: &BTreeMap<String, Record>) -> Result<()> {
         let saved = Saved {
@@ -511,8 +553,11 @@ impl Enrollment {
     async fn refresh(&self) -> Result<()> {
         let result = status(&self.settings.tailscale_bin).await.and_then(|s| {
             Ok((
-                candidates(&s, &self.settings)?,
-                candidate(&s.this, &s.current_tailnet.suffix, &self.settings)?.url,
+                candidates(&s, &self.settings)
+                    .context(StatusFailure("tailscale_identity_changed_or_disconnected"))?,
+                candidate(&s.this, &s.current_tailnet.suffix, &self.settings)
+                    .context(StatusFailure("tailscale_identity_changed_or_disconnected"))?
+                    .url,
             ))
         });
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
@@ -531,6 +576,15 @@ impl Enrollment {
                     if let Err(e) = self.save(&kept) {
                         inner.refreshed = None;
                         inner.error = Some("state_write_failed");
+                        inner.last_failure = Some(FailureObservation {
+                            at: now(),
+                            reason: "state_write_failed",
+                        });
+                        tracing::warn!(
+                            control = self.control,
+                            reason = "state_write_failed",
+                            "enrollment refresh failed; automatic credentials suspended"
+                        );
                         return Err(e);
                     }
                     inner.records = kept;
@@ -544,13 +598,24 @@ impl Enrollment {
                     .retain(|id, _| candidates.contains_key(id));
                 inner.candidates = candidates;
                 inner.refreshed = Some(Instant::now());
+                if inner.error.is_some() && inner.last_failure.is_some() {
+                    tracing::info!(
+                        control = self.control,
+                        "enrollment identity refresh recovered"
+                    );
+                }
                 inner.error = None;
                 Ok(())
             }
             Err(error) => {
                 inner.refreshed = None;
                 inner.pending.clear();
-                inner.error = Some("tailscale_unavailable_or_identity_changed");
+                let reason = status_failure(&error);
+                if inner.error != Some(reason) {
+                    tracing::warn!(control = self.control, %reason, "enrollment refresh failed; automatic credentials suspended");
+                }
+                inner.last_failure = Some(FailureObservation { at: now(), reason });
+                inner.error = Some(reason);
                 Err(error)
             }
         }
