@@ -118,3 +118,41 @@ impl std::fmt::Display for RemoteStatus {
     }
 }
 impl std::error::Error for RemoteStatus {}
+
+// Diagnostics must not format reqwest errors: their URLs can contain private data.
+pub(crate) fn failure_kind(error: &anyhow::Error) -> String {
+    if let Some(status) = error.downcast_ref::<RemoteStatus>() {
+        return format!("http_{}", status.0);
+    }
+    if let Some(error) = error.downcast_ref::<reqwest::Error>() {
+        return if error.is_timeout() {
+            "timeout"
+        } else if error.is_connect() {
+            "connect"
+        } else {
+            "transport"
+        }
+        .into();
+    }
+    if error.downcast_ref::<serde_json::Error>().is_some() {
+        return "invalid_json".into();
+    }
+    "protocol".into()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn failure_diagnostics_do_not_include_private_context() {
+        let error = anyhow::Error::new(RemoteStatus(409)).context("private-token");
+        assert_eq!(failure_kind(&error), "http_409");
+        let error = serde_json::from_str::<serde_json::Value>("private-response").unwrap_err();
+        assert_eq!(failure_kind(&error.into()), "invalid_json");
+        assert_eq!(
+            failure_kind(&anyhow::anyhow!("private-response")),
+            "protocol"
+        );
+    }
+}

@@ -557,6 +557,23 @@ max_timeout_secs = 30
                 stat = Path(f'/proc/{pid}/stat')
                 return stat.exists() and stat.read_text().split()[2] == 'Z'
             wait_for(dead, 8)
+            def renewal_failure():
+                lines = (self.nodes['beta']['dir'] / 'daemon.log').read_text().splitlines()
+                return [json.loads(line)['fields'] for line in lines
+                        if task['id'] in line and 'lease renewal stopped; terminating task process group' in line]
+            failures = wait_for(renewal_failure, 5)
+            self.assertIn(failures[-1]['failure'], ('connect', 'transport', 'timeout'))
+            self.assertEqual(failures[-1]['origin'], 'alpha')
+            self.assertNotIn(self.nodes['alpha']['token'].strip(), json.dumps(failures))
+            def completion_failure():
+                lines = (self.nodes['beta']['dir'] / 'daemon.log').read_text().splitlines()
+                return [json.loads(line)['fields'] for line in lines
+                        if task['id'] in line and 'completion request failed; task will not be replayed' in line]
+            completions = wait_for(completion_failure, 5)
+            self.assertEqual(completions[-1]['status'], 'Interrupted')
+            self.assertIn(completions[-1]['failure'], ('connect', 'transport', 'timeout'))
+            self.assertNotIn('stdout', completions[-1])
+            self.assertNotIn('stderr', completions[-1])
         finally:
             self.start('alpha')
         self.assertEqual(self.terminal(task)['status'], 'interrupted')
