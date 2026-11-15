@@ -139,14 +139,12 @@ async fn worker_loop(
                         cap.model.as_deref(),
                     );
                 }
-                let outcome = if app.execution_allowed(origin, &claim.task, &cap.name) {
-                    execute(&app, &cap, origin, &claim).await
-                } else {
-                    Outcome::error(
-                        Status::Interrupted,
-                        "device permissions deny this execution",
-                    )
-                };
+                let outcome =
+                    if let Some(reason) = app.execution_denial(origin, &claim.task, &cap.name) {
+                        Outcome::error(Status::Interrupted, format!("execution denied: {reason}"))
+                    } else {
+                        execute(&app, &cap, origin, &claim).await
+                    };
                 if cap.kind == CapabilityKind::Agent {
                     crate::inventory::finished(&app.managed_agents, &claim.task.id, outcome.status);
                 }
@@ -321,11 +319,8 @@ async fn run_command(
         .kill_on_drop(false);
     #[cfg(unix)]
     command.process_group(0);
-    if !app.execution_allowed(origin, &claim.task, &cap.name) {
-        return Outcome::error(
-            Status::Interrupted,
-            "device permissions deny this execution",
-        );
+    if let Some(reason) = app.execution_denial(origin, &claim.task, &cap.name) {
+        return Outcome::error(Status::Interrupted, format!("execution denied: {reason}"));
     }
     if app.config.admission.guard_all || claim.task.request.requirements.is_some() {
         let readiness = app.admission.readiness(
@@ -431,7 +426,11 @@ async fn run_command(
                 _ = &mut deadline => break Outcome::error(Status::Failed, "execution timeout exceeded"),
                 result = &mut execution => break result.unwrap_or_else(|e| Outcome::error(Status::Failed, e.to_string())),
                 _ = heartbeat.tick() => {
-                    if !app.execution_allowed(origin,&claim.task,&cap.name) {break Outcome::error(Status::Interrupted,"device permissions or origin trust revoked");}
+                    if let Some(reason) = app.execution_denial(origin,&claim.task,&cap.name) {
+                        tracing::warn!(task=%claim.task.id, origin=%origin.node_id, %reason,
+                            "execution authorization lost; terminating task process group");
+                        break Outcome::error(Status::Interrupted,format!("execution authorization lost: {reason}"));
+                    }
                     // Fail closed on renewal loss. Don't keep executing through a partition.
                     let failure = tokio::select! {
                         _ = app.shutdown.cancelled() => Some("worker_shutdown".to_owned()),
