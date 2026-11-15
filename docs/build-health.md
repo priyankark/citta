@@ -1,6 +1,6 @@
 # Build health and failure tracking
 
-**Current review: November 12, 2026 UTC.**
+**Current review: November 15, 2026 UTC.**
 
 Citta's development tracker records GitHub CI runs and individual attempts without erasing earlier failures after a successful rerun. It runs on demand and does not monitor the repository continuously.
 
@@ -101,3 +101,13 @@ A read-only Air inventory task on the existing signed `f6fd91f` runtime (`c9c7de
 The candidate now records safe transport categories or HTTP status for failed initial lease confirmation, renewal and completion, plus bounded completion metadata. It does not log bearer credentials, request/response bodies or error URLs. It still stops work on lease loss and never replays the task. This improves diagnosis; it does not resolve the historical interruption. The source change requires new candidate builds and acceptance.
 
 The recovered Air inventory also reports a locked desktop, no active display, missing desktop permissions in the service context, and no noninteractive privilege to schedule a controlled wake. Clean OS-account, signed-worker desktop, whole-device recovery and multi-hour same-build acceptance remain open.
+
+### Subsequent November 15 results and preserved failures
+
+Candidate `f59bb02` passed [full CI 43749368211](https://github.com/priyankark/citta/actions/runs/43749368211) and [all three native packages 43749399802](https://github.com/priyankark/citta/actions/runs/43749399802). The preceding `01264f0` CI run was cancelled by the superseding push after Linux/audit passed; it is an intentional cancellation, not a source failure. Merged-main [43750977838](https://github.com/priyankark/citta/actions/runs/43750977838) was pending on its Intel release build at 19:37 UTC, then completed successfully on all jobs at the subsequent refresh. Both observations remain in the retained history.
+
+Three extended-test preparations did not qualify a soak. Attempt 1's old-runtime Air launcher was interrupted; separate inspection found no files or controller. Attempt 2 launched, but the test harness's five-second all-process `ps` sampler timed out after 151.6 seconds. The four Mini-origin tasks had passed; Air inspection found four validated results among five requests and collected the remaining cancellation. Both temporary daemons/endpoints were cleaned and live state preserved. Attempt 3 used an exact-PID native `proc_pid_rusage` sampler, but its old-runtime launcher was interrupted after downloading three scripts and before launching a controller. Separate inspection confirmed those effects. All attempts remain preserved, and no interrupted mutation was replayed. A distinct workload was started only after both installed services were upgraded and accepted for coding.
+
+The initial Mini upgrade preflight stopped before any service change because its remote history query was capped at 100 rows. The reviewed maintenance guard now requires a full-store idle attestation and a retained marker covering every newer row; it never deletes history to pass. Fourteen private maintenance tests passed. Both live upgrades preserved prior history and policy; this does not establish all production gates.
+
+The first Intel notarization attempt exited 69 because its Keychain profile was unavailable, with no submission ID or stdout. After a successful read-only history check established credential availability and no matching submission, one new submission of the exact existing ZIP succeeded and Apple accepted it. The failed attempt and successful receipt/log remain separate. No signing key, ACL, OS permission or security policy was changed to bypass the failure. See [current acceptance](release-readiness.md#unpublished-011-acceptance--november-15).
