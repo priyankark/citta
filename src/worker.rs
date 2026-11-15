@@ -210,10 +210,20 @@ async fn report(origin: &Client, claim: &Claim, outcome: Outcome) -> Option<Stat
     };
     let path = format!("/v1/tasks/{}/complete", claim.task.id);
     // Completion is idempotent under the same lease; never create a new task here.
-    for _ in 0..3 {
-        if origin.post::<Task>(&path, &completion).await.is_ok() {
-            tracing::info!(task=%claim.task.id, ?status, "task reported");
-            return Some(status);
+    for attempt in 1..=3 {
+        match origin.post::<Task>(&path, &completion).await {
+            Ok(_) => {
+                tracing::info!(task=%claim.task.id, ?status, "task reported");
+                return Some(status);
+            }
+            Err(error) => {
+                tracing::warn!(task=%claim.task.id, origin=%origin.node_id, attempt,
+                    ?status, failure=%crate::client::failure_kind(&error),
+                    exit_code=completion.outcome.exit_code,
+                    stdout_bytes=completion.outcome.stdout.len(),
+                    stderr_bytes=completion.outcome.stderr.len(),
+                    "completion request failed; task will not be replayed");
+            }
         }
         tokio::time::sleep(Duration::from_millis(200)).await;
     }
@@ -231,10 +241,13 @@ async fn execute(app: &App, cap: &Capability, origin: &Client, claim: &Claim) ->
         lease_token: claim.lease_token.clone(),
     };
     let renew_path = format!("/v1/tasks/{}/renew", claim.task.id);
-    if origin.post::<Task>(&renew_path, &renewal).await.is_err() {
+    if let Err(error) = origin.post::<Task>(&renew_path, &renewal).await {
+        let failure = crate::client::failure_kind(&error);
+        tracing::warn!(task=%claim.task.id, origin=%origin.node_id, %failure,
+            "initial lease confirmation failed; no process started");
         return Outcome::error(
             Status::Interrupted,
-            "could not confirm lease before execution",
+            format!("could not confirm lease before execution: {failure}"),
         );
     }
     if let Some(reason) = app.disk_readiness().fresh_reason(now()) {
@@ -420,12 +433,16 @@ async fn run_command(
                 _ = heartbeat.tick() => {
                     if !app.execution_allowed(origin,&claim.task,&cap.name) {break Outcome::error(Status::Interrupted,"device permissions or origin trust revoked");}
                     // Fail closed on renewal loss. Don't keep executing through a partition.
-                    let renewed = tokio::select! {
-                        _ = app.shutdown.cancelled() => false,
-                        _ = &mut deadline => false,
-                        result = origin.post::<Task>(renew_path, renewal) => result.is_ok(),
+                    let failure = tokio::select! {
+                        _ = app.shutdown.cancelled() => Some("worker_shutdown".to_owned()),
+                        _ = &mut deadline => Some("execution_deadline".to_owned()),
+                        result = origin.post::<Task>(renew_path, renewal) => result.err().map(|e| crate::client::failure_kind(&e)),
                     };
-                    if !renewed { break Outcome::error(Status::Interrupted, "lease renewal failed or task cancelled"); }
+                    if let Some(failure) = failure {
+                        tracing::warn!(task=%claim.task.id, origin=%origin.node_id, %failure,
+                            "lease renewal stopped; terminating task process group");
+                        break Outcome::error(Status::Interrupted, format!("lease renewal stopped: {failure}"));
+                    }
                 }
             }
         }
